@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Pencil, Trash, BookBookmark, Lock, Funnel, X, FilePdf } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { MTBooking, Supplier, FixedScheme, PurchaseInvoice } from '@/lib/types'
+import { MTBooking, Supplier, FixedScheme, PurchaseInvoice, MTBookingTieBreakPreference } from '@/lib/types'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -72,8 +72,19 @@ interface BookingFormData {
   orderDate: string
   consumeStartDate: string
   bookedMT: string
+  bookedMarketRate: string
+  tieBreakPreference: MTBookingTieBreakPreference
+  manualSelection: 'current' | 'previous'
   notes: string
-  editableSchemes: Array<{ schemeId: string; schemeName: string; ratePerMT: number }>
+  editableSchemes: Array<{
+    schemeId: string
+    schemeName: string
+    ratePerMT: number
+    ruleVersionId?: string
+    ruleVersion?: number
+    effectiveFrom?: string
+    effectiveTo?: string
+  }>
 }
 
 interface NewSchemeFormData {
@@ -103,6 +114,9 @@ export default function MTBookingsPage({
     orderDate: '',
     consumeStartDate: '',
     bookedMT: '',
+    bookedMarketRate: '',
+    tieBreakPreference: 'current',
+    manualSelection: 'current',
     notes: '',
     editableSchemes: []
   })
@@ -116,6 +130,13 @@ export default function MTBookingsPage({
   const getSupplierName = (supplierId: string) => {
     const supplier = suppliers.find(s => s.id === supplierId)
     return supplier?.name || 'Unknown'
+  }
+
+  const getTieBreakLabel = (preference: MTBookingTieBreakPreference) => {
+    if (preference === 'previous') return 'Previous month'
+    if (preference === 'highestBenefit') return 'Highest benefit'
+    if (preference === 'manual') return 'Manual approval'
+    return 'Current month'
   }
 
   const getActiveSchemesForDate = (supplierId: string, orderDate: string): { schemes: any[], totalRate: number } => {
@@ -134,7 +155,11 @@ export default function MTBookingsPage({
         activeSchemes.push({
           schemeId: scheme.id,
           schemeName: scheme.schemeName,
-          ratePerMT: scheme.ratePerMT
+          ratePerMT: scheme.ratePerMT,
+          ruleVersionId: scheme.id,
+          ruleVersion: scheme.version || 1,
+          effectiveFrom: scheme.fromDate,
+          effectiveTo: scheme.toDate
         })
       }
     }
@@ -192,6 +217,9 @@ export default function MTBookingsPage({
       orderDate: '',
       consumeStartDate: '',
       bookedMT: '',
+      bookedMarketRate: '',
+      tieBreakPreference: 'current',
+      manualSelection: 'current',
       notes: '',
       editableSchemes: []
     })
@@ -205,11 +233,18 @@ export default function MTBookingsPage({
       orderDate: booking.orderDate,
       consumeStartDate: booking.consumeStartDate,
       bookedMT: booking.bookedMT.toString(),
+      bookedMarketRate: booking.bookedMarketRate ? booking.bookedMarketRate.toString() : '',
+      tieBreakPreference: booking.tieBreakPreference || 'current',
+      manualSelection: booking.manualSelection || 'current',
       notes: booking.notes || '',
       editableSchemes: booking.lockedSchemes ? booking.lockedSchemes.map(s => ({
         schemeId: s.schemeId,
         schemeName: s.schemeName,
-        ratePerMT: s.ratePerMT
+        ratePerMT: s.ratePerMT,
+        ruleVersionId: s.ruleVersionId,
+        ruleVersion: s.ruleVersion,
+        effectiveFrom: s.effectiveFrom,
+        effectiveTo: s.effectiveTo
       })) : []
     })
     setDialogOpen(true)
@@ -258,7 +293,9 @@ export default function MTBookingsPage({
     const newScheme = {
       schemeId: `custom-scheme-${Date.now()}`,
       schemeName: newSchemeData.schemeName.trim(),
-      ratePerMT
+      ratePerMT,
+      ruleVersionId: `custom-scheme-${Date.now()}`,
+      ruleVersion: 1
     }
 
     setFormData(prev => ({
@@ -300,10 +337,23 @@ export default function MTBookingsPage({
       return
     }
 
+    const bookedMarketRate = formData.bookedMarketRate.trim()
+      ? parseFloat(formData.bookedMarketRate)
+      : undefined
+
+    if (bookedMarketRate !== undefined && (isNaN(bookedMarketRate) || bookedMarketRate <= 0)) {
+      toast.error('Please enter a valid booking month market rate')
+      return
+    }
+
     const lockedSchemes = formData.editableSchemes.map(s => ({
       schemeId: s.schemeId,
       schemeName: s.schemeName,
-      ratePerMT: s.ratePerMT
+      ratePerMT: s.ratePerMT,
+      ruleVersionId: s.ruleVersionId || s.schemeId,
+      ruleVersion: s.ruleVersion || 1,
+      effectiveFrom: s.effectiveFrom,
+      effectiveTo: s.effectiveTo
     }))
     
     const totalRate = lockedSchemes.reduce((sum, s) => sum + s.ratePerMT, 0)
@@ -317,6 +367,9 @@ export default function MTBookingsPage({
               orderDate: formData.orderDate,
               consumeStartDate: formData.consumeStartDate,
               bookedMT,
+              bookedMarketRate,
+              tieBreakPreference: formData.tieBreakPreference,
+              manualSelection: formData.tieBreakPreference === 'manual' ? formData.manualSelection : undefined,
               notes: formData.notes,
               rateMode: 'auto',
               lockedSchemes,
@@ -333,6 +386,9 @@ export default function MTBookingsPage({
         orderDate: formData.orderDate,
         consumeStartDate: formData.consumeStartDate,
         bookedMT,
+        bookedMarketRate,
+        tieBreakPreference: formData.tieBreakPreference,
+        manualSelection: formData.tieBreakPreference === 'manual' ? formData.manualSelection : undefined,
         notes: formData.notes,
         fy: currentFY,
         rateMode: 'auto',
@@ -435,15 +491,17 @@ export default function MTBookingsPage({
         booking.bookedMT.toFixed(3),
         booking.consumedMT.toFixed(3),
         booking.remainingMT.toFixed(3),
+        booking.bookedMarketRate ? formatCurrencyForPDF(booking.bookedMarketRate) : 'Legacy',
         schemeNames,
         booking.totalLockedRate ? formatCurrencyForPDF(booking.totalLockedRate) : '-',
+        getTieBreakLabel(booking.tieBreakPreference || 'current'),
         booking.status
       ]
     })
     
     autoTable(doc, {
       startY: yPos,
-      head: [['Supplier', 'Order Date', 'Consume From', 'Booked MT', 'Consumed MT', 'Remaining MT', 'Locked Scheme', 'Rate per MT', 'Status']],
+      head: [['Supplier', 'Order Date', 'Consume From', 'Booked MT', 'Consumed MT', 'Remaining MT', 'Booked Rate', 'Locked Scheme', 'Scheme Rate', 'Tie Break', 'Status']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -463,9 +521,11 @@ export default function MTBookingsPage({
         3: { halign: 'right', cellWidth: 20 },
         4: { halign: 'right', cellWidth: 20 },
         5: { halign: 'right', cellWidth: 20 },
-        6: { halign: 'left', cellWidth: 45 },
-        7: { halign: 'right', cellWidth: 25 },
-        8: { halign: 'center', cellWidth: 18 }
+        6: { halign: 'right', cellWidth: 24 },
+        7: { halign: 'left', cellWidth: 40 },
+        8: { halign: 'right', cellWidth: 22 },
+        9: { halign: 'center', cellWidth: 24 },
+        10: { halign: 'center', cellWidth: 18 }
       },
       margin: { left: 14, right: 14 }
     })
@@ -502,7 +562,7 @@ export default function MTBookingsPage({
             <div>
               <h2 className="text-responsive-xl font-bold text-foreground">MT Booking Master</h2>
               <p className="text-responsive-sm text-muted-foreground">
-                Manage booked MT with locked discount schemes
+                Compare booking-month and invoice-month rates before applying scheme benefits
               </p>
             </div>
           </div>
@@ -608,8 +668,10 @@ export default function MTBookingsPage({
                 <TableHead className="text-responsive-sm text-right">Booked MT</TableHead>
                 <TableHead className="text-responsive-sm text-right">Consumed MT</TableHead>
                 <TableHead className="text-responsive-sm text-right">Remaining MT</TableHead>
+                <TableHead className="text-responsive-sm text-right">Booked Rate</TableHead>
                 <TableHead className="text-responsive-sm">Locked Scheme</TableHead>
                 <TableHead className="text-responsive-sm text-right">Rate per MT</TableHead>
+                <TableHead className="text-responsive-sm">Tie Break</TableHead>
                 <TableHead className="text-responsive-sm">Status</TableHead>
                 <TableHead className="text-responsive-sm text-right">Actions</TableHead>
               </TableRow>
@@ -617,7 +679,7 @@ export default function MTBookingsPage({
             <TableBody>
               {sortedBookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground text-responsive-sm">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground text-responsive-sm">
                     No MT bookings found. Click "Add Booking" to create one.
                   </TableCell>
                 </TableRow>
@@ -642,6 +704,11 @@ export default function MTBookingsPage({
                     <TableCell className="text-right font-mono text-responsive-sm">
                       {booking.remainingMT.toFixed(3)}
                     </TableCell>
+                    <TableCell className="text-right font-mono text-responsive-sm">
+                      {booking.bookedMarketRate ? formatCurrency(booking.bookedMarketRate) : (
+                        <span className="text-muted-foreground font-sans">Legacy</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-responsive-sm">
                       {booking.lockedSchemes && booking.lockedSchemes.length > 0 ? (
                         <div className="flex flex-col gap-0.5">
@@ -658,6 +725,11 @@ export default function MTBookingsPage({
                     </TableCell>
                     <TableCell className="text-right font-mono text-responsive-sm">
                       {booking.totalLockedRate ? formatCurrency(booking.totalLockedRate) : '-'}
+                    </TableCell>
+                    <TableCell className="text-responsive-sm">
+                      <span className="text-muted-foreground">
+                        {getTieBreakLabel(booking.tieBreakPreference || 'current')}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -713,7 +785,7 @@ export default function MTBookingsPage({
               {editingBooking ? 'Edit MT Booking' : 'Add New MT Booking'}
             </DialogTitle>
             <DialogDescription>
-              Book MT with locked scheme discount rates for future invoices
+              Book MT with market-rate comparison and versioned scheme benefits
             </DialogDescription>
           </DialogHeader>
 
@@ -798,6 +870,72 @@ export default function MTBookingsPage({
                 onChange={(e) => setFormData(prev => ({ ...prev, bookedMT: e.target.value }))}
                 className="modal-input font-mono"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="booked-market-rate" className="modal-label">
+                Previous Month Market Rate (₹/MT)
+              </Label>
+              <Input
+                id="booked-market-rate"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.bookedMarketRate}
+                onChange={(e) => setFormData(prev => ({ ...prev, bookedMarketRate: e.target.value }))}
+                className="modal-input font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used at invoice time to decide whether booking-month or current-month benefit wins.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="tie-break-preference" className="modal-label">
+                  Equal Price Tie-Break
+                </Label>
+                <Select
+                  value={formData.tieBreakPreference}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    tieBreakPreference: value as MTBookingTieBreakPreference
+                  }))}
+                >
+                  <SelectTrigger id="tie-break-preference" className="modal-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">Current month rules</SelectItem>
+                    <SelectItem value="previous">Previous month rules</SelectItem>
+                    <SelectItem value="highestBenefit">Highest cashback benefit</SelectItem>
+                    <SelectItem value="manual">Manually approved selection</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.tieBreakPreference === 'manual' && (
+                <div className="space-y-2">
+                  <Label htmlFor="manual-selection" className="modal-label">
+                    Manual Selection
+                  </Label>
+                  <Select
+                    value={formData.manualSelection}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      manualSelection: value as 'current' | 'previous'
+                    }))}
+                  >
+                    <SelectTrigger id="manual-selection" className="modal-input">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="current">Current month rules</SelectItem>
+                      <SelectItem value="previous">Previous month rules</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

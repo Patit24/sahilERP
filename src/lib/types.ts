@@ -196,6 +196,11 @@ export interface ExpectedDiscount {
   expectedAmount: number
   invoiceNo?: string
   schemeName?: string
+  mtBookingId?: string
+  mtBookingRuleSource?: 'current' | 'previous'
+  marketRateComparison?: 'currentLower' | 'currentHigher' | 'equal' | 'legacy'
+  bookedMarketRate?: number
+  currentMarketRate?: number
 }
 
 export interface ExpectedAnnualDiscount {
@@ -280,7 +285,13 @@ export interface LockedScheme {
   schemeId: string
   schemeName: string
   ratePerMT: number
+  ruleVersionId?: string
+  ruleVersion?: number
+  effectiveFrom?: string
+  effectiveTo?: string
 }
+
+export type MTBookingTieBreakPreference = 'current' | 'previous' | 'highestBenefit' | 'manual'
 
 export interface MTBooking {
   id: string
@@ -294,6 +305,9 @@ export interface MTBooking {
   lockedSchemes?: LockedScheme[]
   totalLockedRate?: number
   manualRate?: number
+  bookedMarketRate?: number
+  tieBreakPreference?: MTBookingTieBreakPreference
+  manualSelection?: 'current' | 'previous'
 }
 
 export interface MTBookingConsumption {

@@ -104,6 +104,88 @@ function getEffectiveSupplierCDRules(supplier: Supplier, date: string) {
   }
 }
 
+function getInvoiceMarketRate(invoice: PurchaseInvoice): number {
+  const itemRows = invoice.items || []
+  const itemQuantity = itemRows.reduce((sum, item) => sum + (Number(item.quantityMT) || 0), 0)
+
+  if (itemRows.length > 0 && itemQuantity > 0) {
+    const weightedRateTotal = itemRows.reduce((sum, item) => {
+      const quantity = Number(item.quantityMT) || 0
+      const rate = Number(item.basicRate) > 0 ? Number(item.basicRate) : (Number(item.rate) || 0)
+      return sum + (quantity * rate)
+    }, 0)
+
+    return weightedRateTotal / itemQuantity
+  }
+
+  if (invoice.quantityMT > 0 && invoice.invoiceAmount > 0) {
+    return invoice.invoiceAmount / invoice.quantityMT
+  }
+
+  return 0
+}
+
+function getApplicableFixedSchemes(
+  fixedSchemes: FixedScheme[],
+  supplierId: string,
+  invoiceDate: string,
+  includeMTBookingSchemes = true
+): FixedScheme[] {
+  const checkDate = new Date(invoiceDate)
+
+  return fixedSchemes.filter(scheme => {
+    if (scheme.supplierId !== supplierId) return false
+    if (includeMTBookingSchemes && scheme.applyInMTBooking === false) return false
+    if (!includeMTBookingSchemes && scheme.applyInMTBooking !== false) return false
+
+    const fromDate = new Date(scheme.fromDate)
+    const toDate = new Date(scheme.toDate)
+
+    return checkDate >= fromDate && checkDate <= toDate
+  })
+}
+
+function getMTBookingRateComparison(
+  bookedMarketRate: number | undefined,
+  currentMarketRate: number
+): 'currentLower' | 'currentHigher' | 'equal' | 'legacy' {
+  if (!bookedMarketRate || bookedMarketRate <= 0 || currentMarketRate <= 0) return 'legacy'
+
+  const roundedBookedRate = Math.round(bookedMarketRate * 100) / 100
+  const roundedCurrentRate = Math.round(currentMarketRate * 100) / 100
+
+  if (roundedCurrentRate < roundedBookedRate) return 'currentLower'
+  if (roundedCurrentRate > roundedBookedRate) return 'currentHigher'
+  return 'equal'
+}
+
+function getMTBookingRuleSource(
+  booking: MTBooking,
+  currentSchemes: FixedScheme[],
+  currentMarketRate: number
+): 'current' | 'previous' {
+  const comparison = getMTBookingRateComparison(booking.bookedMarketRate, currentMarketRate)
+
+  if (comparison === 'currentLower') return 'current'
+  if (comparison === 'currentHigher') return 'previous'
+  if (comparison === 'legacy') return 'previous'
+
+  const preference = booking.tieBreakPreference || 'current'
+
+  if (preference === 'previous') return 'previous'
+  if (preference === 'manual') return booking.manualSelection || 'current'
+  if (preference === 'highestBenefit') {
+    const previousBenefit = booking.rateMode === 'manual'
+      ? (booking.manualRate || 0)
+      : (booking.lockedSchemes || []).reduce((sum, scheme) => sum + (Number(scheme.ratePerMT) || 0), 0)
+    const currentBenefit = currentSchemes.reduce((sum, scheme) => sum + (Number(scheme.ratePerMT) || 0), 0)
+
+    return previousBenefit > currentBenefit ? 'previous' : 'current'
+  }
+
+  return 'current'
+}
+
 export function calculatePaymentAllocations(
   payments: Payment[],
   invoices: PurchaseInvoice[]
@@ -459,6 +541,8 @@ export function calculateExpectedDiscounts(
     const supplier = supplierMap.get(invoice.supplierId)
     if (!supplier) continue
     const effectiveInvoiceRules = getEffectiveSupplierCDRules(supplier, invoice.invoiceDate)
+    const currentMarketRate = getInvoiceMarketRate(invoice)
+    const currentMTBookingSchemes = getApplicableFixedSchemes(fixedSchemes, supplier.id, invoice.invoiceDate, true)
     
     const invoiceAllocations = paymentAllocations.filter(
       a => a.invoiceId === invoice.id
@@ -532,8 +616,35 @@ export function calculateExpectedDiscounts(
       
       if (bookingRemaining > 0) {
         const mtToConsumeFromBooking = Math.min(remainingInvoiceMT, bookingRemaining)
+        const marketRateComparison = getMTBookingRateComparison(booking.bookedMarketRate, currentMarketRate)
+        const ruleSource = getMTBookingRuleSource(booking, currentMTBookingSchemes, currentMarketRate)
         
-        if (booking.rateMode === 'manual' && booking.manualRate !== undefined) {
+        if (ruleSource === 'current') {
+          for (const scheme of currentMTBookingSchemes) {
+            expectedDiscounts.push({
+              id: `fixedScheme-booking-current-${invoice.id}-${booking.id}-${scheme.id}`,
+              supplierId: supplier.id,
+              invoiceId: invoice.id,
+              schemeId: scheme.id,
+              ruleVersionId: scheme.id,
+              ruleVersion: scheme.version || 1,
+              ruleName: scheme.schemeName,
+              type: 'fixedScheme',
+              earnedDate: invoice.invoiceDate,
+              invoiceDate: invoice.invoiceDate,
+              eligibleQuantityMT: mtToConsumeFromBooking,
+              ratePerMT: scheme.ratePerMT,
+              expectedAmount: mtToConsumeFromBooking * scheme.ratePerMT,
+              invoiceNo: invoice.invoiceNo,
+              schemeName: `${scheme.schemeName} (current month)`,
+              mtBookingId: booking.id,
+              mtBookingRuleSource: 'current',
+              marketRateComparison,
+              bookedMarketRate: booking.bookedMarketRate,
+              currentMarketRate
+            })
+          }
+        } else if (booking.rateMode === 'manual' && booking.manualRate !== undefined) {
           expectedDiscounts.push({
             id: `fixedScheme-booking-manual-${invoice.id}-${booking.id}`,
             supplierId: supplier.id,
@@ -546,7 +657,12 @@ export function calculateExpectedDiscounts(
             ratePerMT: booking.manualRate,
             expectedAmount: mtToConsumeFromBooking * booking.manualRate,
             invoiceNo: invoice.invoiceNo,
-            schemeName: 'Manual MT Booking'
+            schemeName: 'Manual MT Booking (previous month)',
+            mtBookingId: booking.id,
+            mtBookingRuleSource: 'previous',
+            marketRateComparison,
+            bookedMarketRate: booking.bookedMarketRate,
+            currentMarketRate
           })
         } else if (booking.rateMode === 'auto' && booking.lockedSchemes && booking.lockedSchemes.length > 0) {
           for (const lockedScheme of booking.lockedSchemes) {
@@ -555,7 +671,9 @@ export function calculateExpectedDiscounts(
               supplierId: supplier.id,
               invoiceId: invoice.id,
               schemeId: lockedScheme.schemeId,
-              ruleVersionId: lockedScheme.schemeId,
+              ruleVersionId: lockedScheme.ruleVersionId || lockedScheme.schemeId,
+              ruleVersion: lockedScheme.ruleVersion || 1,
+              ruleName: lockedScheme.schemeName,
               type: 'fixedScheme',
               earnedDate: invoice.invoiceDate,
               invoiceDate: invoice.invoiceDate,
@@ -563,7 +681,12 @@ export function calculateExpectedDiscounts(
               ratePerMT: lockedScheme.ratePerMT,
               expectedAmount: mtToConsumeFromBooking * lockedScheme.ratePerMT,
               invoiceNo: invoice.invoiceNo,
-              schemeName: lockedScheme.schemeName
+              schemeName: `${lockedScheme.schemeName} (booking month)`,
+              mtBookingId: booking.id,
+              mtBookingRuleSource: 'previous',
+              marketRateComparison,
+              bookedMarketRate: booking.bookedMarketRate,
+              currentMarketRate
             })
           }
         }
@@ -573,16 +696,7 @@ export function calculateExpectedDiscounts(
       }
     }
     
-    const excludedFromBookingSchemes = fixedSchemes.filter(scheme => {
-      if (scheme.supplierId !== supplier.id) return false
-      if (scheme.applyInMTBooking !== false) return false
-      
-      const checkDate = new Date(invoice.invoiceDate)
-      const fromDate = new Date(scheme.fromDate)
-      const toDate = new Date(scheme.toDate)
-      
-      return checkDate >= fromDate && checkDate <= toDate
-    })
+    const excludedFromBookingSchemes = getApplicableFixedSchemes(fixedSchemes, supplier.id, invoice.invoiceDate, false)
     
     for (const scheme of excludedFromBookingSchemes) {
       expectedDiscounts.push({
@@ -605,16 +719,7 @@ export function calculateExpectedDiscounts(
     }
     
     if (remainingInvoiceMT > 0) {
-      const applicableSchemes = fixedSchemes.filter(scheme => {
-        if (scheme.supplierId !== supplier.id) return false
-        if (scheme.applyInMTBooking === false) return false
-        
-        const checkDate = new Date(invoice.invoiceDate)
-        const fromDate = new Date(scheme.fromDate)
-        const toDate = new Date(scheme.toDate)
-        
-        return checkDate >= fromDate && checkDate <= toDate
-      })
+      const applicableSchemes = currentMTBookingSchemes
       
       for (const scheme of applicableSchemes) {
         expectedDiscounts.push({
