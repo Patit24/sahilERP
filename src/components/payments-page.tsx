@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Item, Payment, PurchaseInvoice, Supplier } from '@/lib/types'
+import { FixedScheme, Item, MTBooking, Payment, PurchaseInvoice, Supplier } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -20,14 +20,16 @@ import { toast } from 'sonner'
 interface PaymentsPageProps {
   payments: Payment[]
   setPayments: (updater: (prev: Payment[]) => Payment[]) => void
+  setMTBookings: (updater: (prev: MTBooking[]) => MTBooking[]) => void
   invoices: PurchaseInvoice[]
   items: Item[]
   suppliers: Supplier[]
+  fixedSchemes: FixedScheme[]
   currentFY: string
   isLocked?: boolean
 }
 
-export default function PaymentsPage({ payments, setPayments, invoices, items, suppliers, currentFY, isLocked = false }: PaymentsPageProps) {
+export default function PaymentsPage({ payments, setPayments, setMTBookings, invoices, items, suppliers, fixedSchemes, currentFY, isLocked = false }: PaymentsPageProps) {
   const [open, setOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -39,6 +41,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
   const [formSupplierId, setFormSupplierId] = useState('')
   const [paymentAmount, setPaymentAmount] = useState('')
   const [bookingMTInput, setBookingMTInput] = useState('')
+  const [bookingMarketRateInput, setBookingMarketRateInput] = useState('')
   
   const fyPayments = payments.filter(p => p.fy === currentFY)
   const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
@@ -72,7 +75,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
   const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
   const paymentAmountNumber = parseFloat(paymentAmount) || 0
 
-  const currentSupplierRate = useMemo(() => {
+  const bookingMonthSupplierRate = useMemo(() => {
     if (!formSupplierId) return null
 
     const latestInvoice = fyInvoices
@@ -86,7 +89,11 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
     if (!latestInvoice) return null
 
     const lineRate = latestInvoice.items?.length
-      ? latestInvoice.items.reduce((sum, item) => sum + (item.amount || 0), 0) /
+      ? latestInvoice.items.reduce((sum, item) => {
+          const quantity = item.quantityMT || 0
+          const rate = item.basicRate && item.basicRate > 0 ? item.basicRate : item.rate
+          return sum + (quantity * rate)
+        }, 0) /
         Math.max(latestInvoice.items.reduce((sum, item) => sum + (item.quantityMT || 0), 0), 1)
       : 0
     const invoiceRate = latestInvoice.invoiceAmount / latestInvoice.quantityMT
@@ -101,15 +108,90 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
     }
   }, [formSupplierId, fyInvoices])
 
-  const calculatedBookingMT = currentSupplierRate && paymentAmountNumber > 0
-    ? paymentAmountNumber / currentSupplierRate.rate
+  const bookingMarketRateNumber = parseFloat(bookingMarketRateInput) || 0
+  const effectiveBookingMarketRate = bookingMarketRateNumber > 0
+    ? bookingMarketRateNumber
+    : (bookingMonthSupplierRate?.rate || 0)
+  const calculatedBookingMT = effectiveBookingMarketRate > 0 && paymentAmountNumber > 0
+    ? paymentAmountNumber / effectiveBookingMarketRate
     : 0
 
   useEffect(() => {
     if (!advanceBookingEnabled || editingPayment) return
-    if (!currentSupplierRate || paymentAmountNumber <= 0) return
+    if (!bookingMonthSupplierRate || paymentAmountNumber <= 0) return
+    setBookingMarketRateInput((prev) => prev || bookingMonthSupplierRate.rate.toFixed(2))
+  }, [advanceBookingEnabled, bookingMonthSupplierRate, editingPayment, paymentAmountNumber])
+
+  useEffect(() => {
+    if (!advanceBookingEnabled || editingPayment) return
+    if (effectiveBookingMarketRate <= 0 || paymentAmountNumber <= 0) return
     setBookingMTInput(calculatedBookingMT.toFixed(3))
-  }, [advanceBookingEnabled, calculatedBookingMT, currentSupplierRate, editingPayment, paymentAmountNumber])
+  }, [advanceBookingEnabled, calculatedBookingMT, effectiveBookingMarketRate, editingPayment, paymentAmountNumber])
+
+  const getNextDay = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    date.setDate(date.getDate() + 1)
+    return date.toISOString().split('T')[0]
+  }
+
+  const getActiveSchemesForDate = (supplierId: string, date: string) => {
+    const checkDate = new Date(date)
+    const lockedSchemes = fixedSchemes
+      .filter((scheme) => {
+        if (scheme.supplierId !== supplierId) return false
+        if (scheme.applyInMTBooking === false) return false
+        return checkDate >= new Date(scheme.fromDate) && checkDate <= new Date(scheme.toDate)
+      })
+      .map((scheme) => ({
+        schemeId: scheme.id,
+        schemeName: scheme.schemeName,
+        ratePerMT: scheme.ratePerMT,
+        ruleVersionId: scheme.id,
+        ruleVersion: scheme.version || 1,
+        effectiveFrom: scheme.fromDate,
+        effectiveTo: scheme.toDate
+      }))
+
+    return {
+      lockedSchemes,
+      totalLockedRate: lockedSchemes.reduce((sum, scheme) => sum + scheme.ratePerMT, 0)
+    }
+  }
+
+  const upsertPaymentMTBooking = (payment: Payment) => {
+    if (!payment.isAdvance || !payment.bookingMT || payment.bookingMT <= 0) {
+      if (payment.mtBookingId) {
+        setMTBookings((prev) => prev.filter((booking) => booking.id !== payment.mtBookingId))
+      }
+      return
+    }
+
+    const bookingId = payment.mtBookingId || `payment-mt-booking-${payment.id}`
+    const { lockedSchemes, totalLockedRate } = getActiveSchemesForDate(payment.supplierId, payment.paymentDate)
+
+    const booking: MTBooking = {
+      id: bookingId,
+      supplierId: payment.supplierId,
+      orderDate: payment.paymentDate,
+      consumeStartDate: getNextDay(payment.paymentDate),
+      bookedMT: payment.bookingMT,
+      bookedMarketRate: payment.bookingMarketRate,
+      tieBreakPreference: 'current',
+      notes: `Auto-created from advance payment ${formatCurrency(payment.amount)}. Uses lower market-price benefit between booking month and invoice month.`,
+      fy: payment.fy,
+      rateMode: 'auto',
+      lockedSchemes,
+      totalLockedRate
+    }
+
+    setMTBookings((prev) => {
+      const existingIndex = prev.findIndex((item) => item.id === bookingId)
+      if (existingIndex >= 0) {
+        return prev.map((item) => item.id === bookingId ? { ...item, ...booking } : item)
+      }
+      return [...prev, booking]
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -126,6 +208,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
     const supplierId = formSupplierId || (formData.get('supplierId') as string)
     const amount = parseFloat(paymentAmount || (formData.get('amount') as string))
     const bookingMT = Math.max(0, parseFloat(bookingMTInput || (formData.get('bookingMT') as string)) || 0)
+    const bookingMarketRate = Math.max(0, parseFloat(bookingMarketRateInput || (formData.get('bookingMarketRate') as string)) || 0)
 
     if (!supplierId) {
       toast.error('Select a supplier')
@@ -144,6 +227,13 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
       return
     }
 
+    if (advanceBookingEnabled && bookingMarketRate <= 0) {
+      toast.error('Enter booking month market rate', {
+        description: 'This rate is required for previous vs current month benefit comparison.'
+      })
+      return
+    }
+
     if (!isDateInFY(paymentDate, currentFY)) {
       toast.error('Invalid payment date', {
         description: `Date must be within ${currentFY} (April to March)`
@@ -158,23 +248,34 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
         paymentDate: formData.get('paymentDate') as string,
         amount,
         isAdvance: advanceBookingEnabled,
-        bookingMT,
+        bookingMT: advanceBookingEnabled ? bookingMT : undefined,
+        bookingMarketRate: advanceBookingEnabled ? bookingMarketRate : undefined,
+        mtBookingId: advanceBookingEnabled ? (editingPayment.mtBookingId || `payment-mt-booking-${editingPayment.id}`) : undefined,
         doNotApplyCD: doNotApplyCD,
       }
       setPayments((prev) => prev.map(p => p.id === editingPayment.id ? updatedPayment : p))
+      if (!advanceBookingEnabled && editingPayment.mtBookingId) {
+        setMTBookings((prev) => prev.filter((booking) => booking.id !== editingPayment.mtBookingId))
+      } else {
+        upsertPaymentMTBooking(updatedPayment)
+      }
     } else {
+      const paymentId = `payment-${Date.now()}`
       const payment: Payment = {
-        id: `payment-${Date.now()}`,
+        id: paymentId,
         supplierId,
         paymentDate: formData.get('paymentDate') as string,
         amount,
         isAdvance: advanceBookingEnabled,
-        bookingMT,
+        bookingMT: advanceBookingEnabled ? bookingMT : undefined,
+        bookingMarketRate: advanceBookingEnabled ? bookingMarketRate : undefined,
+        mtBookingId: advanceBookingEnabled ? `payment-mt-booking-${paymentId}` : undefined,
         doNotApplyCD: doNotApplyCD,
         fy: currentFY,
         createdAt: Date.now()
       }
       setPayments((prev) => [...prev, payment])
+      upsertPaymentMTBooking(payment)
     }
 
     setOpen(false)
@@ -183,6 +284,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
     setFormSupplierId('')
     setPaymentAmount('')
     setBookingMTInput('')
+    setBookingMarketRateInput('')
   }
 
   const handleEdit = (payment: Payment) => {
@@ -198,6 +300,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
     setFormSupplierId(payment.supplierId)
     setPaymentAmount(String(payment.amount || ''))
     setBookingMTInput(payment.bookingMT ? String(payment.bookingMT) : '')
+    setBookingMarketRateInput(payment.bookingMarketRate ? String(payment.bookingMarketRate) : '')
     setOpen(true)
   }
 
@@ -215,6 +318,9 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
   const confirmDelete = () => {
     if (paymentToDelete) {
       setPayments((prev) => prev.filter(p => p.id !== paymentToDelete.id))
+      if (paymentToDelete.mtBookingId) {
+        setMTBookings((prev) => prev.filter((booking) => booking.id !== paymentToDelete.mtBookingId))
+      }
       toast.success('Payment deleted successfully')
       setDeleteDialogOpen(false)
       setPaymentToDelete(null)
@@ -234,6 +340,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
     setFormSupplierId('')
     setPaymentAmount('')
     setBookingMTInput('')
+    setBookingMarketRateInput('')
     setOpen(true)
   }
 
@@ -245,6 +352,7 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
       setFormSupplierId('')
       setPaymentAmount('')
       setBookingMTInput('')
+      setBookingMarketRateInput('')
     }
   }
 
@@ -364,15 +472,23 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
 
                 {advanceBookingEnabled && (
                   <div className="space-y-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                      <p className="font-semibold">Note:</p>
+                      <ul className="mt-2 list-disc space-y-1 pl-5">
+                        <li>Advance MT Booking helps company lock better rates.</li>
+                        <li>Cashback applies as per rule: current or previous month depending on market price condition.</li>
+                      </ul>
+                    </div>
+
                     <div className="grid gap-3 rounded-lg border border-border/80 bg-background/70 p-3 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current supplier price</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Booking month price</p>
                         <p className="mt-1 font-mono text-lg font-bold">
-                          {currentSupplierRate ? `${formatCurrency(currentSupplierRate.rate)} / MT` : 'Not available'}
+                          {effectiveBookingMarketRate > 0 ? `${formatCurrency(effectiveBookingMarketRate)} / MT` : 'Not available'}
                         </p>
-                        {currentSupplierRate && (
+                        {bookingMonthSupplierRate && (
                           <p className="text-xs text-muted-foreground">
-                            From invoice {currentSupplierRate.invoiceNo} on {new Date(currentSupplierRate.invoiceDate).toLocaleDateString('en-IN')}
+                            Suggested from invoice {bookingMonthSupplierRate.invoiceNo} on {new Date(bookingMonthSupplierRate.invoiceDate).toLocaleDateString('en-IN')}
                           </p>
                         )}
                       </div>
@@ -382,9 +498,27 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
                           {calculatedBookingMT > 0 ? `${calculatedBookingMT.toFixed(3)} MT` : '-'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Amount divided by current supplier price.
+                          Amount divided by booking month price.
                         </p>
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bookingMarketRate">Booking Month Market Rate (₹/MT)</Label>
+                      <Input
+                        id="bookingMarketRate"
+                        name="bookingMarketRate"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={bookingMarketRateInput}
+                        onChange={(event) => setBookingMarketRateInput(event.target.value)}
+                        placeholder={bookingMonthSupplierRate ? bookingMonthSupplierRate.rate.toFixed(2) : 'Enter market rate'}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        If next month market rate is higher, this rate and booking-month schemes are used. If next month is lower, current month benefit is used.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -397,11 +531,11 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
                         min="0.001"
                         value={bookingMTInput}
                         onChange={(event) => setBookingMTInput(event.target.value)}
-                        placeholder={currentSupplierRate ? calculatedBookingMT.toFixed(3) : 'Enter MT manually'}
+                        placeholder={effectiveBookingMarketRate > 0 ? calculatedBookingMT.toFixed(3) : 'Enter MT manually'}
                         required
                       />
                       <p className="text-xs text-muted-foreground">
-                        Auto-filled from current price when available. You can adjust it before saving.
+                        Auto-filled from payment amount and booking month rate. You can adjust it before saving.
                       </p>
                     </div>
                   </div>
@@ -584,8 +718,17 @@ export default function PaymentsPage({ payments, setPayments, invoices, items, s
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right font-mono">
-                              {payment.bookingMT ? `${payment.bookingMT.toFixed(3)} MT` : '-'}
+                            <TableCell className="text-right">
+                              {payment.bookingMT ? (
+                                <div className="space-y-1">
+                                  <div className="font-mono">{payment.bookingMT.toFixed(3)} MT</div>
+                                  {payment.bookingMarketRate && (
+                                    <div className="text-xs text-muted-foreground">
+                                      {formatCurrency(payment.bookingMarketRate)} / MT
+                                    </div>
+                                  )}
+                                </div>
+                              ) : '-'}
                             </TableCell>
                             <TableCell>
                               {isAdvance ? (

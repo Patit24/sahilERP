@@ -1466,9 +1466,11 @@ function App() {
             <PaymentsPage
               payments={safePayments}
               setPayments={setPayments}
+              setMTBookings={setMTBookings}
               invoices={safeInvoices}
               items={safeItems}
               suppliers={safeSuppliers}
+              fixedSchemes={safeFixedSchemes}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('payments')}
             />

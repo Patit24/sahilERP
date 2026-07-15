@@ -137,6 +137,8 @@ export interface Payment {
   amount: number
   isAdvance: boolean
   bookingMT?: number
+  bookingMarketRate?: number
+  mtBookingId?: string
   doNotApplyCD?: boolean
   fy: string
   createdAt?: number
