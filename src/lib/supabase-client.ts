@@ -15,7 +15,8 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabasePublishableKey!, {
       auth: {
         persistSession: isSupabaseAuthEnabled,
-        autoRefreshToken: isSupabaseAuthEnabled
+        autoRefreshToken: false,
+        detectSessionInUrl: false
       },
       realtime: {
         params: {

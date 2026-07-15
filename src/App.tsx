@@ -482,6 +482,9 @@ function App() {
         const message = error instanceof RemoteAuthServiceUnavailableError
           ? error.message
           : 'Unable to load server login profile.'
+        setCurrentUser(null)
+        setIsAuthenticated(false)
+        setAuthMode('unlock')
         setAuthError(message)
         toast.error(message)
       } finally {

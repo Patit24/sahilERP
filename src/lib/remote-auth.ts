@@ -89,6 +89,7 @@ export async function getRemoteCurrentUser(): Promise<AuthenticatedUser | null> 
 
   if (error) {
     if (isTransientSupabaseError(error)) {
+      await clearLocalSupabaseSession()
       throw new RemoteAuthServiceUnavailableError()
     }
     await clearLocalSupabaseSession()
