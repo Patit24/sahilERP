@@ -29,11 +29,24 @@ function isTransientSupabaseError(error: { code?: string; message?: string; stat
   const message = error.message?.toLowerCase() || ''
   return (
     error.status === 503 ||
+    error.status === 504 ||
     error.code === '503' ||
+    error.code === '504' ||
     message.includes('service unavailable') ||
+    message.includes('gateway timeout') ||
     message.includes('fetch failed') ||
     message.includes('network')
   )
+}
+
+async function clearLocalSupabaseSession(): Promise<void> {
+  if (!supabase) return
+
+  try {
+    await supabase.auth.signOut({ scope: 'local' })
+  } catch (error) {
+    console.warn('Local Supabase sign-out failed:', error)
+  }
 }
 
 function toAuthenticatedUser(profile: AppUserProfileRow): AuthenticatedUser {
@@ -78,12 +91,12 @@ export async function getRemoteCurrentUser(): Promise<AuthenticatedUser | null> 
     if (isTransientSupabaseError(error)) {
       throw new RemoteAuthServiceUnavailableError()
     }
-    await supabase.auth.signOut()
+    await clearLocalSupabaseSession()
     return null
   }
 
   if (!data || !data.is_active) {
-    await supabase.auth.signOut()
+    await clearLocalSupabaseSession()
     return null
   }
 
@@ -103,8 +116,7 @@ export async function signInRemoteUser(email: string, password: string): Promise
 }
 
 export async function signOutRemoteUser(): Promise<void> {
-  if (!supabase) return
-  await supabase.auth.signOut()
+  await clearLocalSupabaseSession()
 }
 
 export async function listRemoteUserProfiles(): Promise<UserAccount[]> {

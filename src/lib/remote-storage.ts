@@ -44,8 +44,12 @@ function isTransientSupabaseError(error: { code?: string; message?: string; stat
   const message = error.message?.toLowerCase() || ''
   return (
     error.status === 503 ||
+    error.status === 504 ||
     error.code === '503' ||
+    error.code === '504' ||
     message.includes('service unavailable') ||
+    message.includes('gateway timeout') ||
+    message.includes('schema cache') ||
     message.includes('fetch failed') ||
     message.includes('network')
   )
