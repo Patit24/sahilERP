@@ -26,10 +26,14 @@ await copyFile(hostingSource, hostingTarget);
 const serverEntry = String.raw`import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const serverDir = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.resolve(serverDir, "..");
+const publicDirCandidates = [
+  path.resolve(process.cwd(), "dist"),
+  path.resolve(process.cwd()),
+  path.resolve(process.cwd(), ".."),
+];
+
+const publicDir = publicDirCandidates.find((candidate) => existsSync(path.join(candidate, "index.html"))) ?? process.cwd();
 
 const MIME_TYPES = new Map([
   [".html", "text/html; charset=utf-8"],
