@@ -73,8 +73,36 @@ import {
   PendingAnnualDiscount,
   DiscountAllocation,
   FixedScheme,
-  MTBooking
+  MTBooking,
+  SupplierCDRuleVersion
 } from './types'
+
+function toDateKey(date: string): string {
+  return new Date(date).toISOString().split('T')[0]
+}
+
+function getSupplierCDRuleVersion(supplier: Supplier, date: string): SupplierCDRuleVersion | null {
+  const dateKey = toDateKey(date)
+  const versions = [...(supplier.cdRuleVersions || [])]
+    .filter((version) => version.approvalStatus === 'Approved')
+    .sort((a, b) => b.version - a.version)
+
+  return versions.find((version) => {
+    const from = toDateKey(version.effectiveFrom)
+    const to = version.effectiveTo ? toDateKey(version.effectiveTo) : '9999-12-31'
+    return dateKey >= from && dateKey <= to
+  }) || null
+}
+
+function getEffectiveSupplierCDRules(supplier: Supplier, date: string) {
+  const version = getSupplierCDRuleVersion(supplier, date)
+  return {
+    version,
+    paymentCDRules: version?.paymentCDRules || supplier.paymentCDRules || [],
+    invoiceCloseCDRules: version?.invoiceCloseCDRules || supplier.invoiceCloseCDRules || [],
+    advanceCDPercentage: version?.advanceCDPercentage ?? supplier.advanceCDPercentage
+  }
+}
 
 export function calculatePaymentAllocations(
   payments: Payment[],
@@ -331,6 +359,7 @@ export function calculateExpectedDiscounts(
   for (const payment of payments) {
     const supplier = supplierMap.get(payment.supplierId)
     if (!supplier || payment.doNotApplyCD) continue
+    const effectiveRules = getEffectiveSupplierCDRules(supplier, payment.paymentDate)
     
     const trackingList = paymentAllocationTracking.get(payment.id)
     if (!trackingList) continue
@@ -354,7 +383,7 @@ export function calculateExpectedDiscounts(
         
         const paymentDays = Math.max(0, calculatedDays)
         
-        const paymentCDRule = supplier.paymentCDRules?.find(
+        const paymentCDRule = effectiveRules.paymentCDRules?.find(
           rule => paymentDays >= rule.minDays && paymentDays <= rule.maxDays
         )
         
@@ -367,6 +396,9 @@ export function calculateExpectedDiscounts(
             invoiceId: invoice.id,
             paymentId: payment.id,
             type: 'paymentCD',
+            ruleVersionId: effectiveRules.version?.id,
+            ruleVersion: effectiveRules.version?.version,
+            ruleName: effectiveRules.version?.ruleName || 'Payment CD',
             earnedDate: payment.paymentDate,
             invoiceDate: invoice.invoiceDate,
             eligibleQuantityMT: 0,
@@ -382,24 +414,28 @@ export function calculateExpectedDiscounts(
   for (const payment of payments) {
     const supplier = supplierMap.get(payment.supplierId)
     if (!supplier || payment.doNotApplyCD) continue
+    const effectiveRules = getEffectiveSupplierCDRules(supplier, payment.paymentDate)
     
     const advanceInfo = paymentAdvanceInfo.get(payment.id)
     if (!advanceInfo || advanceInfo.advanceAmount <= 0) continue
     
-    if (supplier.advanceCDPercentage && supplier.advanceCDPercentage > 0) {
+    if (effectiveRules.advanceCDPercentage && effectiveRules.advanceCDPercentage > 0) {
       const advanceAmount = advanceInfo.advanceAmount
-      const discountAmount = (advanceAmount * supplier.advanceCDPercentage) / 100
+      const discountAmount = (advanceAmount * effectiveRules.advanceCDPercentage) / 100
       
       expectedDiscounts.push({
         id: `advanceCD-unallocated-${payment.id}`,
         supplierId: supplier.id,
         paymentId: payment.id,
         type: 'advanceCD',
+        ruleVersionId: effectiveRules.version?.id,
+        ruleVersion: effectiveRules.version?.version,
+        ruleName: effectiveRules.version?.ruleName || 'Advance Payment CD',
         earnedDate: payment.paymentDate,
         eligibleQuantityMT: 0,
         ratePerMT: 0,
         expectedAmount: discountAmount,
-        schemeName: `Advance Payment (${supplier.advanceCDPercentage}%)`
+        schemeName: `Advance Payment (${effectiveRules.advanceCDPercentage}%)`
       })
     }
   }
@@ -422,6 +458,7 @@ export function calculateExpectedDiscounts(
   for (const invoice of invoices) {
     const supplier = supplierMap.get(invoice.supplierId)
     if (!supplier) continue
+    const effectiveInvoiceRules = getEffectiveSupplierCDRules(supplier, invoice.invoiceDate)
     
     const invoiceAllocations = paymentAllocations.filter(
       a => a.invoiceId === invoice.id
@@ -430,7 +467,7 @@ export function calculateExpectedDiscounts(
     const totalAllocated = invoiceAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
     const isFullyPaid = totalAllocated >= invoice.invoiceAmount
     
-    if (isFullyPaid && supplier.invoiceCloseCDRules && supplier.invoiceCloseCDRules.length > 0) {
+    if (isFullyPaid && effectiveInvoiceRules.invoiceCloseCDRules && effectiveInvoiceRules.invoiceCloseCDRules.length > 0) {
       const lastPayment = payments
         .filter(p => invoiceAllocations.some(a => a.paymentId === p.id))
         .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0]
@@ -444,10 +481,10 @@ export function calculateExpectedDiscounts(
         
         const daysSinceInvoice = Math.max(0, calculatedDaysSinceInvoice)
         
-        const maxSlabDays = Math.max(...supplier.invoiceCloseCDRules.map(rule => rule.maxDays))
+        const maxSlabDays = Math.max(...effectiveInvoiceRules.invoiceCloseCDRules.map(rule => rule.maxDays))
         
         if (daysSinceInvoice <= maxSlabDays) {
-          const invoiceCloseCDRule = supplier.invoiceCloseCDRules.find(
+          const invoiceCloseCDRule = effectiveInvoiceRules.invoiceCloseCDRules.find(
             rule => daysSinceInvoice >= rule.minDays && daysSinceInvoice <= rule.maxDays
           )
           
@@ -457,6 +494,9 @@ export function calculateExpectedDiscounts(
               supplierId: supplier.id,
               invoiceId: invoice.id,
               type: 'invoiceCloseCD',
+              ruleVersionId: effectiveInvoiceRules.version?.id,
+              ruleVersion: effectiveInvoiceRules.version?.version,
+              ruleName: effectiveInvoiceRules.version?.ruleName || 'Invoice Close CD',
               earnedDate: lastPayment.paymentDate,
               invoiceDate: invoice.invoiceDate,
               eligibleQuantityMT: invoice.quantityMT,
@@ -515,6 +555,7 @@ export function calculateExpectedDiscounts(
               supplierId: supplier.id,
               invoiceId: invoice.id,
               schemeId: lockedScheme.schemeId,
+              ruleVersionId: lockedScheme.schemeId,
               type: 'fixedScheme',
               earnedDate: invoice.invoiceDate,
               invoiceDate: invoice.invoiceDate,
@@ -549,6 +590,9 @@ export function calculateExpectedDiscounts(
         supplierId: supplier.id,
         invoiceId: invoice.id,
         schemeId: scheme.id,
+        ruleVersionId: scheme.id,
+        ruleVersion: scheme.version || 1,
+        ruleName: scheme.schemeName,
         type: 'fixedScheme',
         earnedDate: invoice.invoiceDate,
         invoiceDate: invoice.invoiceDate,
@@ -578,6 +622,9 @@ export function calculateExpectedDiscounts(
           supplierId: supplier.id,
           invoiceId: invoice.id,
           schemeId: scheme.id,
+          ruleVersionId: scheme.id,
+          ruleVersion: scheme.version || 1,
+          ruleName: scheme.schemeName,
           type: 'fixedScheme',
           earnedDate: invoice.invoiceDate,
           invoiceDate: invoice.invoiceDate,

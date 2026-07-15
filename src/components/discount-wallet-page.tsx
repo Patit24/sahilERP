@@ -194,6 +194,77 @@ export default function DiscountWalletPage({
            filteredExpectedAnnual.reduce((sum, exp) => sum + exp.expectedAmount, 0)
   }, [filteredExpected, filteredExpectedAnnual])
 
+  const ruleVersionComparison = useMemo(() => {
+    const allocatedByExpectedId = new Map<string, number>()
+    for (const allocation of discountAllocations) {
+      allocatedByExpectedId.set(
+        allocation.expectedDiscountId,
+        (allocatedByExpectedId.get(allocation.expectedDiscountId) || 0) + allocation.allocatedAmount
+      )
+    }
+
+    const groups = new Map<string, {
+      key: string
+      supplierName: string
+      ruleName: string
+      versionLabel: string
+      rateLabel: string
+      effectiveLabel: string
+      expectedAmount: number
+      receivedAmount: number
+      isOld: boolean
+    }>()
+
+    for (const expected of filteredExpected) {
+      const supplier = suppliers.find((item) => item.id === expected.supplierId)
+      const fixedScheme = expected.schemeId ? fixedSchemes.find((scheme) => scheme.id === expected.schemeId) : undefined
+      const supplierVersion = expected.ruleVersionId
+        ? supplier?.cdRuleVersions?.find((version) => version.id === expected.ruleVersionId)
+        : undefined
+
+      const key = expected.ruleVersionId || expected.schemeId || `${expected.supplierId}-${expected.type}-current`
+      const typeLabel = expected.type === 'advanceCD' || expected.type === 'paymentCD'
+        ? 'Payment CD'
+        : expected.type === 'invoiceCloseCD'
+          ? 'Invoice Close CD'
+          : expected.schemeName || 'Fixed Scheme'
+
+      if (!groups.has(key)) {
+        const versionNumber = supplierVersion?.version || fixedScheme?.version || expected.ruleVersion || 1
+        const effectiveFrom = supplierVersion?.effectiveFrom || fixedScheme?.fromDate || expected.earnedDate
+        const effectiveTo = supplierVersion?.effectiveTo || fixedScheme?.toDate
+        const isOld = Boolean(effectiveTo && new Date(effectiveTo) < new Date())
+        const paymentRate = supplierVersion?.paymentCDRules?.length
+          ? `${Math.max(...supplierVersion.paymentCDRules.map((rule) => rule.percentageRate))}%`
+          : expected.type === 'fixedScheme'
+            ? `${formatCurrency(expected.ratePerMT)}/MT`
+            : expected.ratePerMT > 0
+              ? `${formatCurrency(expected.ratePerMT)}/MT`
+              : expected.schemeName?.match(/\(([^)]+)\)/)?.[1] || '-'
+
+        groups.set(key, {
+          key,
+          supplierName: supplier?.name || 'Unknown Supplier',
+          ruleName: supplierVersion?.ruleName || fixedScheme?.schemeName || typeLabel,
+          versionLabel: `v${versionNumber}`,
+          rateLabel: paymentRate,
+          effectiveLabel: effectiveTo ? `Effective up to ${effectiveTo}` : `Effective from ${effectiveFrom}`,
+          expectedAmount: 0,
+          receivedAmount: 0,
+          isOld
+        })
+      }
+
+      const group = groups.get(key)!
+      group.expectedAmount += expected.expectedAmount
+      group.receivedAmount += allocatedByExpectedId.get(expected.id) || 0
+    }
+
+    return Array.from(groups.values())
+      .filter((group) => group.expectedAmount > 0)
+      .sort((a, b) => Number(a.isOld) - Number(b.isOld) || a.supplierName.localeCompare(b.supplierName) || a.ruleName.localeCompare(b.ruleName))
+  }, [filteredExpected, discountAllocations, suppliers, fixedSchemes])
+
   const allReceivedDiscounts = useMemo(() => {
     const wallet = fyReceivedDiscounts.map(rd => ({ ...rd, type: rd.type || 'wallet' as const }))
     const annual = fyReceivedAnnual.map(rd => ({ ...rd, type: rd.type || 'annual' as const }))
@@ -1245,6 +1316,53 @@ export default function DiscountWalletPage({
             <p className="text-xs text-muted-foreground mt-1">
               {Array.from(selectedMonths).map(m => fyMonths.find(fm => fm.value === m)?.label || m).join(', ')} - Calculated LIVE from earned discounts
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {ruleVersionComparison.length > 0 && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg">Rule Version Comparison</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cashback remains linked to the CD rule version used when it was calculated.
+                </p>
+              </div>
+              <Badge variant="secondary" className="font-mono">
+                Overall wallet: {formatCurrency(ruleVersionComparison.reduce((sum, item) => sum + item.expectedAmount, 0))}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {ruleVersionComparison.slice(0, 6).map((item) => (
+                <div key={item.key} className={`rounded-lg border p-4 ${item.isOld ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {item.isOld ? 'Old CD rule' : 'New CD rule'} · {item.versionLabel}
+                      </div>
+                      <div className="mt-1 text-base font-semibold">{item.ruleName}: {item.rateLabel}</div>
+                      <div className="text-xs text-muted-foreground">{item.supplierName}</div>
+                    </div>
+                    <Badge variant={item.isOld ? 'outline' : 'default'}>{item.isOld ? 'Historical' : 'Current'}</Badge>
+                  </div>
+                  <div className="mt-3 text-xs text-muted-foreground">{item.effectiveLabel}</div>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Total cashback</div>
+                      <div className="font-mono text-lg font-semibold">{formatCurrency(item.expectedAmount)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Received</div>
+                      <div className="font-mono text-lg font-semibold text-success">{formatCurrency(item.receivedAmount)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

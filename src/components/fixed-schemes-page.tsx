@@ -24,6 +24,12 @@ interface FixedSchemesPageProps {
 
 type SchemeStatus = 'all' | 'active' | 'expired' | 'upcoming'
 
+function addDays(date: string, days: number): string {
+  const value = new Date(date)
+  value.setDate(value.getDate() + days)
+  return value.toISOString().split('T')[0]
+}
+
 export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppliers, currentFY, isLocked = false }: FixedSchemesPageProps) {
   const [open, setOpen] = useState(false)
   const [editingScheme, setEditingScheme] = useState<FixedScheme | null>(null)
@@ -54,6 +60,8 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
     const ratePerMT = parseFloat(formData.get('ratePerMT') as string)
     const fromDate = formData.get('fromDate') as string
     const toDate = formData.get('toDate') as string
+    const changeReason = ((formData.get('changeReason') as string) || '').trim() || (editingScheme ? 'Fixed scheme revision' : 'Initial fixed scheme setup')
+    const changedAt = new Date().toISOString()
 
     if (!supplierId || !schemeName || !ratePerMT || !fromDate || !toDate) {
       toast.error('Please fill all required fields')
@@ -65,19 +73,33 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
       return
     }
 
+    const nextVersion = (editingScheme?.version || 1) + (editingScheme ? 1 : 0)
     const scheme: FixedScheme = {
-      id: editingScheme?.id || `scheme-${Date.now()}`,
+      id: editingScheme ? `scheme-${Date.now()}` : `scheme-${Date.now()}`,
       supplierId,
       schemeName,
       ratePerMT,
       fromDate,
       toDate,
-      applyInMTBooking
+      applyInMTBooking,
+      version: nextVersion,
+      parentSchemeId: editingScheme?.parentSchemeId || editingScheme?.id,
+      previousSchemeId: editingScheme?.id,
+      changedBy: 'Master Admin',
+      changedAt,
+      changeReason,
+      approvalStatus: 'Approved'
     }
 
     if (editingScheme) {
-      setFixedSchemes((prev) => prev.map(s => s.id === editingScheme.id ? scheme : s))
-      toast.success('Fixed scheme updated successfully')
+      const closedPrevious: FixedScheme = {
+        ...editingScheme,
+        toDate: addDays(fromDate, -1),
+        changedAt,
+        changeReason: `Closed by version ${nextVersion}: ${changeReason}`
+      }
+      setFixedSchemes((prev) => prev.map(s => s.id === editingScheme.id ? closedPrevious : s).concat(scheme))
+      toast.success('New fixed scheme version created')
     } else {
       setFixedSchemes((prev) => [...prev, scheme])
       toast.success('Fixed scheme added successfully')
@@ -291,6 +313,16 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                 </p>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="changeReason">Reason for Change</Label>
+                <Input
+                  id="changeReason"
+                  name="changeReason"
+                  defaultValue={editingScheme ? 'Fixed scheme revision' : 'Initial fixed scheme setup'}
+                  placeholder="e.g. Supplier rate circular"
+                />
+              </div>
+
               <div className="space-y-3 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -398,6 +430,7 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                     <TableHead>Status</TableHead>
                     <TableHead>Supplier</TableHead>
                     <TableHead>Scheme Name</TableHead>
+                    <TableHead>Version</TableHead>
                     <TableHead>From Date</TableHead>
                     <TableHead>To Date</TableHead>
                     <TableHead className="text-right">Rate/MT</TableHead>
@@ -414,6 +447,14 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                         {getSupplierName(scheme.supplierId)}
                       </TableCell>
                       <TableCell>{scheme.schemeName}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant="outline">v{scheme.version || 1}</Badge>
+                          {scheme.approvalStatus && (
+                            <div className="text-[11px] text-muted-foreground">{scheme.approvalStatus}</div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{scheme.fromDate}</TableCell>
                       <TableCell>{scheme.toDate}</TableCell>
                       <TableCell className="text-right font-mono">

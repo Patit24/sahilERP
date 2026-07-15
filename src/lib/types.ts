@@ -13,6 +13,8 @@ export interface Supplier {
   paymentCDRules: PaymentCDRule[]
   invoiceCloseCDRules: InvoiceCloseCDRule[]
   advanceCDPercentage?: number
+  cdRuleVersions?: SupplierCDRuleVersion[]
+  cdRuleChangeLog?: CDRuleChangeLog[]
   annualTarget?: AnnualTarget
   openingBalance?: number
 }
@@ -29,6 +31,49 @@ export interface InvoiceCloseCDRule {
   ratePerMT: number
 }
 
+export type RuleApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
+
+export interface SupplierCDRuleVersion {
+  id: string
+  version: number
+  ruleName: string
+  effectiveFrom: string
+  effectiveTo?: string
+  paymentCDRules: PaymentCDRule[]
+  invoiceCloseCDRules: InvoiceCloseCDRule[]
+  advanceCDPercentage?: number
+  changedBy: string
+  changedAt: string
+  reason: string
+  approvalStatus: RuleApprovalStatus
+}
+
+export interface CDRuleChangeLog {
+  id: string
+  supplierId: string
+  ruleName: string
+  ruleVersion: number
+  previousValues: {
+    paymentCDRules: PaymentCDRule[]
+    invoiceCloseCDRules: InvoiceCloseCDRule[]
+    advanceCDPercentage?: number
+    effectiveFrom?: string
+    effectiveTo?: string
+  }
+  newValues: {
+    paymentCDRules: PaymentCDRule[]
+    invoiceCloseCDRules: InvoiceCloseCDRule[]
+    advanceCDPercentage?: number
+    effectiveFrom: string
+    effectiveTo?: string
+  }
+  effectiveDate: string
+  changedBy: string
+  changedAt: string
+  reason: string
+  approvalStatus: RuleApprovalStatus
+}
+
 export interface FixedScheme {
   id: string
   supplierId: string
@@ -37,6 +82,13 @@ export interface FixedScheme {
   fromDate: string
   toDate: string
   applyInMTBooking?: boolean
+  version?: number
+  parentSchemeId?: string
+  previousSchemeId?: string
+  changedBy?: string
+  changedAt?: string
+  changeReason?: string
+  approvalStatus?: RuleApprovalStatus
 }
 
 export interface AnnualTarget {
@@ -133,6 +185,9 @@ export interface ExpectedDiscount {
   invoiceId?: string
   schemeId?: string
   paymentId?: string
+  ruleVersionId?: string
+  ruleVersion?: number
+  ruleName?: string
   type: 'paymentCD' | 'invoiceCloseCD' | 'fixedScheme' | 'annual' | 'advanceCD'
   earnedDate: string
   invoiceDate?: string

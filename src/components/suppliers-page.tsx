@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Supplier, PaymentCDRule, InvoiceCloseCDRule } from '@/lib/types'
+import { Supplier, PaymentCDRule, InvoiceCloseCDRule, SupplierCDRuleVersion, CDRuleChangeLog } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -14,9 +14,54 @@ interface SuppliersPageProps {
   suppliers: Supplier[]
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void
   isLocked?: boolean
+  changedBy?: string
 }
 
-export default function SuppliersPage({ suppliers, setSuppliers, isLocked = false }: SuppliersPageProps) {
+function addDays(date: string, days: number): string {
+  const value = new Date(date)
+  value.setDate(value.getDate() + days)
+  return value.toISOString().split('T')[0]
+}
+
+function todayKey(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function rulesChanged(
+  supplier: Supplier,
+  paymentCDRules: PaymentCDRule[],
+  invoiceCloseCDRules: InvoiceCloseCDRule[],
+  advanceCDPercentage?: number
+): boolean {
+  return JSON.stringify({
+    paymentCDRules: supplier.paymentCDRules || [],
+    invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
+    advanceCDPercentage: supplier.advanceCDPercentage || 0
+  }) !== JSON.stringify({
+    paymentCDRules,
+    invoiceCloseCDRules,
+    advanceCDPercentage: advanceCDPercentage || 0
+  })
+}
+
+function makeInitialVersion(supplier: Supplier, effectiveTo?: string): SupplierCDRuleVersion {
+  return {
+    id: `${supplier.id}-cd-version-1`,
+    version: 1,
+    ruleName: 'Supplier CD Rules',
+    effectiveFrom: '1900-01-01',
+    effectiveTo,
+    paymentCDRules: supplier.paymentCDRules || [],
+    invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
+    advanceCDPercentage: supplier.advanceCDPercentage,
+    changedBy: 'System migration',
+    changedAt: new Date().toISOString(),
+    reason: 'Historical rule baseline',
+    approvalStatus: 'Approved'
+  }
+}
+
+export default function SuppliersPage({ suppliers, setSuppliers, isLocked = false, changedBy = 'Master Admin' }: SuppliersPageProps) {
   const [open, setOpen] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -50,13 +95,34 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
     const annualTargetRate = parseFloat(formData.get('annualTargetRate') as string) || 0
     const openingBalance = parseFloat(formData.get('openingBalance') as string) || 0
     const advanceCDPercentage = parseFloat(formData.get('advanceCDPercentage') as string) || 0
+    const effectiveDate = (formData.get('effectiveDate') as string) || todayKey()
+    const changeReason = ((formData.get('changeReason') as string) || '').trim() || (editingSupplier ? 'Supplier CD rule update' : 'Initial supplier CD rule setup')
+    const normalizedAdvanceCD = advanceCDPercentage > 0 ? advanceCDPercentage : undefined
+    const changedAt = new Date().toISOString()
+    const supplierId = editingSupplier?.id || `supplier-${Date.now()}`
+
+    const cdVersion: SupplierCDRuleVersion = {
+      id: `${supplierId}-cd-version-${Date.now()}`,
+      version: 1,
+      ruleName: 'Supplier CD Rules',
+      effectiveFrom: effectiveDate,
+      paymentCDRules,
+      invoiceCloseCDRules,
+      advanceCDPercentage: normalizedAdvanceCD,
+      changedBy,
+      changedAt,
+      reason: changeReason,
+      approvalStatus: 'Approved'
+    }
 
     const supplier: Supplier = {
-      id: editingSupplier?.id || `supplier-${Date.now()}`,
+      id: supplierId,
       name: formData.get('name') as string,
       paymentCDRules,
       invoiceCloseCDRules,
-      advanceCDPercentage: advanceCDPercentage > 0 ? advanceCDPercentage : undefined,
+      advanceCDPercentage: normalizedAdvanceCD,
+      cdRuleVersions: editingSupplier?.cdRuleVersions,
+      cdRuleChangeLog: editingSupplier?.cdRuleChangeLog,
       annualTarget: annualTargetMT > 0 ? {
         targetMT: annualTargetMT,
         ratePerMT: annualTargetRate
@@ -65,9 +131,78 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
     }
 
     if (editingSupplier) {
+      const hasRuleChange = rulesChanged(editingSupplier, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD)
+      if (hasRuleChange) {
+        const previousEffectiveTo = addDays(effectiveDate, -1)
+        const existingVersions = editingSupplier.cdRuleVersions?.length
+          ? editingSupplier.cdRuleVersions
+          : [makeInitialVersion(editingSupplier, previousEffectiveTo)]
+        const closedVersions = existingVersions.map((version, index) => {
+          if (index !== existingVersions.length - 1 || version.effectiveTo) return version
+          return { ...version, effectiveTo: previousEffectiveTo }
+        })
+        const nextVersionNumber = Math.max(...closedVersions.map((version) => version.version), 0) + 1
+        const newVersion: SupplierCDRuleVersion = {
+          ...cdVersion,
+          id: `${supplierId}-cd-version-${nextVersionNumber}-${Date.now()}`,
+          version: nextVersionNumber
+        }
+        const previousVersion = closedVersions[closedVersions.length - 1]
+        const changeLog: CDRuleChangeLog = {
+          id: `${supplierId}-cd-change-${Date.now()}`,
+          supplierId,
+          ruleName: 'Supplier CD Rules',
+          ruleVersion: nextVersionNumber,
+          previousValues: {
+            paymentCDRules: previousVersion?.paymentCDRules || editingSupplier.paymentCDRules || [],
+            invoiceCloseCDRules: previousVersion?.invoiceCloseCDRules || editingSupplier.invoiceCloseCDRules || [],
+            advanceCDPercentage: previousVersion?.advanceCDPercentage ?? editingSupplier.advanceCDPercentage,
+            effectiveFrom: previousVersion?.effectiveFrom,
+            effectiveTo: previousEffectiveTo
+          },
+          newValues: {
+            paymentCDRules,
+            invoiceCloseCDRules,
+            advanceCDPercentage: normalizedAdvanceCD,
+            effectiveFrom: effectiveDate
+          },
+          effectiveDate,
+          changedBy,
+          changedAt,
+          reason: changeReason,
+          approvalStatus: 'Approved'
+        }
+        supplier.cdRuleVersions = [...closedVersions, newVersion]
+        supplier.cdRuleChangeLog = [...(editingSupplier.cdRuleChangeLog || []), changeLog]
+      }
       setSuppliers((prev) => prev.map(s => s.id === editingSupplier.id ? supplier : s))
+      toast.success(hasRuleChange ? 'Supplier updated with new CD rule version' : 'Supplier updated')
     } else {
+      supplier.cdRuleVersions = [cdVersion]
+      supplier.cdRuleChangeLog = [{
+        id: `${supplierId}-cd-change-${Date.now()}`,
+        supplierId,
+        ruleName: 'Supplier CD Rules',
+        ruleVersion: 1,
+        previousValues: {
+          paymentCDRules: [],
+          invoiceCloseCDRules: [],
+          advanceCDPercentage: undefined
+        },
+        newValues: {
+          paymentCDRules,
+          invoiceCloseCDRules,
+          advanceCDPercentage: normalizedAdvanceCD,
+          effectiveFrom: effectiveDate
+        },
+        effectiveDate,
+        changedBy,
+        changedAt,
+        reason: changeReason,
+        approvalStatus: 'Approved'
+      }]
       setSuppliers((prev) => [...prev, supplier])
+      toast.success('Supplier added with CD rule version 1')
     }
 
     setOpen(false)
@@ -202,6 +337,21 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
                     </div>
                   </div>
                 )}
+
+                {supplier.cdRuleVersions && supplier.cdRuleVersions.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">CD Rule Versions</h4>
+                    <div className="space-y-1 text-xs">
+                      {[...supplier.cdRuleVersions].sort((a, b) => b.version - a.version).map((version) => (
+                        <div key={version.id} className="flex flex-wrap items-center gap-2 rounded border border-border bg-muted/20 px-2 py-1">
+                          <span className="font-semibold">v{version.version}</span>
+                          <span>{version.effectiveFrom} - {version.effectiveTo || 'Current'}</span>
+                          <span className="text-muted-foreground">{version.approvalStatus}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {supplier.paymentCDRules && supplier.paymentCDRules.length > 0 && (
                   <div>
@@ -234,6 +384,35 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
                     <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Annual Target</h4>
                     <div className="text-xs text-foreground/80">
                       {supplier.annualTarget.targetMT} MT @ {formatCurrency(supplier.annualTarget.ratePerMT)}/MT
+                    </div>
+                  </div>
+                )}
+
+                {supplier.cdRuleChangeLog && supplier.cdRuleChangeLog.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">CD Rule Change Log</h4>
+                    <div className="space-y-2">
+                      {[...supplier.cdRuleChangeLog].sort((a, b) => b.ruleVersion - a.ruleVersion).slice(0, 4).map((log) => (
+                        <div key={log.id} className="rounded border border-border bg-background/60 p-2 text-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-semibold">{log.ruleName} v{log.ruleVersion}</span>
+                            <span className="text-muted-foreground">{new Date(log.changedAt).toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="rounded bg-muted/30 p-2">
+                              <div className="font-medium">Old values</div>
+                              <div>Advance CD: {log.previousValues.advanceCDPercentage || 0}%</div>
+                              <div>Effective up to: {log.previousValues.effectiveTo || '-'}</div>
+                            </div>
+                            <div className="rounded bg-primary/5 p-2">
+                              <div className="font-medium">New values</div>
+                              <div>Advance CD: {log.newValues.advanceCDPercentage || 0}%</div>
+                              <div>Effective from: {log.effectiveDate}</div>
+                            </div>
+                          </div>
+                          <div className="mt-1 text-muted-foreground">Changed by {log.changedBy} · {log.reason} · {log.approvalStatus}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -318,6 +497,29 @@ function SupplierForm({ onSubmit, supplier }: { onSubmit: (e: React.FormEvent<HT
         <p className="text-[11px] text-muted-foreground">
           CD% applied to advance payment amounts (not mapped to any invoice at payment time)
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="effectiveDate" className="text-xs font-medium">CD Rule Effective Date</Label>
+          <Input
+            id="effectiveDate"
+            name="effectiveDate"
+            type="date"
+            defaultValue={todayKey()}
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="changeReason" className="text-xs font-medium">Reason for Change</Label>
+          <Input
+            id="changeReason"
+            name="changeReason"
+            defaultValue={supplier ? 'Supplier rule revision' : 'Initial rule setup'}
+            className="h-9 text-sm"
+            placeholder="e.g. New supplier circular"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
