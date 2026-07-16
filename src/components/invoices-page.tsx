@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -506,24 +506,49 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
             Record all purchase transactions for {currentFY}
           </p>
         </div>
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-		            <Button onClick={handleAdd} size="sm">
-              <Plus className="mr-1.5" size={16} />
-              Add Invoice
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="erp-invoice-dialog max-w-[min(1180px,calc(100vw-2rem))] max-h-[92dvh] p-0">
-            <DialogHeader className="erp-invoice-dialog-header">
-              <div className="erp-dialog-kicker">Purchase Entry</div>
-              <DialogTitle className="erp-invoice-dialog-title">
-                {editingInvoice ? 'Edit Invoice' : 'Add New Invoice'}
-              </DialogTitle>
-              <p className="erp-invoice-dialog-subtitle">Enter invoice header and add items</p>
-            </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="erp-invoice-form">
-              <div className="erp-invoice-body">
+        {!open && (
+          <Button onClick={handleAdd} size="sm">
+            <Plus className="mr-1.5" size={16} />
+            Add Invoice
+          </Button>
+        )}
+      </div>
+
+      {open ? (
+        <div className="erp-invoice-page-shell">
+          <form onSubmit={handleSubmit} className="erp-invoice-form erp-invoice-page-form">
+            <div className="erp-invoice-page-header">
+              <div className="flex min-w-0 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0 rounded-full"
+                  onClick={() => handleOpenChange(false)}
+                  aria-label="Back to purchase invoices"
+                >
+                  <X size={18} />
+                </Button>
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-semibold">
+                    {editingInvoice ? 'Edit Purchase Invoice' : 'Create Purchase Invoice'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Bill from supplier and add invoice items</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button type="button" variant="outline" className="h-10 min-w-28" disabled>
+                  Save & New
+                </Button>
+                <Button type="button" variant="outline" className="h-10 min-w-24" onClick={() => handleOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="h-10 min-w-32" disabled={invoiceItems.length === 0}>
+                  {editingInvoice ? 'Update' : 'Save'}
+                </Button>
+              </div>
+            </div>
+            <div className="erp-invoice-body erp-invoice-page-body">
                 <div className="erp-form-panel">
                   <h3 className="erp-section-title">Invoice Header</h3>
                   <div className="erp-responsive-grid">
@@ -957,9 +982,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                   </Button>
                 </div>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+          </form>
+        </div>
+      ) : null}
 
         <PartyEditorDialog
           open={showQuickSupplier}
@@ -1101,8 +1126,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
             toast.success(`Item "${item.name}" created`)
           }}
         />
-      </div>
-      <>
+      {!open && (
+        <>
           <Card className="bg-accent/5 border-accent/20">
             <CardContent className="pt-3 pb-3">
               <div className="flex gap-2.5">
@@ -1274,7 +1299,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
               </CardContent>
             </Card>
           )}
-      </>
+        </>
+      )}
 
       {previewInvoice && (
         <InvoicePreviewDialog

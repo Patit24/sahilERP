@@ -133,6 +133,70 @@
   flex-direction: column;
 }
 
+.erp-invoice-page-shell {
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.86);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+}
+
+.erp-invoice-page-form {
+  height: auto;
+  min-height: calc(100dvh - 11rem);
+}
+
+.erp-invoice-page-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.96);
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.85rem 1.25rem;
+  backdrop-filter: blur(14px);
+}
+
+.erp-invoice-page-body {
+  min-height: calc(100dvh - 16rem);
+  padding: 0;
+  gap: 0;
+  background: #ffffff;
+}
+
+.erp-invoice-page-body > .erp-form-panel {
+  border-radius: 0;
+  border-width: 0 0 1px 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.erp-invoice-page-body .erp-table-panel {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.erp-invoice-page-body .erp-total-panel {
+  margin: 0;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  box-shadow: none;
+}
+
+.erp-invoice-page-body .erp-section-toolbar,
+.erp-invoice-page-body #purchase-invoice-items,
+.erp-invoice-page-body .space-y-2\.5 {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
 .erp-invoice-body {
   flex: 1;
   min-height: 0;
@@ -229,6 +293,10 @@
   backdrop-filter: blur(16px);
 }
 
+.erp-invoice-page-form .erp-dialog-footer {
+  display: none;
+}
+
 .erp-dialog-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -274,9 +342,43 @@
     height: calc(100dvh - 10rem);
   }
 
+  .erp-invoice-page-shell {
+    border-radius: 1rem;
+  }
+
+  .erp-invoice-page-form {
+    height: auto;
+    min-height: calc(100dvh - 9rem);
+  }
+
+  .erp-invoice-page-header {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 0.9rem;
+  }
+
+  .erp-invoice-page-header > div:last-child {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .erp-invoice-page-header > div:last-child button:first-child {
+    display: none;
+  }
+
+  .erp-invoice-page-body {
+    min-height: calc(100dvh - 18rem);
+    padding: 0;
+  }
+
   .erp-invoice-body {
     padding: 1rem;
     gap: 1rem;
+  }
+
+  .erp-invoice-page-body.erp-invoice-body {
+    padding: 0;
+    gap: 0;
   }
 
   .erp-form-panel {

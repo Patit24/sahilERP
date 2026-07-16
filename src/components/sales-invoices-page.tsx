@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { SalesInvoice, Customer, Item, InvoiceItem, CustomerPayment } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -460,69 +460,96 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Sales Invoices</p>
-                <p className="text-3xl font-semibold text-foreground">{fyInvoices.length}</p>
+      {!open && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Total Sales Invoices</p>
+                  <p className="text-3xl font-semibold text-foreground">{fyInvoices.length}</p>
+                </div>
+                <Receipt size={40} weight="duotone" className="text-accent" />
               </div>
-              <Receipt size={40} weight="duotone" className="text-accent" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Quantity Sold</p>
-                <p className="text-3xl font-semibold text-foreground">{formatMT(totalMT)}</p>
+          <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Total Quantity Sold</p>
+                  <p className="text-3xl font-semibold text-foreground">{formatMT(totalMT)}</p>
+                </div>
+                <div className="text-success text-2xl font-mono">MT</div>
               </div>
-              <div className="text-success text-2xl font-mono">MT</div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Sales Amount</p>
-                <p className="text-3xl font-semibold text-foreground">{formatCurrency(totalAmount)}</p>
+          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Total Sales Amount</p>
+                  <p className="text-3xl font-semibold text-foreground">{formatCurrency(totalAmount)}</p>
+                </div>
+                <div className="text-primary text-xl font-mono">₹</div>
               </div>
-              <div className="text-primary text-xl font-mono">₹</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
+      <Card className={open ? 'border-0 bg-transparent shadow-none' : undefined}>
+        <CardContent className={open ? 'p-0' : 'pt-6'}>
+          <div className={open ? 'hidden' : 'flex items-center justify-between mb-4'}>
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Receipt size={22} weight="duotone" className="text-primary" />
               Sales Invoice List
             </h3>
-            <Dialog open={open} onOpenChange={handleOpenChange}>
-              <DialogTrigger asChild>
-		                <Button onClick={handleAdd}>
-                  <Plus size={18} weight="bold" />
-                  Add Sales Invoice
-                </Button>
-              </DialogTrigger>
-                <DialogContent className="erp-invoice-dialog max-w-[min(1180px,calc(100vw-2rem))] max-h-[92dvh] p-0">
-                  <DialogHeader className="erp-invoice-dialog-header">
-                    <div className="erp-dialog-kicker">Sales Entry</div>
-                    <DialogTitle className="erp-invoice-dialog-title">
-                      {editingInvoice ? 'Edit Sales Invoice' : 'Add Sales Invoice'}
-                    </DialogTitle>
-                    <p className="erp-invoice-dialog-subtitle">Enter invoice header and add items</p>
-                  </DialogHeader>
-                  
-                  <form onSubmit={handleSubmit} className="erp-invoice-form">
-                    <div className="erp-invoice-body">
+            {!open && (
+              <Button onClick={handleAdd}>
+                <Plus size={18} weight="bold" />
+                Add Sales Invoice
+              </Button>
+            )}
+          </div>
+
+          {open ? (
+            <div className="erp-invoice-page-shell">
+              <form onSubmit={handleSubmit} className="erp-invoice-form erp-invoice-page-form">
+                <div className="erp-invoice-page-header">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 shrink-0 rounded-full"
+                      onClick={() => handleOpenChange(false)}
+                      aria-label="Back to sales invoices"
+                    >
+                      <X size={18} />
+                    </Button>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-xl font-semibold">
+                        {editingInvoice ? 'Edit Sales Invoice' : 'Create Sales Invoice'}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">Bill to customer and add invoice items</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button type="button" variant="outline" className="h-10 min-w-28" disabled>
+                      Save & New
+                    </Button>
+                    <Button type="button" variant="outline" className="h-10 min-w-24" onClick={() => handleOpenChange(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="h-10 min-w-32" disabled={invoiceItems.length === 0}>
+                      {editingInvoice ? 'Update' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+                <div className="erp-invoice-body erp-invoice-page-body">
                       <div className="erp-form-panel">
                         <h3 className="erp-section-title">Invoice Header</h3>
                         <div className="erp-responsive-grid">
@@ -925,9 +952,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                         </Button>
                       </div>
                     </div>
-                  </form>
-                </DialogContent>
-            </Dialog>
+              </form>
+            </div>
+          ) : null}
 
             <PartyEditorDialog
               open={showQuickCustomer}
@@ -1068,134 +1095,136 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                 toast.success(`Item "${item.name}" created`)
               }}
             />
-          </div>
-          
-          <div className="flex items-center gap-4 flex-wrap mb-4">
-            <div className="flex items-center gap-2">
-              <FunnelSimple size={18} className="text-muted-foreground" />
-              <Label htmlFor="customer-filter" className="text-sm font-medium">Customer:</Label>
-              <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                <SelectTrigger id="customer-filter" className="w-48 h-9">
-                  <SelectValue placeholder="All Customers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  {customers.map(customer => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Label htmlFor="month-filter" className="text-sm font-medium">Month:</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger id="month-filter" className="w-48 h-9">
-                  <SelectValue placeholder="Select Month" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Months</SelectItem>
-                  {fyMonths.map((month) => (
-                    <SelectItem key={month.value} value={month.value}>
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Badge variant="secondary" className="gap-1.5 ml-auto">
-              {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
-            </Badge>
-          </div>
+          {!open && (
+            <>
+              <div className="flex items-center gap-4 flex-wrap mb-4">
+                <div className="flex items-center gap-2">
+                  <FunnelSimple size={18} className="text-muted-foreground" />
+                  <Label htmlFor="customer-filter" className="text-sm font-medium">Customer:</Label>
+                  <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                    <SelectTrigger id="customer-filter" className="w-48 h-9">
+                      <SelectValue placeholder="All Customers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Customers</SelectItem>
+                      {customers.map(customer => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-	          <div className="rounded-lg border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">Invoice No</TableHead>
-                    <TableHead className="font-semibold">Date</TableHead>
-                    <TableHead className="font-semibold">Customer</TableHead>
-                    <TableHead className="font-semibold">Items</TableHead>
-                    <TableHead className="font-semibold text-right">Quantity (MT)</TableHead>
-                    <TableHead className="font-semibold text-right">Amount</TableHead>
-                    <TableHead className="font-semibold text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fyInvoices.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No sales invoices found for FY {currentFY}. Add your first invoice to get started.
-                      </TableCell>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="month-filter" className="text-sm font-medium">Month:</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger id="month-filter" className="w-48 h-9">
+                      <SelectValue placeholder="Select Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Months</SelectItem>
+                      {fyMonths.map((month) => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Badge variant="secondary" className="gap-1.5 ml-auto">
+                  {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
+                </Badge>
+              </div>
+
+              <div className="rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Invoice No</TableHead>
+                      <TableHead className="font-semibold">Date</TableHead>
+                      <TableHead className="font-semibold">Customer</TableHead>
+                      <TableHead className="font-semibold">Items</TableHead>
+                      <TableHead className="font-semibold text-right">Quantity (MT)</TableHead>
+                      <TableHead className="font-semibold text-right">Amount</TableHead>
+                      <TableHead className="font-semibold text-right">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-mono font-medium">{invoice.invoiceNo}</TableCell>
-                        <TableCell>{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell className="font-medium">{getCustomerName(invoice.customerId)}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {(invoice.items || []).map((item, idx) => (
-                              <div key={idx} className="text-muted-foreground">
-                                {getItemName(item.itemId)}: {formatMT(item.quantityMT)} @ {formatCurrency(item.rate)}/MT
-                              </div>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">{formatMT(invoice.quantityMT)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium">{formatCurrency(invoice.invoiceAmount)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setPreviewInvoice(invoice)}
-                              className="text-primary hover:text-primary hover:bg-primary/10"
-                              aria-label={`Preview invoice ${invoice.invoiceNo}`}
-                            >
-                              <Receipt size={16} weight="bold" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownloadInvoicePDF(invoice)}
-                              className="h-8 gap-1.5 px-2 text-xs"
-                              aria-label={`Download invoice ${invoice.invoiceNo} PDF`}
-                              title="Download PDF"
-                            >
-                              <DownloadSimple size={14} weight="bold" />
-                              PDF
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(invoice)}
-                              className="text-primary hover:text-primary hover:bg-primary/10"
-                              aria-label={`Edit invoice ${invoice.invoiceNo}`}
-                            >
-                              <PencilSimple size={16} weight="bold" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(invoice)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              aria-label={`Delete invoice ${invoice.invoiceNo}`}
-                            >
-                              <Trash size={16} weight="bold" />
-                            </Button>
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {fyInvoices.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No sales invoices found for FY {currentFY}. Add your first invoice to get started.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-	          </div>
+                    ) : (
+                      filteredInvoices.map((invoice) => (
+                        <TableRow key={invoice.id}>
+                          <TableCell className="font-mono font-medium">{invoice.invoiceNo}</TableCell>
+                          <TableCell>{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
+                          <TableCell className="font-medium">{getCustomerName(invoice.customerId)}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {(invoice.items || []).map((item, idx) => (
+                                <div key={idx} className="text-muted-foreground">
+                                  {getItemName(item.itemId)}: {formatMT(item.quantityMT)} @ {formatCurrency(item.rate)}/MT
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">{formatMT(invoice.quantityMT)}</TableCell>
+                          <TableCell className="text-right font-mono font-medium">{formatCurrency(invoice.invoiceAmount)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPreviewInvoice(invoice)}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                aria-label={`Preview invoice ${invoice.invoiceNo}`}
+                              >
+                                <Receipt size={16} weight="bold" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadInvoicePDF(invoice)}
+                                className="h-8 gap-1.5 px-2 text-xs"
+                                aria-label={`Download invoice ${invoice.invoiceNo} PDF`}
+                                title="Download PDF"
+                              >
+                                <DownloadSimple size={14} weight="bold" />
+                                PDF
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(invoice)}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                aria-label={`Edit invoice ${invoice.invoiceNo}`}
+                              >
+                                <PencilSimple size={16} weight="bold" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(invoice)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                aria-label={`Delete invoice ${invoice.invoiceNo}`}
+                              >
+                                <Trash size={16} weight="bold" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
