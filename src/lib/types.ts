@@ -160,6 +160,7 @@ export interface Payment {
   supplierId: string
   paymentDate: string
   amount: number
+  paymentMode?: string
   isAdvance: boolean
   bookingMT?: number
   bookingMarketRate?: number

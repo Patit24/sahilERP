@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
-import { PurchaseInvoice, Supplier, Item, InvoiceItem } from '@/lib/types'
+import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -22,6 +23,8 @@ interface InvoicesPageProps {
   setInvoices: (updater: (prev: PurchaseInvoice[]) => PurchaseInvoice[]) => void
   suppliers: Supplier[]
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void
+  payments: Payment[]
+  setPayments: (updater: (prev: Payment[]) => Payment[]) => void
   items: Item[]
   setItems: (updater: (prev: Item[]) => Item[]) => void
   currentFY: string
@@ -29,7 +32,7 @@ interface InvoicesPageProps {
   gstPercentage?: number
 }
 
-export default function InvoicesPage({ invoices, setInvoices, suppliers, setSuppliers, items, setItems, currentFY, isLocked = false, gstPercentage = 18 }: InvoicesPageProps) {
+export default function InvoicesPage({ invoices, setInvoices, suppliers, setSuppliers, payments, setPayments, items, setItems, currentFY, isLocked = false, gstPercentage = 18 }: InvoicesPageProps) {
   const [open, setOpen] = useState(false)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [editingInvoice, setEditingInvoice] = useState<PurchaseInvoice | null>(null)
@@ -44,6 +47,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [additionalCostBasicRate, setAdditionalCostBasicRate] = useState<number>(0)
   const [additionalCostFinal, setAdditionalCostFinal] = useState<number>(0)
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
+  const [amountPaid, setAmountPaid] = useState('')
+  const [paymentMode, setPaymentMode] = useState('Cash')
+  const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState('')
   const [showQuickSupplier, setShowQuickSupplier] = useState(false)
   const [quickSupplierName, setQuickSupplierName] = useState('')
@@ -98,6 +104,49 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   
   const totalMT = filteredInvoices.reduce((sum, inv) => sum + inv.quantityMT, 0)
   const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
+
+  const getInvoicePaymentId = (invoiceId: string) => `purchase-invoice-payment-${invoiceId}`
+
+  const syncInvoicePayment = (invoiceId: string, supplierId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, mode: string) => {
+    const paidAmount = Math.max(0, rawAmount || 0)
+
+    setPayments((prev) => {
+      const paymentId = getInvoicePaymentId(invoiceId)
+
+      if (paidAmount <= 0) {
+        return prev.filter((payment) => payment.id !== paymentId)
+      }
+
+      const payment: Payment = {
+        id: paymentId,
+        supplierId,
+        paymentDate: invoiceDate,
+        amount: paidAmount,
+        paymentMode: mode || 'Cash',
+        isAdvance: false,
+        doNotApplyCD: true,
+        fy: currentFY,
+        createdAt: Date.now()
+      }
+
+      const exists = prev.some((candidate) => candidate.id === paymentId)
+      if (!exists) return [...prev, payment]
+
+      return prev.map((candidate) => (
+        candidate.id === paymentId
+          ? {
+              ...candidate,
+              ...payment,
+              createdAt: candidate.createdAt || payment.createdAt
+            }
+          : candidate
+      ))
+    })
+
+    if (paidAmount > 0) {
+      toast.success(`Payment linked to invoice ${invoiceNo}`)
+    }
+  }
 
   const addInvoiceItem = () => {
     setInvoiceItems(prev => [...prev, {
@@ -275,6 +324,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     const additionalCostRemarks = (formData.get('additionalCostRemarks') as string) || ''
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
     const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
+    const rawAmountPaid = parseFloat(formData.get('amountPaid') as string) || 0
+    const paymentAmount = Math.min(Math.max(rawAmountPaid, 0), finalInvoiceAmount)
+    const selectedPaymentMode = (formData.get('paymentMode') as string) || 'Cash'
 
     if (editingInvoice) {
       const updated: PurchaseInvoice = {
@@ -291,10 +343,12 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         roundOffAdjustment: roundOffAdjustment || undefined,
       }
       setInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updated : inv))
+      syncInvoicePayment(editingInvoice.id, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode)
       toast.success('Invoice updated successfully')
     } else {
+      const invoiceId = `invoice-${Date.now()}`
       const invoice: PurchaseInvoice = {
-        id: `invoice-${Date.now()}`,
+        id: invoiceId,
         supplierId: supplierId,
         invoiceNo: invoiceNo,
         invoiceDate: invoiceDate,
@@ -309,12 +363,16 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         createdAt: Date.now()
       }
       setInvoices((prev) => [...prev, invoice])
+      syncInvoicePayment(invoiceId, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode)
       toast.success('Invoice added successfully')
     }
 
     setOpen(false)
     setInvoiceItems([])
     setEditingInvoice(null)
+    setAmountPaid('')
+    setPaymentMode('Cash')
+    setMarkAsFullyPaid(false)
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -360,6 +418,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
       setRoundOffAdjustment(0)
+      setAmountPaid('')
+      setPaymentMode('Cash')
+      setMarkAsFullyPaid(false)
       
       setTimeout(() => {
         document.querySelector('.erp-invoice-body')?.scrollTo({ top: 0 })
@@ -404,6 +465,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
       setRoundOffAdjustment(0)
+      setAmountPaid('')
+      setPaymentMode('Cash')
+      setMarkAsFullyPaid(false)
     }
   }
 
@@ -420,6 +484,10 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
     setAdditionalCostFinal(invoice.additionalCost || 0)
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
+    const linkedPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
+    setAmountPaid(linkedPayment ? String(linkedPayment.amount) : '')
+    setPaymentMode(linkedPayment?.paymentMode || 'Cash')
+    setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
     setOpen(true)
   }
 
@@ -437,6 +505,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const confirmDelete = () => {
     if (invoiceToDelete) {
       setInvoices((prev) => prev.filter(inv => inv.id !== invoiceToDelete.id))
+      setPayments((prev) => prev.filter((payment) => payment.id !== getInvoicePaymentId(invoiceToDelete.id)))
       toast.success('Invoice deleted successfully')
       setDeleteDialogOpen(false)
       setInvoiceToDelete(null)
@@ -582,6 +651,12 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
 
   const totalInvoiceAmount = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
   const totalInvoiceQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
+  const finalInvoiceAmountPreview = parseFloat((totalInvoiceAmount + additionalCostFinal + roundOffAdjustment).toFixed(2))
+  const paidAmountPreview = Math.min(
+    Math.max(markAsFullyPaid ? finalInvoiceAmountPreview : parseFloat(amountPaid) || 0, 0),
+    finalInvoiceAmountPreview
+  )
+  const balanceAmountPreview = Math.max(finalInvoiceAmountPreview - paidAmountPreview, 0)
 
   const fyDateRange = getFYDateRange(currentFY)
   const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
@@ -956,6 +1031,80 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                             </div>
                           </div>
                           <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
+                        <input type="hidden" name="amountPaid" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountPaid} />
+                        <input type="hidden" name="paymentMode" value={paymentMode} />
+
+                        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <h3 className="text-sm font-semibold text-foreground">Payment Settlement</h3>
+                                <p className="text-xs text-muted-foreground">Record amount paid while saving this purchase invoice.</p>
+                              </div>
+                              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                <Checkbox
+                                  checked={markAsFullyPaid}
+                                  onCheckedChange={(checked) => setMarkAsFullyPaid(Boolean(checked))}
+                                />
+                                Mark as fully paid
+                              </label>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="purchaseAmountPaid">Amount Paid</Label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                  <Input
+                                    id="purchaseAmountPaid"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max={finalInvoiceAmountPreview || undefined}
+                                    value={markAsFullyPaid ? finalInvoiceAmountPreview || '' : amountPaid}
+                                    onChange={(event) => setAmountPaid(event.target.value)}
+                                    disabled={markAsFullyPaid}
+                                    placeholder="0.00"
+                                    className="h-11 pl-8 font-mono text-right"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label>Mode</Label>
+                                <Select value={paymentMode} onValueChange={setPaymentMode}>
+                                  <SelectTrigger className="h-11">
+                                    <SelectValue placeholder="Cash" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Cash">Cash</SelectItem>
+                                    <SelectItem value="Bank">Bank</SelectItem>
+                                    <SelectItem value="UPI">UPI</SelectItem>
+                                    <SelectItem value="Cheque">Cheque</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-muted/40 p-3">
+                            <div className="flex items-center justify-between border-b border-border/70 py-2 text-sm">
+                              <span className="text-muted-foreground">Total Amount</span>
+                              <span className="font-mono font-semibold">{formatCurrency(finalInvoiceAmountPreview)}</span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-border/70 py-2 text-sm">
+                              <span className="text-muted-foreground">Amount Paid</span>
+                              <span className="font-mono font-semibold text-primary">{formatCurrency(paidAmountPreview)}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 text-sm">
+                              <span className="font-semibold text-emerald-600">Balance Amount</span>
+                              <span className="font-mono font-bold text-emerald-600">{formatCurrency(balanceAmountPreview)}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

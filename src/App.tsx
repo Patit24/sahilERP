@@ -1458,6 +1458,8 @@ function App() {
               setInvoices={setInvoices}
               suppliers={safeSuppliers}
               setSuppliers={setSuppliers}
+              payments={safePayments}
+              setPayments={setPayments}
               items={safeItems}
               setItems={setItems}
               currentFY={safeCurrentFY}
@@ -1495,6 +1497,8 @@ function App() {
               setSalesInvoices={setSalesInvoices}
               customers={safeCustomers}
               setCustomers={setCustomers}
+              customerPayments={safeCustomerPayments}
+              setCustomerPayments={setCustomerPayments}
               items={safeItems}
               setItems={setItems}
               currentFY={safeCurrentFY}
