@@ -5,11 +5,23 @@ export interface Item {
   description?: string
   openingStock?: number
   openingValue?: number
+  itemType?: 'Product' | 'Service'
+  category?: string
+  purchasePrice?: number
+  salesPrice?: number
+  gstRate?: number
+  itemCode?: string
 }
 
 export interface Supplier {
   id: string
   name: string
+  phone?: string
+  address?: string
+  state?: string
+  pincode?: string
+  city?: string
+  gstin?: string
   paymentCDRules: PaymentCDRule[]
   invoiceCloseCDRules: InvoiceCloseCDRule[]
   advanceCDPercentage?: number
