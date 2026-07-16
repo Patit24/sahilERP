@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog'
 import { exportPurchaseInvoicePDF } from '@/lib/pdf-export'
+import { PartyEditorDialog } from '@/components/party-editor-dialog'
+import { ItemEditorDialog } from '@/components/item-editor-dialog'
 
 interface InvoicesPageProps {
   invoices: PurchaseInvoice[]
@@ -52,34 +54,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState('')
   const [showQuickSupplier, setShowQuickSupplier] = useState(false)
-  const [quickSupplierName, setQuickSupplierName] = useState('')
-  const [quickSupplierPhone, setQuickSupplierPhone] = useState('')
-  const [quickSupplierAddress, setQuickSupplierAddress] = useState('')
-  const [quickSupplierState, setQuickSupplierState] = useState('')
-  const [quickSupplierPincode, setQuickSupplierPincode] = useState('')
-  const [quickSupplierCity, setQuickSupplierCity] = useState('')
-  const [quickSupplierShippingSame, setQuickSupplierShippingSame] = useState(true)
-  const [quickSupplierShippingAddress, setQuickSupplierShippingAddress] = useState('')
-  const [quickSupplierShippingState, setQuickSupplierShippingState] = useState('')
-  const [quickSupplierShippingPincode, setQuickSupplierShippingPincode] = useState('')
-  const [quickSupplierShippingCity, setQuickSupplierShippingCity] = useState('')
-  const [quickSupplierGstin, setQuickSupplierGstin] = useState('')
-  const [quickSupplierOpeningBalance, setQuickSupplierOpeningBalance] = useState('')
-  const [quickSupplierAdvanceCD, setQuickSupplierAdvanceCD] = useState('')
-  const [quickSupplierTargetMT, setQuickSupplierTargetMT] = useState('')
-  const [quickSupplierTargetRate, setQuickSupplierTargetRate] = useState('')
   const [showQuickItem, setShowQuickItem] = useState(false)
   const [itemPickerOpen, setItemPickerOpen] = useState(false)
   const [itemSearch, setItemSearch] = useState('')
   const [selectedItemCategory, setSelectedItemCategory] = useState('all')
   const [selectedPickerItemId, setSelectedPickerItemId] = useState('')
-  const [quickItemName, setQuickItemName] = useState('')
-  const [quickItemUnit, setQuickItemUnit] = useState<Item['unit']>('MT')
-  const [quickItemCategory, setQuickItemCategory] = useState('')
-  const [quickItemPurchasePrice, setQuickItemPurchasePrice] = useState('')
-  const [quickItemSalesPrice, setQuickItemSalesPrice] = useState('')
-  const [quickItemOpeningStock, setQuickItemOpeningStock] = useState('')
-  const [quickItemGstRate, setQuickItemGstRate] = useState('')
   
   const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
   const fyMonths = getFYMonths(currentFY)
@@ -380,34 +359,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     if (newOpen && !editingInvoice) {
       setSelectedSupplierId('')
       setShowQuickSupplier(false)
-      setQuickSupplierName('')
-      setQuickSupplierPhone('')
-      setQuickSupplierAddress('')
-      setQuickSupplierState('')
-      setQuickSupplierPincode('')
-      setQuickSupplierCity('')
-      setQuickSupplierShippingSame(true)
-      setQuickSupplierShippingAddress('')
-      setQuickSupplierShippingState('')
-      setQuickSupplierShippingPincode('')
-      setQuickSupplierShippingCity('')
-      setQuickSupplierGstin('')
-      setQuickSupplierOpeningBalance('')
-      setQuickSupplierAdvanceCD('')
-      setQuickSupplierTargetMT('')
-      setQuickSupplierTargetRate('')
       setShowQuickItem(false)
       setItemPickerOpen(false)
       setItemSearch('')
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
-      setQuickItemName('')
-      setQuickItemUnit('MT')
-      setQuickItemCategory('')
-      setQuickItemPurchasePrice('')
-      setQuickItemSalesPrice('')
-      setQuickItemOpeningStock('')
-      setQuickItemGstRate('')
       setInvoiceItems([{
         itemId: '',
         quantityMT: 0,
@@ -434,34 +390,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setEditingInvoice(null)
       setSelectedSupplierId('')
       setShowQuickSupplier(false)
-      setQuickSupplierName('')
-      setQuickSupplierPhone('')
-      setQuickSupplierAddress('')
-      setQuickSupplierState('')
-      setQuickSupplierPincode('')
-      setQuickSupplierCity('')
-      setQuickSupplierShippingSame(true)
-      setQuickSupplierShippingAddress('')
-      setQuickSupplierShippingState('')
-      setQuickSupplierShippingPincode('')
-      setQuickSupplierShippingCity('')
-      setQuickSupplierGstin('')
-      setQuickSupplierOpeningBalance('')
-      setQuickSupplierAdvanceCD('')
-      setQuickSupplierTargetMT('')
-      setQuickSupplierTargetRate('')
       setShowQuickItem(false)
       setItemPickerOpen(false)
       setItemSearch('')
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
-      setQuickItemName('')
-      setQuickItemUnit('MT')
-      setQuickItemCategory('')
-      setQuickItemPurchasePrice('')
-      setQuickItemSalesPrice('')
-      setQuickItemOpeningStock('')
-      setQuickItemGstRate('')
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
       setRoundOffAdjustment(0)
@@ -521,113 +454,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     }
     setEditingInvoice(null)
     setOpen(true)
-  }
-
-  const handleQuickSupplierCreate = () => {
-    const name = quickSupplierName.trim()
-    if (!name) {
-      toast.error('Supplier name is required')
-      return
-    }
-
-    const duplicate = suppliers.some((supplier) => supplier.name.trim().toLowerCase() === name.toLowerCase())
-    if (duplicate) {
-      toast.error('Supplier already exists')
-      return
-    }
-
-    const targetMT = parseFloat(quickSupplierTargetMT) || 0
-    const targetRate = parseFloat(quickSupplierTargetRate) || 0
-
-    const supplier: Supplier = {
-      id: `supplier-${Date.now()}`,
-      name,
-      phone: quickSupplierPhone.trim() || undefined,
-      address: quickSupplierAddress.trim() || undefined,
-      state: quickSupplierState.trim() || undefined,
-      pincode: quickSupplierPincode.trim() || undefined,
-      city: quickSupplierCity.trim() || undefined,
-      shippingSameAsBilling: quickSupplierShippingSame,
-      shippingAddress: (quickSupplierShippingSame ? quickSupplierAddress : quickSupplierShippingAddress).trim() || undefined,
-      shippingState: (quickSupplierShippingSame ? quickSupplierState : quickSupplierShippingState).trim() || undefined,
-      shippingPincode: (quickSupplierShippingSame ? quickSupplierPincode : quickSupplierShippingPincode).trim() || undefined,
-      shippingCity: (quickSupplierShippingSame ? quickSupplierCity : quickSupplierShippingCity).trim() || undefined,
-      gstin: quickSupplierGstin.trim() || undefined,
-      openingBalance: parseFloat(quickSupplierOpeningBalance) || 0,
-      advanceCDPercentage: parseFloat(quickSupplierAdvanceCD) || 0,
-      annualTarget: targetMT > 0 || targetRate > 0 ? {
-        targetMT,
-        ratePerMT: targetRate
-      } : undefined,
-      paymentCDRules: [],
-      invoiceCloseCDRules: []
-    }
-
-    setSuppliers((prev) => [...prev, supplier])
-    setSelectedSupplierId(supplier.id)
-    setQuickSupplierName('')
-    setQuickSupplierPhone('')
-    setQuickSupplierAddress('')
-    setQuickSupplierState('')
-    setQuickSupplierPincode('')
-    setQuickSupplierCity('')
-    setQuickSupplierShippingSame(true)
-    setQuickSupplierShippingAddress('')
-    setQuickSupplierShippingState('')
-    setQuickSupplierShippingPincode('')
-    setQuickSupplierShippingCity('')
-    setQuickSupplierGstin('')
-    setQuickSupplierOpeningBalance('')
-    setQuickSupplierAdvanceCD('')
-    setQuickSupplierTargetMT('')
-    setQuickSupplierTargetRate('')
-    setShowQuickSupplier(false)
-    toast.success(`Supplier "${name}" created`)
-  }
-
-  const handleQuickItemCreate = () => {
-    const name = quickItemName.trim()
-    if (!name) {
-      toast.error('Item name is required')
-      return
-    }
-
-    const duplicate = items.some((item) => item.name.trim().toLowerCase() === name.toLowerCase())
-    if (duplicate) {
-      toast.error('Item already exists')
-      return
-    }
-
-    const item: Item = {
-      id: `item-${Date.now()}`,
-      name,
-      unit: quickItemUnit,
-      category: quickItemCategory.trim() || undefined,
-      purchasePrice: parseFloat(quickItemPurchasePrice) || undefined,
-      salesPrice: parseFloat(quickItemSalesPrice) || undefined,
-      openingStock: parseFloat(quickItemOpeningStock) || undefined,
-      gstRate: parseFloat(quickItemGstRate) || undefined
-    }
-
-    setItems((prev) => [...prev, item])
-    const basicRate = item.purchasePrice || 0
-    const rate = basicRate > 0 ? parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2)) : 0
-    setInvoiceItems((prev) => {
-      const row = { itemId: item.id, quantityMT: 0, basicRate, rate, amount: 0 }
-      const emptyIndex = prev.findIndex((existing) => !existing.itemId)
-      if (emptyIndex === -1) return [...prev, row]
-      return prev.map((existing, index) => index === emptyIndex ? row : existing)
-    })
-    setSelectedPickerItemId(item.id)
-    setQuickItemName('')
-    setQuickItemUnit('MT')
-    setQuickItemCategory('')
-    setQuickItemPurchasePrice('')
-    setQuickItemSalesPrice('')
-    setQuickItemOpeningStock('')
-    setQuickItemGstRate('')
-    setShowQuickItem(false)
-    toast.success(`Item "${name}" created`)
   }
 
   const supplierMap = new Map(suppliers.map(s => [s.id, s]))
@@ -1135,244 +961,19 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           </DialogContent>
         </Dialog>
 
-        <Dialog open={showQuickSupplier} onOpenChange={setShowQuickSupplier}>
-          <DialogContent className="max-w-[min(640px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
-            <DialogHeader className="border-b border-border px-6 py-5">
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <UserPlus size={22} className="text-primary" weight="duotone" />
-                Create New Party
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-5 px-6 py-5">
-              <div className="space-y-2">
-                <Label htmlFor="quickSupplierName">Party Name <span className="text-destructive">*</span></Label>
-                <Input
-                  id="quickSupplierName"
-                  value={quickSupplierName}
-                  onChange={(event) => setQuickSupplierName(event.target.value)}
-                  placeholder="Enter name"
-                  className="h-11"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="quickSupplierPhone">Mobile Number</Label>
-                <Input
-                  id="quickSupplierPhone"
-                  value={quickSupplierPhone}
-                  onChange={(event) => setQuickSupplierPhone(event.target.value)}
-                  placeholder="Enter Mobile Number"
-                  className="h-11"
-                />
-              </div>
-
-              <div className="rounded-xl border border-border bg-muted/20">
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <div className="font-semibold">Address (Optional)</div>
-                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
-                    setQuickSupplierAddress('')
-                    setQuickSupplierState('')
-                    setQuickSupplierPincode('')
-                    setQuickSupplierCity('')
-                    setQuickSupplierShippingAddress('')
-                    setQuickSupplierShippingState('')
-                    setQuickSupplierShippingPincode('')
-                    setQuickSupplierShippingCity('')
-                  }}>
-                    Remove
-                  </Button>
-                </div>
-                <div className="space-y-4 p-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quickSupplierAddress" className="text-xs uppercase text-muted-foreground">
-                      Billing Address
-                    </Label>
-                    <Textarea
-                      id="quickSupplierAddress"
-                      value={quickSupplierAddress}
-                      onChange={(event) => setQuickSupplierAddress(event.target.value)}
-                      placeholder="Enter billing address"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="quickSupplierState" className="text-xs uppercase text-muted-foreground">State</Label>
-                      <Input
-                        id="quickSupplierState"
-                        value={quickSupplierState}
-                        onChange={(event) => setQuickSupplierState(event.target.value)}
-                        placeholder="Enter State"
-                        className="h-10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickSupplierPincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
-                      <Input
-                        id="quickSupplierPincode"
-                        value={quickSupplierPincode}
-                        onChange={(event) => setQuickSupplierPincode(event.target.value)}
-                        placeholder="Enter Pincode"
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quickSupplierCity" className="text-xs uppercase text-muted-foreground">City</Label>
-                    <Input
-                      id="quickSupplierCity"
-                      value={quickSupplierCity}
-                      onChange={(event) => setQuickSupplierCity(event.target.value)}
-                      placeholder="Enter City"
-                      className="h-10"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={quickSupplierShippingSame}
-                      onChange={(event) => setQuickSupplierShippingSame(event.target.checked)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    Shipping address same as billing address
-                  </label>
-                  {!quickSupplierShippingSame && (
-                    <div className="space-y-4 rounded-lg border border-border bg-background/70 p-4">
-                      <div className="font-semibold">Shipping Address</div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quickSupplierShippingAddress" className="text-xs uppercase text-muted-foreground">
-                          Shipping Address
-                        </Label>
-                        <Textarea
-                          id="quickSupplierShippingAddress"
-                          value={quickSupplierShippingAddress}
-                          onChange={(event) => setQuickSupplierShippingAddress(event.target.value)}
-                          placeholder="Enter shipping address"
-                          rows={3}
-                        />
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="quickSupplierShippingState" className="text-xs uppercase text-muted-foreground">State</Label>
-                          <Input
-                            id="quickSupplierShippingState"
-                            value={quickSupplierShippingState}
-                            onChange={(event) => setQuickSupplierShippingState(event.target.value)}
-                            placeholder="Enter State"
-                            className="h-10"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="quickSupplierShippingPincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
-                          <Input
-                            id="quickSupplierShippingPincode"
-                            value={quickSupplierShippingPincode}
-                            onChange={(event) => setQuickSupplierShippingPincode(event.target.value)}
-                            placeholder="Enter Pincode"
-                            className="h-10"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="quickSupplierShippingCity" className="text-xs uppercase text-muted-foreground">City</Label>
-                        <Input
-                          id="quickSupplierShippingCity"
-                          value={quickSupplierShippingCity}
-                          onChange={(event) => setQuickSupplierShippingCity(event.target.value)}
-                          placeholder="Enter City"
-                          className="h-10"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border bg-muted/20">
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <div className="font-semibold">GSTIN (Optional)</div>
-                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setQuickSupplierGstin('')}>
-                    Remove
-                  </Button>
-                </div>
-                <div className="space-y-2 p-4">
-                  <Label htmlFor="quickSupplierGstin" className="text-xs uppercase text-muted-foreground">GSTIN</Label>
-                  <Input
-                    id="quickSupplierGstin"
-                    value={quickSupplierGstin}
-                    onChange={(event) => setQuickSupplierGstin(event.target.value.toUpperCase())}
-                    placeholder="ex: 29XXXXX9438X1XX"
-                    className="h-10"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border bg-muted/20 p-4">
-                <div className="mb-3 font-semibold">Accounting Details</div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="quickSupplierOpeningBalance">Opening Balance (₹)</Label>
-                    <Input
-                      id="quickSupplierOpeningBalance"
-                      type="number"
-                      step="0.01"
-                      value={quickSupplierOpeningBalance}
-                      onChange={(event) => setQuickSupplierOpeningBalance(event.target.value)}
-                      placeholder="0.00"
-                      className="h-10 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quickSupplierAdvanceCD">Advance CD (%)</Label>
-                    <Input
-                      id="quickSupplierAdvanceCD"
-                      type="number"
-                      step="0.01"
-                      value={quickSupplierAdvanceCD}
-                      onChange={(event) => setQuickSupplierAdvanceCD(event.target.value)}
-                      placeholder="0.00"
-                      className="h-10 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quickSupplierTargetMT">Annual Target MT</Label>
-                    <Input
-                      id="quickSupplierTargetMT"
-                      type="number"
-                      step="0.001"
-                      value={quickSupplierTargetMT}
-                      onChange={(event) => setQuickSupplierTargetMT(event.target.value)}
-                      placeholder="0.000"
-                      className="h-10 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quickSupplierTargetRate">Target Rate/MT (₹)</Label>
-                    <Input
-                      id="quickSupplierTargetRate"
-                      type="number"
-                      step="0.01"
-                      value={quickSupplierTargetRate}
-                      onChange={(event) => setQuickSupplierTargetRate(event.target.value)}
-                      placeholder="0.00"
-                      className="h-10 font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
-              <Button type="button" variant="outline" onClick={() => setShowQuickSupplier(false)}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleQuickSupplierCreate} disabled={!quickSupplierName.trim()}>
-                Save
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <PartyEditorDialog
+          open={showQuickSupplier}
+          onOpenChange={setShowQuickSupplier}
+          type="supplier"
+          existingParties={suppliers}
+          onSave={(party) => {
+            const supplier = party as Supplier
+            setSuppliers((prev) => [...prev, supplier])
+            setSelectedSupplierId(supplier.id)
+            setShowQuickSupplier(false)
+            toast.success(`Supplier "${supplier.name}" created`)
+          }}
+        />
 
         <Dialog open={itemPickerOpen} onOpenChange={setItemPickerOpen}>
           <DialogContent className="max-w-[min(1120px,calc(100vw-2rem))] max-h-[82dvh] p-0">
@@ -1481,117 +1082,25 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           </DialogContent>
         </Dialog>
 
-        <Dialog open={showQuickItem} onOpenChange={setShowQuickItem}>
-          <DialogContent className="max-w-[min(720px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
-            <DialogHeader className="border-b border-border px-6 py-5">
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <Package size={22} className="text-primary" weight="duotone" />
-                Create New Item
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="border-b border-border p-6">
-              <div className="mb-4 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
-                Basic Details *
-              </div>
-              <div className="rounded-xl border border-border p-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemCategory">Category</Label>
-                      <Input
-                        id="quickItemCategory"
-                        value={quickItemCategory}
-                        onChange={(event) => setQuickItemCategory(event.target.value)}
-                        placeholder="Search Categories"
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemName">Item Name <span className="text-destructive">*</span></Label>
-                      <Input
-                        id="quickItemName"
-                        value={quickItemName}
-                        onChange={(event) => setQuickItemName(event.target.value)}
-                        placeholder="ex: TMT Bar"
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemGstRate">GST Tax Rate(%)</Label>
-                      <Input
-                        id="quickItemGstRate"
-                        type="number"
-                        step="0.01"
-                        value={quickItemGstRate}
-                        onChange={(event) => setQuickItemGstRate(event.target.value)}
-                        placeholder="None"
-                        className="h-11 font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemPurchasePrice">Purchase Price</Label>
-                      <Input
-                        id="quickItemPurchasePrice"
-                        type="number"
-                        step="0.01"
-                        value={quickItemPurchasePrice}
-                        onChange={(event) => setQuickItemPurchasePrice(event.target.value)}
-                        placeholder="ex: ₹200"
-                        className="h-11 font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemSalesPrice">Sales Price</Label>
-                      <Input
-                        id="quickItemSalesPrice"
-                        type="number"
-                        step="0.01"
-                        value={quickItemSalesPrice}
-                        onChange={(event) => setQuickItemSalesPrice(event.target.value)}
-                        placeholder="ex: ₹250"
-                        className="h-11 font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemUnit">Measuring Unit</Label>
-                      <Select value={quickItemUnit} onValueChange={(value) => setQuickItemUnit(value as Item['unit'])}>
-                        <SelectTrigger id="quickItemUnit" className="h-11">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PCS">Pieces(PCS)</SelectItem>
-                          <SelectItem value="MT">Metric Ton(MT)</SelectItem>
-                          <SelectItem value="KG">Kilogram(KG)</SelectItem>
-                          <SelectItem value="TON">Ton(TON)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickItemOpeningStock">Opening Stock</Label>
-                      <Input
-                        id="quickItemOpeningStock"
-                        type="number"
-                        step="0.001"
-                        value={quickItemOpeningStock}
-                        onChange={(event) => setQuickItemOpeningStock(event.target.value)}
-                        placeholder={`ex: 150 ${quickItemUnit}`}
-                        className="h-11 font-mono"
-                      />
-                    </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 px-6 py-4">
-              <Button type="button" variant="outline" onClick={() => setShowQuickItem(false)}>
-                Cancel
-              </Button>
-              <Button type="button" disabled={!quickItemName.trim()} onClick={handleQuickItemCreate}>
-                Save Item
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <ItemEditorDialog
+          open={showQuickItem}
+          onOpenChange={setShowQuickItem}
+          existingItems={items}
+          onSave={(item) => {
+            setItems((prev) => [...prev, item])
+            const basicRate = item.purchasePrice || 0
+            const rate = basicRate > 0 ? parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2)) : 0
+            setInvoiceItems((prev) => {
+              const row = { itemId: item.id, quantityMT: 0, basicRate, rate, amount: 0 }
+              const emptyIndex = prev.findIndex((existing) => !existing.itemId)
+              if (emptyIndex === -1) return [...prev, row]
+              return prev.map((existing, index) => index === emptyIndex ? row : existing)
+            })
+            setSelectedPickerItemId(item.id)
+            setShowQuickItem(false)
+            toast.success(`Item "${item.name}" created`)
+          }}
+        />
       </div>
       <>
           <Card className="bg-accent/5 border-accent/20">

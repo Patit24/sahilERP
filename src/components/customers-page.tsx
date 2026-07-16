@@ -2,14 +2,11 @@ import { useState, useRef } from 'react'
 import { Customer } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, UserCircle, Trash, Pencil, Warning, Upload } from '@phosphor-icons/react'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
+import { PartyEditorDialog } from '@/components/party-editor-dialog'
 
 interface CustomersPageProps {
   customers: Customer[]
@@ -24,39 +21,14 @@ export default function CustomersPage({ customers, setCustomers, isLocked = fals
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-
-    const openingBalance = parseFloat(formData.get('openingBalance') as string) || 0
-
+  const handleSaveCustomer = (customer: Customer) => {
     if (editingCustomer) {
-      const updatedCustomer: Customer = {
-        ...editingCustomer,
-        name: formData.get('name') as string,
-        email: formData.get('email') as string || undefined,
-        phone: formData.get('phone') as string || undefined,
-        address: formData.get('address') as string || undefined,
-        openingBalance: openingBalance !== 0 ? openingBalance : undefined
-      }
-
-      setCustomers((prev) => prev.map(c => c.id === editingCustomer.id ? updatedCustomer : c))
+      setCustomers((prev) => prev.map(c => c.id === customer.id ? customer : c))
       toast.success('Customer updated successfully')
     } else {
-      const customer: Customer = {
-        id: `customer-${Date.now()}`,
-        name: formData.get('name') as string,
-        email: formData.get('email') as string || undefined,
-        phone: formData.get('phone') as string || undefined,
-        address: formData.get('address') as string || undefined,
-        openingBalance: openingBalance !== 0 ? openingBalance : undefined
-      }
-
       setCustomers((prev) => [...prev, customer])
       toast.success('Customer added successfully')
     }
-    
-    setOpen(false)
     setEditingCustomer(null)
   }
 
@@ -246,87 +218,18 @@ export default function CustomersPage({ customers, setCustomers, isLocked = fals
               <Upload size={18} weight="bold" />
               Import Customers
             </Button>
-            <Dialog open={open} onOpenChange={handleDialogClose}>
-              <DialogTrigger asChild>
-                <Button onClick={handleAdd}>
-                  <Plus size={18} weight="bold" />
-                  Add Customer
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Customer Name *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      placeholder="Enter customer name"
-                      defaultValue={editingCustomer?.name}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      placeholder="Enter phone number"
-                      type="tel"
-                      defaultValue={editingCustomer?.phone}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      placeholder="Enter email address"
-                      type="email"
-                      defaultValue={editingCustomer?.email}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
-                      id="address"
-                      name="address"
-                      placeholder="Enter full address"
-                      rows={3}
-                      defaultValue={editingCustomer?.address}
-                    />
-                  </div>
-
-                  <div className="border-t pt-4 space-y-2">
-                    <Label htmlFor="openingBalance">Opening Balance (₹)</Label>
-                    <Input
-                      id="openingBalance"
-                      name="openingBalance"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="font-mono"
-                      defaultValue={editingCustomer?.openingBalance || 0}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Positive = Amount receivable from customer | Negative = Advance received
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3 justify-end pt-4">
-                    <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">{editingCustomer ? 'Update Customer' : 'Add Customer'}</Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={handleAdd}>
+              <Plus size={18} weight="bold" />
+              Add Customer
+            </Button>
+            <PartyEditorDialog
+              open={open}
+              onOpenChange={handleDialogClose}
+              type="customer"
+              party={editingCustomer}
+              existingParties={customers}
+              onSave={(party) => handleSaveCustomer(party as Customer)}
+            />
           </div>
         </CardHeader>
         <CardContent>

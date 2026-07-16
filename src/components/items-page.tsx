@@ -2,14 +2,11 @@ import { useState } from 'react'
 import { Item } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, Package, Trash, Pencil, Warning } from '@phosphor-icons/react'
 import { toast } from 'sonner'
+import { ItemEditorDialog } from '@/components/item-editor-dialog'
 
 interface ItemsPageProps {
   items: Item[]
@@ -22,52 +19,6 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
   const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-
-    const openingStock = parseFloat(formData.get('openingStock') as string) || 0
-    const openingValue = parseFloat(formData.get('openingValue') as string) || 0
-    const purchasePrice = parseFloat(formData.get('purchasePrice') as string) || 0
-    const salesPrice = parseFloat(formData.get('salesPrice') as string) || 0
-    const gstRate = parseFloat(formData.get('gstRate') as string) || 0
-
-    if (editingItem) {
-      const updatedItem: Item = {
-        ...editingItem,
-        name: formData.get('name') as string,
-        unit: formData.get('unit') as 'MT' | 'KG' | 'PCS' | 'TON',
-        category: formData.get('category') as string || undefined,
-        purchasePrice: purchasePrice > 0 ? purchasePrice : undefined,
-        salesPrice: salesPrice > 0 ? salesPrice : undefined,
-        gstRate: gstRate > 0 ? gstRate : undefined,
-        openingStock: openingStock > 0 ? openingStock : undefined,
-        openingValue: openingValue > 0 ? openingValue : undefined
-      }
-
-      setItems((prev) => prev.map(item => item.id === editingItem.id ? updatedItem : item))
-      toast.success('Item updated successfully')
-    } else {
-      const item: Item = {
-        id: `item-${Date.now()}`,
-        name: formData.get('name') as string,
-        unit: formData.get('unit') as 'MT' | 'KG' | 'PCS' | 'TON',
-        category: formData.get('category') as string || undefined,
-        purchasePrice: purchasePrice > 0 ? purchasePrice : undefined,
-        salesPrice: salesPrice > 0 ? salesPrice : undefined,
-        gstRate: gstRate > 0 ? gstRate : undefined,
-        openingStock: openingStock > 0 ? openingStock : undefined,
-        openingValue: openingValue > 0 ? openingValue : undefined
-      }
-
-      setItems((prev) => [...prev, item])
-      toast.success('Item added successfully')
-    }
-
-    setOpen(false)
-    setEditingItem(null)
-  }
 
   const handleDeleteClick = (item: Item) => {
     if (isLocked) {
@@ -118,6 +69,17 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
     }
   }
 
+  const handleSaveItem = (savedItem: Item) => {
+    if (editingItem) {
+      setItems((prev) => prev.map(item => item.id === savedItem.id ? savedItem : item))
+      toast.success('Item updated successfully')
+    } else {
+      setItems((prev) => [...prev, savedItem])
+      toast.success('Item added successfully')
+    }
+    setEditingItem(null)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -127,136 +89,17 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
             Manage all steel products and items
           </p>
         </div>
-        <Dialog open={open} onOpenChange={handleDialogClose}>
-          <DialogTrigger asChild>
-            <Button onClick={handleAdd}>
-              <Plus className="mr-2" size={18} />
-              Add Item
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-[min(720px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
-            <DialogHeader className="border-b border-border px-6 py-5">
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <Package size={22} className="text-primary" weight="duotone" />
-                {editingItem ? 'Edit Item' : 'Create New Item'}
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmit}>
-              <div className="border-b border-border p-6">
-                <div className="mb-4 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
-                  Basic Details *
-                </div>
-                <div className="rounded-xl border border-border p-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Input
-                        id="category"
-                        name="category"
-                        placeholder="Search Categories"
-                        className="h-11"
-                        defaultValue={editingItem?.category}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Item Name <span className="text-destructive">*</span></Label>
-                      <Input 
-                        id="name" 
-                        name="name" 
-                        placeholder="ex: TMT Bar"
-                        className="h-11"
-                        defaultValue={editingItem?.name}
-                        required 
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="gstRate">GST Tax Rate(%)</Label>
-                      <Input
-                        id="gstRate"
-                        name="gstRate"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="None"
-                        className="h-11 font-mono"
-                        defaultValue={editingItem?.gstRate}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="purchasePrice">Purchase Price</Label>
-                      <Input
-                        id="purchasePrice"
-                        name="purchasePrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="ex: ₹200"
-                        className="h-11 font-mono"
-                        defaultValue={editingItem?.purchasePrice}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="salesPrice">Sales Price</Label>
-                      <Input
-                        id="salesPrice"
-                        name="salesPrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="ex: ₹250"
-                        className="h-11 font-mono"
-                        defaultValue={editingItem?.salesPrice}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="unit">Measuring Unit</Label>
-                      <Select name="unit" required defaultValue={editingItem?.unit || "MT"}>
-                        <SelectTrigger id="unit" className="h-11">
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PCS">Pieces(PCS)</SelectItem>
-                          <SelectItem value="MT">Metric Ton(MT)</SelectItem>
-                          <SelectItem value="KG">Kilogram(KG)</SelectItem>
-                          <SelectItem value="TON">Ton(TON)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="openingStock">Opening Stock</Label>
-                      <Input 
-                        id="openingStock" 
-                        name="openingStock" 
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        placeholder={`ex: 150 ${editingItem?.unit || 'MT'}`}
-                        className="h-11 font-mono"
-                        defaultValue={editingItem?.openingStock}
-                      />
-                    </div>
-
-                    <input type="hidden" name="openingValue" value={editingItem?.openingValue || 0} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 justify-end px-6 py-4">
-                <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">{editingItem ? 'Update Item' : 'Save Item'}</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={handleAdd}>
+          <Plus className="mr-2" size={18} />
+          Add Item
+        </Button>
+        <ItemEditorDialog
+          open={open}
+          onOpenChange={handleDialogClose}
+          item={editingItem}
+          existingItems={items}
+          onSave={handleSaveItem}
+        />
       </div>
 
       <Card>
