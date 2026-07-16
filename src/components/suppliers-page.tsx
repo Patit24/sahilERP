@@ -101,6 +101,15 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
     const normalizedAdvanceCD = advanceCDPercentage > 0 ? advanceCDPercentage : undefined
     const changedAt = new Date().toISOString()
     const supplierId = editingSupplier?.id || `supplier-${Date.now()}`
+    const shippingSameAsBilling = formData.get('shippingSameAsBilling') === 'on'
+    const billingAddress = (formData.get('address') as string) || ''
+    const billingState = (formData.get('state') as string) || ''
+    const billingPincode = (formData.get('pincode') as string) || ''
+    const billingCity = (formData.get('city') as string) || ''
+    const shippingAddress = shippingSameAsBilling ? billingAddress : ((formData.get('shippingAddress') as string) || '')
+    const shippingState = shippingSameAsBilling ? billingState : ((formData.get('shippingState') as string) || '')
+    const shippingPincode = shippingSameAsBilling ? billingPincode : ((formData.get('shippingPincode') as string) || '')
+    const shippingCity = shippingSameAsBilling ? billingCity : ((formData.get('shippingCity') as string) || '')
 
     const cdVersion: SupplierCDRuleVersion = {
       id: `${supplierId}-cd-version-${Date.now()}`,
@@ -120,10 +129,15 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
       id: supplierId,
       name: formData.get('name') as string,
       phone: formData.get('phone') as string || undefined,
-      address: formData.get('address') as string || undefined,
-      state: formData.get('state') as string || undefined,
-      pincode: formData.get('pincode') as string || undefined,
-      city: formData.get('city') as string || undefined,
+      address: billingAddress || undefined,
+      state: billingState || undefined,
+      pincode: billingPincode || undefined,
+      city: billingCity || undefined,
+      shippingSameAsBilling,
+      shippingAddress: shippingAddress || undefined,
+      shippingState: shippingState || undefined,
+      shippingPincode: shippingPincode || undefined,
+      shippingCity: shippingCity || undefined,
       gstin: formData.get('gstin') as string || undefined,
       paymentCDRules,
       invoiceCloseCDRules,
@@ -457,6 +471,7 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
 function SupplierForm({ onSubmit, supplier, onCancel }: { onSubmit: (e: React.FormEvent<HTMLFormElement>) => void, supplier: Supplier | null, onCancel: () => void }) {
   const [paymentCDCount, setPaymentCDCount] = useState(supplier?.paymentCDRules?.length || 0)
   const [invoiceCloseCDCount, setInvoiceCloseCDCount] = useState(supplier?.invoiceCloseCDRules?.length || 0)
+  const [shippingSameAsBilling, setShippingSameAsBilling] = useState(() => supplier?.shippingSameAsBilling ?? true)
 
   return (
     <form onSubmit={onSubmit}>
@@ -517,9 +532,62 @@ function SupplierForm({ onSubmit, supplier, onCancel }: { onSubmit: (e: React.Fo
               <Input id="city" name="city" defaultValue={supplier?.city} placeholder="Enter City" className="h-10" />
             </div>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input type="checkbox" checked readOnly className="h-4 w-4 accent-primary" />
+              <input
+                type="checkbox"
+                name="shippingSameAsBilling"
+                checked={shippingSameAsBilling}
+                onChange={(event) => setShippingSameAsBilling(event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
               Shipping address same as billing address
             </label>
+            {!shippingSameAsBilling && (
+              <div className="space-y-4 rounded-lg border border-border bg-background/70 p-4">
+                <div className="font-semibold">Shipping Address</div>
+                <div className="space-y-2">
+                  <Label htmlFor="shippingAddress" className="text-xs uppercase text-muted-foreground">Shipping Address</Label>
+                  <Textarea
+                    id="shippingAddress"
+                    name="shippingAddress"
+                    defaultValue={supplier?.shippingAddress}
+                    placeholder="Enter shipping address"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="shippingState" className="text-xs uppercase text-muted-foreground">State</Label>
+                    <Input
+                      id="shippingState"
+                      name="shippingState"
+                      defaultValue={supplier?.shippingState}
+                      placeholder="Enter State"
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shippingPincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
+                    <Input
+                      id="shippingPincode"
+                      name="shippingPincode"
+                      defaultValue={supplier?.shippingPincode}
+                      placeholder="Enter Pincode"
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shippingCity" className="text-xs uppercase text-muted-foreground">City</Label>
+                  <Input
+                    id="shippingCity"
+                    name="shippingCity"
+                    defaultValue={supplier?.shippingCity}
+                    placeholder="Enter City"
+                    className="h-10"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
