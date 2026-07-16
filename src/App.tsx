@@ -737,8 +737,12 @@ function App() {
         setCurrentUser(user)
         setIsAuthenticated(true)
         if (user.role === 'master_admin') {
-          const accounts = await listRemoteUserProfiles()
-          setUserAccounts(accounts)
+          try {
+            const accounts = await listRemoteUserProfiles()
+            setUserAccounts(accounts)
+          } catch (profileListError) {
+            toast.error(profileListError instanceof Error ? profileListError.message : 'Unable to load server users')
+          }
         }
         setAuthPasscode('')
         toast.success(`Welcome, ${user.displayName}`)
