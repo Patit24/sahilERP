@@ -1298,7 +1298,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                           id="quickItemName"
                           value={quickItemName}
                           onChange={(event) => setQuickItemName(event.target.value)}
-                          placeholder="ex: Maggi 20gm"
+                          placeholder="ex: TMT Bar"
                           className="h-11"
                         />
                       </div>

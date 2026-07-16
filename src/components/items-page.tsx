@@ -165,7 +165,7 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
                       <Input 
                         id="name" 
                         name="name" 
-                        placeholder="ex: Maggi 20gm"
+                        placeholder="ex: TMT Bar"
                         className="h-11"
                         defaultValue={editingItem?.name}
                         required 
