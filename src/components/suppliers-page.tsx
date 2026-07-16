@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash, Building, Warning } from '@phosphor-icons/react'
+import { Textarea } from '@/components/ui/textarea'
+import { Plus, Trash, Building, Warning, UserPlus } from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
 
@@ -118,6 +119,12 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
     const supplier: Supplier = {
       id: supplierId,
       name: formData.get('name') as string,
+      phone: formData.get('phone') as string || undefined,
+      address: formData.get('address') as string || undefined,
+      state: formData.get('state') as string || undefined,
+      pincode: formData.get('pincode') as string || undefined,
+      city: formData.get('city') as string || undefined,
+      gstin: formData.get('gstin') as string || undefined,
       paymentCDRules,
       invoiceCloseCDRules,
       advanceCDPercentage: normalizedAdvanceCD,
@@ -267,15 +274,17 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
               Add Supplier
             </Button>
           </DialogTrigger>
-          <DialogContent className="supplier-dialog max-h-[78dvh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-lg">
-                {editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
+          <DialogContent className="max-w-[min(760px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
+            <DialogHeader className="border-b border-border px-6 py-5">
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <UserPlus size={22} className="text-primary" weight="duotone" />
+                {editingSupplier ? 'Edit Supplier' : 'Create New Party'}
               </DialogTitle>
             </DialogHeader>
             <SupplierForm 
               onSubmit={handleSubmit} 
               supplier={editingSupplier}
+              onCancel={() => setOpen(false)}
             />
           </DialogContent>
         </Dialog>
@@ -445,232 +454,319 @@ export default function SuppliersPage({ suppliers, setSuppliers, isLocked = fals
   )
 }
 
-function SupplierForm({ onSubmit, supplier }: { onSubmit: (e: React.FormEvent<HTMLFormElement>) => void, supplier: Supplier | null }) {
+function SupplierForm({ onSubmit, supplier, onCancel }: { onSubmit: (e: React.FormEvent<HTMLFormElement>) => void, supplier: Supplier | null, onCancel: () => void }) {
   const [paymentCDCount, setPaymentCDCount] = useState(supplier?.paymentCDRules?.length || 0)
   const [invoiceCloseCDCount, setInvoiceCloseCDCount] = useState(supplier?.invoiceCloseCDRules?.length || 0)
 
   return (
-    <form onSubmit={onSubmit} className="supplier-form space-y-3.5">
+    <form onSubmit={onSubmit}>
       <input type="hidden" name="paymentCDCount" value={paymentCDCount} />
       <input type="hidden" name="invoiceCloseCDCount" value={invoiceCloseCDCount} />
 
-      <div className="space-y-1.5">
-        <Label htmlFor="name" className="text-xs font-medium">Supplier Name <span className="text-destructive">*</span></Label>
-        <Input 
-          id="name" 
-          name="name" 
-          defaultValue={supplier?.name}
-          className="h-9 text-sm"
-          required 
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="openingBalance" className="text-xs font-medium">Opening Balance (₹)</Label>
-        <Input 
-          id="openingBalance" 
-          name="openingBalance" 
-          type="number"
-          step="0.01"
-          defaultValue={supplier?.openingBalance || 0}
-          className="h-9 text-sm font-mono"
-          placeholder="0.00"
-        />
-        <p className="text-[11px] text-muted-foreground">
-          Positive = Amount payable to supplier | Negative = Advance paid
-        </p>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="advanceCDPercentage" className="text-xs font-medium">Advance Payment CD (%)</Label>
-        <Input 
-          id="advanceCDPercentage" 
-          name="advanceCDPercentage" 
-          type="number"
-          step="0.01"
-          min="0"
-          max="100"
-          defaultValue={supplier?.advanceCDPercentage || 0}
-          className="h-9 text-sm font-mono"
-          placeholder="0.00"
-        />
-        <p className="text-[11px] text-muted-foreground">
-          CD% applied to advance payment amounts (not mapped to any invoice at payment time)
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="effectiveDate" className="text-xs font-medium">CD Rule Effective Date</Label>
-          <Input
-            id="effectiveDate"
-            name="effectiveDate"
-            type="date"
-            defaultValue={todayKey()}
-            className="h-9 text-sm"
+      <div className="space-y-5 px-6 py-5">
+        <div className="space-y-2">
+          <Label htmlFor="name">Party Name <span className="text-destructive">*</span></Label>
+          <Input 
+            id="name" 
+            name="name" 
+            placeholder="Enter name"
+            defaultValue={supplier?.name}
+            className="h-11"
+            required 
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="changeReason" className="text-xs font-medium">Reason for Change</Label>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Mobile Number</Label>
           <Input
-            id="changeReason"
-            name="changeReason"
-            defaultValue={supplier ? 'Supplier rule revision' : 'Initial rule setup'}
-            className="h-9 text-sm"
-            placeholder="e.g. New supplier circular"
+            id="phone"
+            name="phone"
+            defaultValue={supplier?.phone}
+            placeholder="Enter Mobile Number"
+            className="h-11"
           />
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-medium">Payment CD Rules (% on Payment Amount)</Label>
-          <Button 
-            type="button" 
-            variant="outline" 
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => setPaymentCDCount(paymentCDCount + 1)}
-          >
-            <Plus size={14} className="mr-1" />
-            Add
-          </Button>
+        <div className="rounded-xl border border-border bg-muted/20">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="font-semibold">Address (Optional)</div>
+          </div>
+          <div className="space-y-4 p-4">
+            <div className="space-y-2">
+              <Label htmlFor="address" className="text-xs uppercase text-muted-foreground">Billing Address</Label>
+              <Textarea
+                id="address"
+                name="address"
+                defaultValue={supplier?.address}
+                placeholder="Enter billing address"
+                rows={3}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="state" className="text-xs uppercase text-muted-foreground">State</Label>
+                <Input id="state" name="state" defaultValue={supplier?.state} placeholder="Enter State" className="h-10" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
+                <Input id="pincode" name="pincode" defaultValue={supplier?.pincode} placeholder="Enter Pincode" className="h-10" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city" className="text-xs uppercase text-muted-foreground">City</Label>
+              <Input id="city" name="city" defaultValue={supplier?.city} placeholder="Enter City" className="h-10" />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input type="checkbox" checked readOnly className="h-4 w-4 accent-primary" />
+              Shipping address same as billing address
+            </label>
+          </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">Payment CD is calculated as a percentage of the payment amount</p>
-        {Array.from({ length: paymentCDCount }).map((_, idx) => (
-          <div key={idx} className="flex gap-2 items-end p-2.5 bg-muted/30 rounded border border-border">
-            <div className="flex-1">
-              <Label className="text-[11px] font-medium">Min Days</Label>
+
+        <div className="rounded-xl border border-border bg-muted/20">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="font-semibold">GSTIN (Optional)</div>
+          </div>
+          <div className="space-y-2 p-4">
+            <Label htmlFor="gstin" className="text-xs uppercase text-muted-foreground">GSTIN</Label>
+            <Input
+              id="gstin"
+              name="gstin"
+              defaultValue={supplier?.gstin}
+              placeholder="ex: 29XXXXX9438X1XX"
+              className="h-10 uppercase"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <div className="mb-3 font-semibold">Accounting Details</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="openingBalance">Opening Balance (₹)</Label>
               <Input 
-                name={`paymentCD${idx}MinDays`}
-                type="number"
-                className="h-8 text-sm"
-                defaultValue={supplier?.paymentCDRules[idx]?.minDays}
-              />
-            </div>
-            <div className="flex-1">
-              <Label className="text-[11px] font-medium">Max Days</Label>
-              <Input 
-                name={`paymentCD${idx}MaxDays`}
-                type="number"
-                className="h-8 text-sm"
-                defaultValue={supplier?.paymentCDRules[idx]?.maxDays}
-              />
-            </div>
-            <div className="flex-1">
-              <Label className="text-[11px] font-medium">Percentage (%)</Label>
-              <Input 
-                name={`paymentCD${idx}Rate`}
+                id="openingBalance" 
+                name="openingBalance" 
                 type="number"
                 step="0.01"
-                className="h-8 text-sm"
-                defaultValue={supplier?.paymentCDRules[idx]?.percentageRate}
+                defaultValue={supplier?.openingBalance || 0}
+                className="h-10 font-mono"
+                placeholder="0.00"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Positive = Amount payable to supplier | Negative = Advance paid
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="advanceCDPercentage">Advance CD (%)</Label>
+              <Input 
+                id="advanceCDPercentage" 
+                name="advanceCDPercentage" 
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                defaultValue={supplier?.advanceCDPercentage || 0}
+                className="h-10 font-mono"
+                placeholder="0.00"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                CD% applied to advance payment amounts.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <div className="mb-3 font-semibold">Rule Version Details</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="effectiveDate">CD Rule Effective Date</Label>
+              <Input
+                id="effectiveDate"
+                name="effectiveDate"
+                type="date"
+                defaultValue={todayKey()}
+                className="h-10"
               />
             </div>
-            {paymentCDCount > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="changeReason">Reason for Change</Label>
+              <Input
+                id="changeReason"
+                name="changeReason"
+                defaultValue={supplier ? 'Supplier rule revision' : 'Initial rule setup'}
+                className="h-10"
+                placeholder="e.g. New supplier circular"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label className="font-semibold">Payment CD Rules (% on Payment Amount)</Label>
+                <p className="mt-1 text-[11px] text-muted-foreground">Payment CD is calculated as a percentage of the payment amount</p>
+              </div>
               <Button 
                 type="button" 
-                variant="ghost" 
+                variant="outline" 
                 size="sm"
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setPaymentCDCount(paymentCDCount - 1)}
+                className="h-9 px-3"
+                onClick={() => setPaymentCDCount(paymentCDCount + 1)}
               >
-                <Trash size={14} />
+                <Plus size={14} className="mr-1" />
+                Add
               </Button>
-            )}
+            </div>
+            {Array.from({ length: paymentCDCount }).map((_, idx) => (
+              <div key={idx} className="grid gap-2 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium">Min Days</Label>
+                  <Input 
+                    name={`paymentCD${idx}MinDays`}
+                    type="number"
+                    className="h-9"
+                    defaultValue={supplier?.paymentCDRules[idx]?.minDays}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium">Max Days</Label>
+                  <Input 
+                    name={`paymentCD${idx}MaxDays`}
+                    type="number"
+                    className="h-9"
+                    defaultValue={supplier?.paymentCDRules[idx]?.maxDays}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium">Percentage (%)</Label>
+                  <Input 
+                    name={`paymentCD${idx}Rate`}
+                    type="number"
+                    step="0.01"
+                    className="h-9"
+                    defaultValue={supplier?.paymentCDRules[idx]?.percentageRate}
+                  />
+                </div>
+                {paymentCDCount > 1 && (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    className="mt-5 h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setPaymentCDCount(paymentCDCount - 1)}
+                  >
+                    <Trash size={14} />
+                  </Button>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-medium">Invoice Close CD Rules (Optional)</Label>
-          <Button 
-            type="button" 
-            variant="outline" 
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => setInvoiceCloseCDCount(invoiceCloseCDCount + 1)}
-          >
-            <Plus size={14} className="mr-1" />
-            Add
-          </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground">Invoice Close CD is calculated per MT based on days to close the invoice</p>
-        {Array.from({ length: invoiceCloseCDCount }).map((_, idx) => (
-          <div key={idx} className="flex gap-2 items-end p-2.5 bg-muted/30 rounded border border-border">
-            <div className="flex-1">
-              <Label className="text-[11px] font-medium">Min Days</Label>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label className="font-semibold">Invoice Close CD Rules (Optional)</Label>
+                <p className="mt-1 text-[11px] text-muted-foreground">Invoice Close CD is calculated per MT based on days to close the invoice</p>
+              </div>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                className="h-9 px-3"
+                onClick={() => setInvoiceCloseCDCount(invoiceCloseCDCount + 1)}
+              >
+                <Plus size={14} className="mr-1" />
+                Add
+              </Button>
+            </div>
+            {Array.from({ length: invoiceCloseCDCount }).map((_, idx) => (
+              <div key={idx} className="grid gap-2 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium">Min Days</Label>
+                  <Input 
+                    name={`invoiceCloseCD${idx}MinDays`}
+                    type="number"
+                    className="h-9"
+                    defaultValue={supplier?.invoiceCloseCDRules[idx]?.minDays}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium">Max Days</Label>
+                  <Input 
+                    name={`invoiceCloseCD${idx}MaxDays`}
+                    type="number"
+                    className="h-9"
+                    defaultValue={supplier?.invoiceCloseCDRules[idx]?.maxDays}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-medium">Rate/MT (₹)</Label>
+                  <Input 
+                    name={`invoiceCloseCD${idx}Rate`}
+                    type="number"
+                    step="0.01"
+                    className="h-9"
+                    defaultValue={supplier?.invoiceCloseCDRules[idx]?.ratePerMT}
+                  />
+                </div>
+                {invoiceCloseCDCount > 1 && (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    className="mt-5 h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setInvoiceCloseCDCount(invoiceCloseCDCount - 1)}
+                  >
+                    <Trash size={14} />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <Label className="font-semibold">Annual Target (Optional)</Label>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium">Target MT</Label>
               <Input 
-                name={`invoiceCloseCD${idx}MinDays`}
+                name="annualTargetMT"
                 type="number"
-                className="h-8 text-sm"
-                defaultValue={supplier?.invoiceCloseCDRules[idx]?.minDays}
+                step="0.01"
+                className="h-10"
+                defaultValue={supplier?.annualTarget?.targetMT}
               />
             </div>
-            <div className="flex-1">
-              <Label className="text-[11px] font-medium">Max Days</Label>
-              <Input 
-                name={`invoiceCloseCD${idx}MaxDays`}
-                type="number"
-                className="h-8 text-sm"
-                defaultValue={supplier?.invoiceCloseCDRules[idx]?.maxDays}
-              />
-            </div>
-            <div className="flex-1">
+            <div className="space-y-2">
               <Label className="text-[11px] font-medium">Rate/MT (₹)</Label>
               <Input 
-                name={`invoiceCloseCD${idx}Rate`}
+                name="annualTargetRate"
                 type="number"
                 step="0.01"
-                className="h-8 text-sm"
-                defaultValue={supplier?.invoiceCloseCDRules[idx]?.ratePerMT}
+                className="h-10"
+                defaultValue={supplier?.annualTarget?.ratePerMT}
               />
             </div>
-            {invoiceCloseCDCount > 1 && (
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm"
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setInvoiceCloseCDCount(invoiceCloseCDCount - 1)}
-              >
-                <Trash size={14} />
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-xs font-medium">Annual Target (Optional)</Label>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <Label className="text-[11px] font-medium">Target MT</Label>
-            <Input 
-              name="annualTargetMT"
-              type="number"
-              step="0.01"
-              className="h-9 text-sm"
-              defaultValue={supplier?.annualTarget?.targetMT}
-            />
-          </div>
-          <div className="flex-1">
-            <Label className="text-[11px] font-medium">Rate/MT (₹)</Label>
-            <Input 
-              name="annualTargetRate"
-              type="number"
-              step="0.01"
-              className="h-9 text-sm"
-              defaultValue={supplier?.annualTarget?.ratePerMT}
-            />
           </div>
         </div>
       </div>
 
-      <Button type="submit" size="sm" className="w-full">
-        {supplier ? 'Update Supplier' : 'Add Supplier'}
-      </Button>
+      <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">
+          {supplier ? 'Update Supplier' : 'Save'}
+        </Button>
+      </div>
     </form>
   )
 }
