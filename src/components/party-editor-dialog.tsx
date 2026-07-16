@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Customer, Supplier, SupplierCDRuleVersion, CDRuleChangeLog } from '@/lib/types'
+import { Customer, Supplier, PaymentCDRule, InvoiceCloseCDRule, SupplierCDRuleVersion, CDRuleChangeLog } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { UserPlus } from '@phosphor-icons/react'
+import { Plus, Trash, UserPlus } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 type PartyType = 'supplier' | 'customer'
@@ -29,9 +29,56 @@ function trimOrUndefined(value: string) {
   return value.trim() || undefined
 }
 
+function addDays(date: string, days: number): string {
+  const value = new Date(date)
+  value.setDate(value.getDate() + days)
+  return value.toISOString().split('T')[0]
+}
+
+function todayKey(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function rulesChanged(
+  supplier: Supplier | null | undefined,
+  paymentCDRules: PaymentCDRule[],
+  invoiceCloseCDRules: InvoiceCloseCDRule[],
+  advanceCDPercentage?: number
+): boolean {
+  return JSON.stringify({
+    paymentCDRules: supplier?.paymentCDRules || [],
+    invoiceCloseCDRules: supplier?.invoiceCloseCDRules || [],
+    advanceCDPercentage: supplier?.advanceCDPercentage || 0
+  }) !== JSON.stringify({
+    paymentCDRules,
+    invoiceCloseCDRules,
+    advanceCDPercentage: advanceCDPercentage || 0
+  })
+}
+
+function makeInitialVersion(supplier: Supplier, effectiveTo?: string): SupplierCDRuleVersion {
+  return {
+    id: `${supplier.id}-cd-version-1`,
+    version: 1,
+    ruleName: 'Supplier CD Rules',
+    effectiveFrom: '1900-01-01',
+    effectiveTo,
+    paymentCDRules: supplier.paymentCDRules || [],
+    invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
+    advanceCDPercentage: supplier.advanceCDPercentage,
+    changedBy: 'System migration',
+    changedAt: new Date().toISOString(),
+    reason: 'Historical rule baseline',
+    approvalStatus: 'Approved'
+  }
+}
+
 function makeSupplierRuleVersion(
   supplierId: string,
   version: number,
+  effectiveFrom: string,
+  paymentCDRules: PaymentCDRule[],
+  invoiceCloseCDRules: InvoiceCloseCDRule[],
   advanceCDPercentage: number | undefined,
   changedBy: string,
   reason: string
@@ -40,9 +87,9 @@ function makeSupplierRuleVersion(
     id: `${supplierId}-cd-version-${version}-${Date.now()}`,
     version,
     ruleName: 'Supplier CD Rules',
-    effectiveFrom: new Date().toISOString().split('T')[0],
-    paymentCDRules: [],
-    invoiceCloseCDRules: [],
+    effectiveFrom,
+    paymentCDRules,
+    invoiceCloseCDRules,
     advanceCDPercentage,
     changedBy,
     changedAt: new Date().toISOString(),
@@ -77,6 +124,10 @@ export function PartyEditorDialog({
   const [advanceCD, setAdvanceCD] = useState('')
   const [targetMT, setTargetMT] = useState('')
   const [targetRate, setTargetRate] = useState('')
+  const [effectiveDate, setEffectiveDate] = useState(todayKey())
+  const [changeReason, setChangeReason] = useState('')
+  const [paymentCDRules, setPaymentCDRules] = useState<PaymentCDRule[]>([])
+  const [invoiceCloseCDRules, setInvoiceCloseCDRules] = useState<InvoiceCloseCDRule[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -98,6 +149,10 @@ export function PartyEditorDialog({
     setAdvanceCD(isSupplier(type, party) ? party.advanceCDPercentage?.toString() || '' : '')
     setTargetMT(isSupplier(type, party) ? party.annualTarget?.targetMT?.toString() || '' : '')
     setTargetRate(isSupplier(type, party) ? party.annualTarget?.ratePerMT?.toString() || '' : '')
+    setEffectiveDate(todayKey())
+    setChangeReason(party ? 'Supplier rule revision' : 'Initial rule setup')
+    setPaymentCDRules(isSupplier(type, party) ? [...(party.paymentCDRules || [])] : [])
+    setInvoiceCloseCDRules(isSupplier(type, party) ? [...(party.invoiceCloseCDRules || [])] : [])
   }, [open, party, type])
 
   const clearAddress = () => {
@@ -110,6 +165,18 @@ export function PartyEditorDialog({
     setShippingPincode('')
     setShippingCity('')
     setShippingSameAsBilling(true)
+  }
+
+  const updatePaymentCDRule = (index: number, patch: Partial<PaymentCDRule>) => {
+    setPaymentCDRules((prev) => prev.map((rule, ruleIndex) => (
+      ruleIndex === index ? { ...rule, ...patch } : rule
+    )))
+  }
+
+  const updateInvoiceCloseCDRule = (index: number, patch: Partial<InvoiceCloseCDRule>) => {
+    setInvoiceCloseCDRules((prev) => prev.map((rule, ruleIndex) => (
+      ruleIndex === index ? { ...rule, ...patch } : rule
+    )))
   }
 
   const handleSave = () => {
@@ -142,14 +209,27 @@ export function PartyEditorDialog({
       const advanceCDValue = parseFloat(advanceCD) || 0
       const targetMTValue = parseFloat(targetMT) || 0
       const targetRateValue = parseFloat(targetRate) || 0
-      const existingVersions = supplier?.cdRuleVersions || []
-      const cdChanged = (supplier?.advanceCDPercentage || 0) !== advanceCDValue
-      const nextVersion = Math.max(0, ...existingVersions.map((version) => version.version)) + 1
-      const initialVersion = existingVersions.length > 0
-        ? undefined
-        : makeSupplierRuleVersion(supplierId, 1, advanceCDValue || undefined, changedBy, 'Initial supplier rule setup')
+      const normalizedAdvanceCD = advanceCDValue > 0 ? advanceCDValue : undefined
+      const cleanEffectiveDate = effectiveDate || todayKey()
+      const cleanChangeReason = changeReason.trim() || (supplier ? 'Supplier CD rule update' : 'Initial supplier CD rule setup')
+      const existingVersions = supplier?.cdRuleVersions?.length
+        ? supplier.cdRuleVersions
+        : supplier
+          ? [makeInitialVersion(supplier, addDays(cleanEffectiveDate, -1))]
+          : []
+      const cdChanged = !supplier || rulesChanged(supplier, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD)
+      const closedVersions = supplier && cdChanged
+        ? existingVersions.map((version, index) => {
+          if (index !== existingVersions.length - 1 || version.effectiveTo) return version
+          return { ...version, effectiveTo: addDays(cleanEffectiveDate, -1) }
+        })
+        : existingVersions
+      const nextVersion = Math.max(0, ...closedVersions.map((version) => version.version)) + 1
+      const initialVersion = !supplier
+        ? makeSupplierRuleVersion(supplierId, 1, cleanEffectiveDate, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD, changedBy, cleanChangeReason)
+        : undefined
       const changedVersion = supplier && cdChanged
-        ? makeSupplierRuleVersion(supplierId, nextVersion, advanceCDValue || undefined, changedBy, 'Supplier profile update')
+        ? makeSupplierRuleVersion(supplierId, nextVersion, cleanEffectiveDate, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD, changedBy, cleanChangeReason)
         : undefined
       const changedAt = new Date().toISOString()
       const changeLog: CDRuleChangeLog | undefined = supplier && cdChanged ? {
@@ -160,18 +240,41 @@ export function PartyEditorDialog({
         previousValues: {
           paymentCDRules: supplier.paymentCDRules || [],
           invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
-          advanceCDPercentage: supplier.advanceCDPercentage
+          advanceCDPercentage: supplier.advanceCDPercentage,
+          effectiveTo: addDays(cleanEffectiveDate, -1)
         },
         newValues: {
-          paymentCDRules: supplier.paymentCDRules || [],
-          invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
-          advanceCDPercentage: advanceCDValue || undefined,
-          effectiveFrom: new Date().toISOString().split('T')[0]
+          paymentCDRules,
+          invoiceCloseCDRules,
+          advanceCDPercentage: normalizedAdvanceCD,
+          effectiveFrom: cleanEffectiveDate
         },
-        effectiveDate: new Date().toISOString().split('T')[0],
+        effectiveDate: cleanEffectiveDate,
         changedBy,
         changedAt,
-        reason: 'Supplier profile update',
+        reason: cleanChangeReason,
+        approvalStatus: 'Approved'
+      } : undefined
+      const initialChangeLog: CDRuleChangeLog | undefined = !supplier ? {
+        id: `${supplierId}-cd-change-${Date.now()}`,
+        supplierId,
+        ruleName: 'Supplier CD Rules',
+        ruleVersion: 1,
+        previousValues: {
+          paymentCDRules: [],
+          invoiceCloseCDRules: [],
+          advanceCDPercentage: undefined
+        },
+        newValues: {
+          paymentCDRules,
+          invoiceCloseCDRules,
+          advanceCDPercentage: normalizedAdvanceCD,
+          effectiveFrom: cleanEffectiveDate
+        },
+        effectiveDate: cleanEffectiveDate,
+        changedBy,
+        changedAt,
+        reason: cleanChangeReason,
         approvalStatus: 'Approved'
       } : undefined
 
@@ -191,20 +294,21 @@ export function PartyEditorDialog({
         shippingCity: trimOrUndefined(cleanShippingCity),
         gstin: trimOrUndefined(gstin.toUpperCase()),
         openingBalance: openingBalanceValue !== 0 ? openingBalanceValue : undefined,
-        advanceCDPercentage: advanceCDValue > 0 ? advanceCDValue : undefined,
+        advanceCDPercentage: normalizedAdvanceCD,
         annualTarget: targetMTValue > 0 || targetRateValue > 0 ? {
           targetMT: targetMTValue,
           ratePerMT: targetRateValue
         } : undefined,
-        paymentCDRules: supplier?.paymentCDRules || [],
-        invoiceCloseCDRules: supplier?.invoiceCloseCDRules || [],
+        paymentCDRules,
+        invoiceCloseCDRules,
         cdRuleVersions: [
-          ...existingVersions,
+          ...closedVersions,
           ...(initialVersion ? [initialVersion] : []),
           ...(changedVersion ? [changedVersion] : [])
         ],
         cdRuleChangeLog: [
           ...(supplier?.cdRuleChangeLog || []),
+          ...(initialChangeLog ? [initialChangeLog] : []),
           ...(changeLog ? [changeLog] : [])
         ]
       } satisfies Supplier)
@@ -401,40 +505,219 @@ export function PartyEditorDialog({
                       id="sharedSupplierAdvanceCD"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="100"
                       value={advanceCD}
                       onChange={(event) => setAdvanceCD(event.target.value)}
                       placeholder="0.00"
                       className="h-10 font-mono"
                     />
+                    <p className="text-[11px] text-muted-foreground">
+                      CD% applied to advance payment amounts.
+                    </p>
                   </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {type === 'supplier' && (
+            <>
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="mb-3 font-semibold">Rule Version Details</div>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="sharedSupplierTargetMT">Annual Target MT</Label>
+                    <Label htmlFor="sharedSupplierEffectiveDate">CD Rule Effective Date</Label>
                     <Input
-                      id="sharedSupplierTargetMT"
-                      type="number"
-                      step="0.001"
-                      value={targetMT}
-                      onChange={(event) => setTargetMT(event.target.value)}
-                      placeholder="0.000"
-                      className="h-10 font-mono"
+                      id="sharedSupplierEffectiveDate"
+                      type="date"
+                      value={effectiveDate}
+                      onChange={(event) => setEffectiveDate(event.target.value)}
+                      className="h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sharedSupplierTargetRate">Target Rate/MT (₹)</Label>
+                    <Label htmlFor="sharedSupplierChangeReason">Reason for Change</Label>
+                    <Input
+                      id="sharedSupplierChangeReason"
+                      value={changeReason}
+                      onChange={(event) => setChangeReason(event.target.value)}
+                      className="h-10"
+                      placeholder="e.g. New supplier circular"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label className="font-semibold">Payment CD Rules (% on Payment Amount)</Label>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Payment CD is calculated as a percentage of the payment amount.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-3"
+                      onClick={() => setPaymentCDRules((prev) => [...prev, { minDays: 0, maxDays: 0, percentageRate: 0 }])}
+                    >
+                      <Plus size={14} className="mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  {paymentCDRules.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border bg-background/60 px-3 py-4 text-sm text-muted-foreground">
+                      No payment CD rules configured.
+                    </div>
+                  ) : (
+                    paymentCDRules.map((rule, index) => (
+                      <div key={index} className="grid gap-2 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Min Days</Label>
+                          <Input
+                            type="number"
+                            className="h-9"
+                            value={rule.minDays}
+                            onChange={(event) => updatePaymentCDRule(index, { minDays: parseInt(event.target.value) || 0 })}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Max Days</Label>
+                          <Input
+                            type="number"
+                            className="h-9"
+                            value={rule.maxDays}
+                            onChange={(event) => updatePaymentCDRule(index, { maxDays: parseInt(event.target.value) || 0 })}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Percentage (%)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="h-9"
+                            value={rule.percentageRate}
+                            onChange={(event) => updatePaymentCDRule(index, { percentageRate: parseFloat(event.target.value) || 0 })}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-5 h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setPaymentCDRules((prev) => prev.filter((_, ruleIndex) => ruleIndex !== index))}
+                        >
+                          <Trash size={14} />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label className="font-semibold">Invoice Close CD Rules (Optional)</Label>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Invoice Close CD is calculated per MT based on days to close the invoice.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-3"
+                      onClick={() => setInvoiceCloseCDRules((prev) => [...prev, { minDays: 0, maxDays: 0, ratePerMT: 0 }])}
+                    >
+                      <Plus size={14} className="mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  {invoiceCloseCDRules.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border bg-background/60 px-3 py-4 text-sm text-muted-foreground">
+                      No invoice close CD rules configured.
+                    </div>
+                  ) : (
+                    invoiceCloseCDRules.map((rule, index) => (
+                      <div key={index} className="grid gap-2 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Min Days</Label>
+                          <Input
+                            type="number"
+                            className="h-9"
+                            value={rule.minDays}
+                            onChange={(event) => updateInvoiceCloseCDRule(index, { minDays: parseInt(event.target.value) || 0 })}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Max Days</Label>
+                          <Input
+                            type="number"
+                            className="h-9"
+                            value={rule.maxDays}
+                            onChange={(event) => updateInvoiceCloseCDRule(index, { maxDays: parseInt(event.target.value) || 0 })}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Rate/MT (₹)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="h-9"
+                            value={rule.ratePerMT}
+                            onChange={(event) => updateInvoiceCloseCDRule(index, { ratePerMT: parseFloat(event.target.value) || 0 })}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-5 h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setInvoiceCloseCDRules((prev) => prev.filter((_, ruleIndex) => ruleIndex !== index))}
+                        >
+                          <Trash size={14} />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <Label className="font-semibold">Annual Target (Optional)</Label>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="sharedSupplierTargetMT" className="text-[11px] font-medium">Target MT</Label>
+                    <Input
+                      id="sharedSupplierTargetMT"
+                      type="number"
+                      step="0.01"
+                      value={targetMT}
+                      onChange={(event) => setTargetMT(event.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sharedSupplierTargetRate" className="text-[11px] font-medium">Rate/MT (₹)</Label>
                     <Input
                       id="sharedSupplierTargetRate"
                       type="number"
                       step="0.01"
                       value={targetRate}
                       onChange={(event) => setTargetRate(event.target.value)}
-                      placeholder="0.00"
-                      className="h-10 font-mono"
+                      className="h-10"
                     />
                   </div>
-                </>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
