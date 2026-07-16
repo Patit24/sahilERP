@@ -113,6 +113,10 @@ export interface Customer {
   email?: string
   phone?: string
   address?: string
+  state?: string
+  pincode?: string
+  city?: string
+  gstin?: string
   openingBalance?: number
 }
 

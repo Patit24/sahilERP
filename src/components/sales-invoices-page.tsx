@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple } from '@phosphor-icons/react'
+import { Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -44,10 +44,23 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [quickCustomerPhone, setQuickCustomerPhone] = useState('')
   const [quickCustomerEmail, setQuickCustomerEmail] = useState('')
   const [quickCustomerAddress, setQuickCustomerAddress] = useState('')
+  const [quickCustomerState, setQuickCustomerState] = useState('')
+  const [quickCustomerPincode, setQuickCustomerPincode] = useState('')
+  const [quickCustomerCity, setQuickCustomerCity] = useState('')
+  const [quickCustomerGstin, setQuickCustomerGstin] = useState('')
   const [quickCustomerOpeningBalance, setQuickCustomerOpeningBalance] = useState('')
   const [showQuickItem, setShowQuickItem] = useState(false)
+  const [itemPickerOpen, setItemPickerOpen] = useState(false)
+  const [itemSearch, setItemSearch] = useState('')
+  const [selectedItemCategory, setSelectedItemCategory] = useState('all')
+  const [selectedPickerItemId, setSelectedPickerItemId] = useState('')
   const [quickItemName, setQuickItemName] = useState('')
   const [quickItemUnit, setQuickItemUnit] = useState<Item['unit']>('MT')
+  const [quickItemCategory, setQuickItemCategory] = useState('')
+  const [quickItemPurchasePrice, setQuickItemPurchasePrice] = useState('')
+  const [quickItemSalesPrice, setQuickItemSalesPrice] = useState('')
+  const [quickItemOpeningStock, setQuickItemOpeningStock] = useState('')
+  const [quickItemGstRate, setQuickItemGstRate] = useState('')
   
   const fyInvoices = salesInvoices.filter(inv => inv.fy === currentFY)
   const fyMonths = getFYMonths(currentFY)
@@ -82,6 +95,36 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       rate: 0,
       amount: 0
     }])
+  }
+
+  const addInvoiceItemWithItem = (itemId: string) => {
+    const item = items.find((candidate) => candidate.id === itemId)
+    const rate = item?.salesPrice || item?.purchasePrice || 0
+    const row = {
+      itemId,
+      quantityMT: 0,
+      rate,
+      amount: 0
+    }
+
+    setInvoiceItems(prev => {
+      const emptyIndex = prev.findIndex(existing => !existing.itemId)
+      if (emptyIndex === -1) return [...prev, row]
+      return prev.map((existing, index) => index === emptyIndex ? row : existing)
+    })
+  }
+
+  const handleAddSelectedItemToBill = () => {
+    if (!selectedPickerItemId) {
+      toast.error('Please select an item first')
+      return
+    }
+
+    addInvoiceItemWithItem(selectedPickerItemId)
+    setItemPickerOpen(false)
+    setSelectedPickerItemId('')
+    setItemSearch('')
+    setSelectedItemCategory('all')
   }
 
   const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
@@ -201,10 +244,23 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setQuickCustomerPhone('')
       setQuickCustomerEmail('')
       setQuickCustomerAddress('')
+      setQuickCustomerState('')
+      setQuickCustomerPincode('')
+      setQuickCustomerCity('')
+      setQuickCustomerGstin('')
       setQuickCustomerOpeningBalance('')
-      setShowQuickItem(items.length === 0)
+      setShowQuickItem(false)
+      setItemPickerOpen(false)
+      setItemSearch('')
+      setSelectedItemCategory('all')
+      setSelectedPickerItemId('')
       setQuickItemName('')
       setQuickItemUnit('MT')
+      setQuickItemCategory('')
+      setQuickItemPurchasePrice('')
+      setQuickItemSalesPrice('')
+      setQuickItemOpeningStock('')
+      setQuickItemGstRate('')
       setInvoiceItems([{
         itemId: '',
         quantityMT: 0,
@@ -223,10 +279,23 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setQuickCustomerPhone('')
       setQuickCustomerEmail('')
       setQuickCustomerAddress('')
+      setQuickCustomerState('')
+      setQuickCustomerPincode('')
+      setQuickCustomerCity('')
+      setQuickCustomerGstin('')
       setQuickCustomerOpeningBalance('')
       setShowQuickItem(false)
+      setItemPickerOpen(false)
+      setItemSearch('')
+      setSelectedItemCategory('all')
+      setSelectedPickerItemId('')
       setQuickItemName('')
       setQuickItemUnit('MT')
+      setQuickItemCategory('')
+      setQuickItemPurchasePrice('')
+      setQuickItemSalesPrice('')
+      setQuickItemOpeningStock('')
+      setQuickItemGstRate('')
     }
   }
 
@@ -293,6 +362,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       phone: quickCustomerPhone.trim() || undefined,
       email: quickCustomerEmail.trim() || undefined,
       address: quickCustomerAddress.trim() || undefined,
+      state: quickCustomerState.trim() || undefined,
+      pincode: quickCustomerPincode.trim() || undefined,
+      city: quickCustomerCity.trim() || undefined,
+      gstin: quickCustomerGstin.trim() || undefined,
       openingBalance: parseFloat(quickCustomerOpeningBalance) || 0
     }
 
@@ -302,6 +375,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setQuickCustomerPhone('')
     setQuickCustomerEmail('')
     setQuickCustomerAddress('')
+    setQuickCustomerState('')
+    setQuickCustomerPincode('')
+    setQuickCustomerCity('')
+    setQuickCustomerGstin('')
     setQuickCustomerOpeningBalance('')
     setShowQuickCustomer(false)
     toast.success(`Customer "${name}" created`)
@@ -323,20 +400,32 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     const item: Item = {
       id: `item-${Date.now()}`,
       name,
-      unit: quickItemUnit
+      unit: quickItemUnit,
+      category: quickItemCategory.trim() || undefined,
+      purchasePrice: parseFloat(quickItemPurchasePrice) || undefined,
+      salesPrice: parseFloat(quickItemSalesPrice) || undefined,
+      openingStock: parseFloat(quickItemOpeningStock) || undefined,
+      gstRate: parseFloat(quickItemGstRate) || undefined
     }
+
+    const rate = item.salesPrice || item.purchasePrice || 0
 
     setItems((prev) => [...prev, item])
     setInvoiceItems((prev) => {
       if (prev.length === 0) {
-        return [{ itemId: item.id, quantityMT: 0, rate: 0, amount: 0 }]
+        return [{ itemId: item.id, quantityMT: 0, rate, amount: 0 }]
       }
       const emptyIndex = prev.findIndex((row) => !row.itemId)
-      if (emptyIndex === -1) return [...prev, { itemId: item.id, quantityMT: 0, rate: 0, amount: 0 }]
-      return prev.map((row, index) => index === emptyIndex ? { ...row, itemId: item.id } : row)
+      if (emptyIndex === -1) return [...prev, { itemId: item.id, quantityMT: 0, rate, amount: 0 }]
+      return prev.map((row, index) => index === emptyIndex ? { ...row, itemId: item.id, rate } : row)
     })
     setQuickItemName('')
     setQuickItemUnit('MT')
+    setQuickItemCategory('')
+    setQuickItemPurchasePrice('')
+    setQuickItemSalesPrice('')
+    setQuickItemOpeningStock('')
+    setQuickItemGstRate('')
     setShowQuickItem(false)
     toast.success(`Item "${name}" created`)
   }
@@ -351,6 +440,24 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 
   const customerMap = new Map(customers.map(customer => [customer.id, customer]))
   const itemMap = new Map(items.map(item => [item.id, item]))
+  const filteredPickerItems = useMemo(() => {
+    const query = itemSearch.trim().toLowerCase()
+
+    return items
+      .filter((item) => {
+        if (selectedItemCategory !== 'all' && item.category !== selectedItemCategory) return false
+        if (!query) return true
+
+        return [
+          item.name,
+          item.itemCode,
+          item.category,
+          item.description,
+          item.unit
+        ].some((value) => value?.toLowerCase().includes(query))
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [itemSearch, items, selectedItemCategory])
 
   const fyDateRange = getFYDateRange(currentFY)
   const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
@@ -452,54 +559,12 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 	                                type="button"
 	                                variant="outline"
 	                                className="h-9 shrink-0 gap-1.5 px-3 text-xs"
-	                                onClick={() => setShowQuickCustomer((value) => !value)}
+	                                onClick={() => setShowQuickCustomer(true)}
 	                              >
 	                                <Plus size={14} weight="bold" />
 	                                New
 	                              </Button>
 	                            </div>
-	                            {showQuickCustomer && (
-	                              <div className="mt-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
-	                                <div className="grid gap-2 xl:grid-cols-[minmax(0,1.25fr)_140px_180px_150px_auto]">
-	                                  <Input
-	                                    value={quickCustomerName}
-	                                    onChange={(event) => setQuickCustomerName(event.target.value)}
-	                                    placeholder="New customer name"
-	                                    className="h-9 bg-background text-sm"
-	                                  />
-	                                  <Input
-	                                    value={quickCustomerPhone}
-	                                    onChange={(event) => setQuickCustomerPhone(event.target.value)}
-	                                    placeholder="Phone"
-	                                    className="h-9 bg-background text-sm"
-	                                  />
-	                                  <Input
-	                                    type="email"
-	                                    value={quickCustomerEmail}
-	                                    onChange={(event) => setQuickCustomerEmail(event.target.value)}
-	                                    placeholder="Email"
-	                                    className="h-9 bg-background text-sm"
-	                                  />
-	                                  <Input
-	                                    type="number"
-	                                    step="0.01"
-	                                    value={quickCustomerOpeningBalance}
-	                                    onChange={(event) => setQuickCustomerOpeningBalance(event.target.value)}
-	                                    placeholder="Opening bal."
-	                                    className="h-9 bg-background text-sm font-mono"
-	                                  />
-	                                  <Button type="button" className="h-9 px-4 text-xs" onClick={handleQuickCustomerCreate}>
-	                                    Create
-	                                  </Button>
-	                                  <Textarea
-	                                    value={quickCustomerAddress}
-	                                    onChange={(event) => setQuickCustomerAddress(event.target.value)}
-	                                    placeholder="Full address"
-	                                    className="min-h-16 bg-background text-sm xl:col-span-5"
-	                                  />
-	                                </div>
-	                              </div>
-	                            )}
 	                          </div>
 
                           <div className="space-y-1.5">
@@ -542,7 +607,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 	                              size="sm" 
 	                              variant="outline"
 	                              className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary text-xs px-3"
-	                              onClick={addInvoiceItem}
+	                              onClick={() => setItemPickerOpen(true)}
 	                            >
 	                              <Plus size={14} weight="bold" />
 	                              Add Item
@@ -552,40 +617,13 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 	                              size="sm" 
 	                              variant="outline"
 	                              className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary text-xs px-3"
-	                              onClick={() => setShowQuickItem((value) => !value)}
+	                              onClick={() => setShowQuickItem(true)}
 	                            >
 	                              <Plus size={14} weight="bold" />
 	                              New Item
 	                            </Button>
 	                          </div>
 	                        </div>
-
-	                        {showQuickItem && (
-	                          <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
-	                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_auto]">
-	                              <Input
-	                                value={quickItemName}
-	                                onChange={(event) => setQuickItemName(event.target.value)}
-	                                placeholder="New item name"
-	                                className="h-9 bg-background text-sm"
-	                              />
-	                              <Select value={quickItemUnit} onValueChange={(value) => setQuickItemUnit(value as Item['unit'])}>
-	                                <SelectTrigger className="h-9 bg-background text-sm">
-	                                  <SelectValue placeholder="Unit" />
-	                                </SelectTrigger>
-	                                <SelectContent>
-	                                  <SelectItem value="MT">MT</SelectItem>
-	                                  <SelectItem value="KG">KG</SelectItem>
-	                                  <SelectItem value="PCS">PCS</SelectItem>
-	                                  <SelectItem value="TON">TON</SelectItem>
-	                                </SelectContent>
-	                              </Select>
-	                              <Button type="button" className="h-9 px-4 text-xs" onClick={handleQuickItemCreate}>
-	                                Create Item
-	                              </Button>
-	                            </div>
-	                          </div>
-	                        )}
 
 	                          <div className="erp-table-panel">
                               {items.length === 0 && (
@@ -721,6 +759,381 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                     </div>
                   </form>
                 </DialogContent>
+            </Dialog>
+
+            <Dialog open={showQuickCustomer} onOpenChange={setShowQuickCustomer}>
+              <DialogContent className="max-w-[min(640px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
+                <DialogHeader className="border-b border-border px-6 py-5">
+                  <DialogTitle className="flex items-center gap-2 text-xl">
+                    <UserPlus size={22} className="text-primary" weight="duotone" />
+                    Create New Party
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-5 px-6 py-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="quickCustomerName">Party Name <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="quickCustomerName"
+                      value={quickCustomerName}
+                      onChange={(event) => setQuickCustomerName(event.target.value)}
+                      placeholder="Enter name"
+                      className="h-11"
+                    />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="quickCustomerPhone">Mobile Number</Label>
+                      <Input
+                        id="quickCustomerPhone"
+                        value={quickCustomerPhone}
+                        onChange={(event) => setQuickCustomerPhone(event.target.value)}
+                        placeholder="Enter Mobile Number"
+                        className="h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quickCustomerEmail">Email</Label>
+                      <Input
+                        id="quickCustomerEmail"
+                        type="email"
+                        value={quickCustomerEmail}
+                        onChange={(event) => setQuickCustomerEmail(event.target.value)}
+                        placeholder="Enter Email"
+                        className="h-11"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-muted/20">
+                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                      <div className="font-semibold">Address (Optional)</div>
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
+                        setQuickCustomerAddress('')
+                        setQuickCustomerState('')
+                        setQuickCustomerPincode('')
+                        setQuickCustomerCity('')
+                      }}>
+                        Remove
+                      </Button>
+                    </div>
+                    <div className="space-y-4 p-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="quickCustomerAddress" className="text-xs uppercase text-muted-foreground">
+                          Billing Address
+                        </Label>
+                        <Textarea
+                          id="quickCustomerAddress"
+                          value={quickCustomerAddress}
+                          onChange={(event) => setQuickCustomerAddress(event.target.value)}
+                          placeholder="Enter billing address"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="quickCustomerState" className="text-xs uppercase text-muted-foreground">State</Label>
+                          <Input
+                            id="quickCustomerState"
+                            value={quickCustomerState}
+                            onChange={(event) => setQuickCustomerState(event.target.value)}
+                            placeholder="Enter State"
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="quickCustomerPincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
+                          <Input
+                            id="quickCustomerPincode"
+                            value={quickCustomerPincode}
+                            onChange={(event) => setQuickCustomerPincode(event.target.value)}
+                            placeholder="Enter Pincode"
+                            className="h-10"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickCustomerCity" className="text-xs uppercase text-muted-foreground">City</Label>
+                        <Input
+                          id="quickCustomerCity"
+                          value={quickCustomerCity}
+                          onChange={(event) => setQuickCustomerCity(event.target.value)}
+                          placeholder="Enter City"
+                          className="h-10"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <input type="checkbox" checked readOnly className="h-4 w-4 accent-primary" />
+                        Shipping address same as billing address
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-muted/20">
+                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                      <div className="font-semibold">GSTIN (Optional)</div>
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setQuickCustomerGstin('')}>
+                        Remove
+                      </Button>
+                    </div>
+                    <div className="space-y-2 p-4">
+                      <Label htmlFor="quickCustomerGstin" className="text-xs uppercase text-muted-foreground">GSTIN</Label>
+                      <Input
+                        id="quickCustomerGstin"
+                        value={quickCustomerGstin}
+                        onChange={(event) => setQuickCustomerGstin(event.target.value.toUpperCase())}
+                        placeholder="ex: 29XXXXX9438X1XX"
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="mb-3 font-semibold">Accounting Details</div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quickCustomerOpeningBalance">Opening Balance (₹)</Label>
+                      <Input
+                        id="quickCustomerOpeningBalance"
+                        type="number"
+                        step="0.01"
+                        value={quickCustomerOpeningBalance}
+                        onChange={(event) => setQuickCustomerOpeningBalance(event.target.value)}
+                        placeholder="0.00"
+                        className="h-10 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+                  <Button type="button" variant="outline" onClick={() => setShowQuickCustomer(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={handleQuickCustomerCreate} disabled={!quickCustomerName.trim()}>
+                    Save
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={itemPickerOpen} onOpenChange={setItemPickerOpen}>
+              <DialogContent className="max-w-[min(1120px,calc(100vw-2rem))] max-h-[82dvh] p-0">
+                <DialogHeader className="border-b border-border px-6 py-5">
+                  <DialogTitle className="text-xl">Add Items to Bill</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 px-6 py-5">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
+                    <div className="relative">
+                      <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={itemSearch}
+                        onChange={(event) => setItemSearch(event.target.value)}
+                        placeholder="Search by Item/ Serial no./ HSN code/ SKU/ Custom Field / Category"
+                        className="h-11 pl-10 pr-10"
+                      />
+                      <Barcode size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    <Select value={selectedItemCategory} onValueChange={setSelectedItemCategory}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {[...new Set(items.map(item => item.category).filter(Boolean))].map(category => (
+                          <SelectItem key={category} value={category!}>{category}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" className="h-11" onClick={() => setShowQuickItem(true)}>
+                      Create New Item
+                    </Button>
+                  </div>
+
+                  <div className="overflow-hidden rounded-xl border border-border">
+                    <div className="max-h-[420px] overflow-y-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 z-10 bg-muted">
+                          <TableRow>
+                            <TableHead className="w-[34%]">Item Name</TableHead>
+                            <TableHead>Item Code</TableHead>
+                            <TableHead className="text-right">Stock</TableHead>
+                            <TableHead className="text-right">Sales Price</TableHead>
+                            <TableHead className="text-right">Purchase Price</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredPickerItems.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="h-72 text-center text-muted-foreground">
+                                No items found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            filteredPickerItems.map(item => (
+                              <TableRow
+                                key={item.id}
+                                className={selectedPickerItemId === item.id ? 'bg-primary/10' : 'cursor-pointer'}
+                                onClick={() => setSelectedPickerItemId(item.id)}
+                              >
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="radio"
+                                      checked={selectedPickerItemId === item.id}
+                                      onChange={() => setSelectedPickerItemId(item.id)}
+                                      className="h-4 w-4 accent-primary"
+                                    />
+                                    <span>{item.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{item.itemCode || '-'}</TableCell>
+                                <TableCell className="text-right font-mono">{item.openingStock ?? 0}</TableCell>
+                                <TableCell className="text-right font-mono">{item.salesPrice ? formatCurrency(item.salesPrice) : '-'}</TableCell>
+                                <TableCell className="text-right font-mono">{item.purchasePrice ? formatCurrency(item.purchasePrice) : '-'}</TableCell>
+                                <TableCell className="text-right font-mono">0</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-border px-6 py-4">
+                  <div className="text-sm text-primary">
+                    Show {selectedPickerItemId ? 1 : 0} Item(s) Selected
+                  </div>
+                  <div className="flex gap-3">
+                    <Button type="button" variant="outline" onClick={() => {
+                      setItemPickerOpen(false)
+                      setSelectedPickerItemId('')
+                      setItemSearch('')
+                      setSelectedItemCategory('all')
+                    }}>
+                      Cancel [ESC]
+                    </Button>
+                    <Button type="button" onClick={handleAddSelectedItemToBill} disabled={!selectedPickerItemId}>
+                      Add to Bill [F7]
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={showQuickItem} onOpenChange={setShowQuickItem}>
+              <DialogContent className="max-w-[min(720px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
+                <DialogHeader className="border-b border-border px-6 py-5">
+                  <DialogTitle className="flex items-center gap-2 text-xl">
+                    <Package size={22} className="text-primary" weight="duotone" />
+                    Create New Item
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="border-b border-border p-6">
+                  <div className="mb-4 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
+                    Basic Details *
+                  </div>
+                  <div className="rounded-xl border border-border p-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemCategory">Category</Label>
+                        <Input
+                          id="quickItemCategory"
+                          value={quickItemCategory}
+                          onChange={(event) => setQuickItemCategory(event.target.value)}
+                          placeholder="Search Categories"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemName">Item Name <span className="text-destructive">*</span></Label>
+                        <Input
+                          id="quickItemName"
+                          value={quickItemName}
+                          onChange={(event) => setQuickItemName(event.target.value)}
+                          placeholder="ex: Maggi 20gm"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemGstRate">GST Tax Rate(%)</Label>
+                        <Input
+                          id="quickItemGstRate"
+                          type="number"
+                          step="0.01"
+                          value={quickItemGstRate}
+                          onChange={(event) => setQuickItemGstRate(event.target.value)}
+                          placeholder="None"
+                          className="h-11 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemPurchasePrice">Purchase Price</Label>
+                        <Input
+                          id="quickItemPurchasePrice"
+                          type="number"
+                          step="0.01"
+                          value={quickItemPurchasePrice}
+                          onChange={(event) => setQuickItemPurchasePrice(event.target.value)}
+                          placeholder="ex: ₹200"
+                          className="h-11 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemSalesPrice">Sales Price</Label>
+                        <Input
+                          id="quickItemSalesPrice"
+                          type="number"
+                          step="0.01"
+                          value={quickItemSalesPrice}
+                          onChange={(event) => setQuickItemSalesPrice(event.target.value)}
+                          placeholder="ex: ₹250"
+                          className="h-11 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemUnit">Measuring Unit</Label>
+                        <Select value={quickItemUnit} onValueChange={(value) => setQuickItemUnit(value as Item['unit'])}>
+                          <SelectTrigger id="quickItemUnit" className="h-11">
+                            <SelectValue placeholder="Unit" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PCS">Pieces(PCS)</SelectItem>
+                            <SelectItem value="MT">Metric Ton(MT)</SelectItem>
+                            <SelectItem value="KG">Kilogram(KG)</SelectItem>
+                            <SelectItem value="TON">Ton(TON)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickItemOpeningStock">Opening Stock</Label>
+                        <Input
+                          id="quickItemOpeningStock"
+                          type="number"
+                          step="0.001"
+                          value={quickItemOpeningStock}
+                          onChange={(event) => setQuickItemOpeningStock(event.target.value)}
+                          placeholder={`ex: 150 ${quickItemUnit}`}
+                          className="h-11 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 px-6 py-4">
+                  <Button type="button" variant="outline" onClick={() => setShowQuickItem(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" disabled={!quickItemName.trim()} onClick={handleQuickItemCreate}>
+                    Save Item
+                  </Button>
+                </div>
+              </DialogContent>
             </Dialog>
           </div>
           
