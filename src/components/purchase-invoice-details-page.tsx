@@ -503,13 +503,13 @@ export default function PurchaseInvoiceDetailsPage({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-7">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat) => {
           const Icon = stat.icon
           return (
             <div
               key={stat.label}
-              className="min-h-[128px] rounded-[24px] border border-border/70 bg-background/80 p-4 shadow-[8px_8px_22px_rgba(15,23,42,0.09),-8px_-8px_22px_rgba(255,255,255,0.72)]"
+              className="min-h-[132px] min-w-0 rounded-[24px] border border-border/70 bg-background/80 p-4 shadow-[8px_8px_22px_rgba(15,23,42,0.09),-8px_-8px_22px_rgba(255,255,255,0.72)]"
             >
               <div className="mb-4 flex items-center justify-between">
                 <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", stat.surface)}>
@@ -517,7 +517,7 @@ export default function PurchaseInvoiceDetailsPage({
                 </div>
               </div>
               <div className="text-xs font-semibold uppercase text-muted-foreground">{stat.label}</div>
-              <div className={cn("mt-1 break-words font-mono text-xl font-bold leading-tight", stat.tone)}>{stat.value}</div>
+              <div className={cn("mt-1 break-words font-mono text-[1.35rem] font-bold leading-tight [font-variant-numeric:tabular-nums]", stat.tone)}>{stat.value}</div>
               <div className="mt-2 text-xs text-muted-foreground">{stat.helper}</div>
             </div>
           )
@@ -543,60 +543,62 @@ export default function PurchaseInvoiceDetailsPage({
                   onOpenChange={() => toggleSection(detail.invoice.id, 'invoice')}
                 >
                   <CollapsibleTrigger className="w-full">
-                    <CardHeader className="p-4 transition-colors hover:bg-primary/5">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.4fr)_minmax(260px,1fr)] lg:items-center">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-                            <CaretDown
-                              className={cn(
-                                "h-5 w-5 text-primary transition-transform duration-200",
-                                isSectionOpen(detail.invoice.id, 'invoice') && "rotate-180"
-                              )}
-                            />
-                          </div>
-                          <div className="min-w-0 text-left">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate font-mono text-xl font-bold text-foreground">{detail.invoice.invoiceNo}</span>
-                              {getStatusBadge(detail.status)}
+                    <CardHeader className="p-4 transition-colors hover:bg-primary/5 md:p-5">
+                      <div className="space-y-4">
+                        <div className="grid gap-3 xl:grid-cols-[minmax(220px,1.15fr)_minmax(0,2fr)] xl:items-center">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                              <CaretDown
+                                className={cn(
+                                  "h-5 w-5 text-primary transition-transform duration-200",
+                                  isSectionOpen(detail.invoice.id, 'invoice') && "rotate-180"
+                                )}
+                              />
                             </div>
-                            <div className="mt-1 truncate text-sm text-muted-foreground">{detail.supplier.name}</div>
+                            <div className="min-w-0 text-left">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="break-all font-mono text-xl font-bold leading-tight text-foreground">{detail.invoice.invoiceNo}</span>
+                                {getStatusBadge(detail.status)}
+                              </div>
+                              <div className="mt-1 truncate text-sm text-muted-foreground">{detail.supplier.name}</div>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2 text-left text-sm sm:grid-cols-3">
+                            <div className="rounded-2xl bg-muted/30 px-3 py-2">
+                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">Invoice date</div>
+                              <div className="font-medium text-foreground">{format(new Date(detail.invoice.invoiceDate), 'dd MMM yyyy')}</div>
+                            </div>
+                            {detail.invoice.orderDate ? (
+                              <div className="rounded-2xl bg-muted/30 px-3 py-2">
+                                <div className="text-[11px] font-semibold uppercase text-muted-foreground">Order date</div>
+                                <div className="font-medium text-foreground">{format(new Date(detail.invoice.orderDate), 'dd MMM yyyy')}</div>
+                              </div>
+                            ) : (
+                              <div className="rounded-2xl bg-muted/30 px-3 py-2">
+                                <div className="text-[11px] font-semibold uppercase text-muted-foreground">Order date</div>
+                                <div className="font-medium text-muted-foreground">Not set</div>
+                              </div>
+                            )}
+                            <div className="rounded-2xl bg-muted/30 px-3 py-2">
+                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">Quantity</div>
+                              <div className="font-mono font-bold text-foreground [font-variant-numeric:tabular-nums]">{formatMT(detail.invoice.quantityMT)}</div>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="grid gap-2 text-left text-sm sm:grid-cols-3">
-                          <div className="rounded-2xl bg-muted/30 px-3 py-2">
-                            <div className="text-[11px] font-semibold uppercase text-muted-foreground">Invoice date</div>
-                            <div className="font-medium text-foreground">{format(new Date(detail.invoice.invoiceDate), 'dd MMM yyyy')}</div>
-                          </div>
-                          {detail.invoice.orderDate ? (
-                            <div className="rounded-2xl bg-muted/30 px-3 py-2">
-                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">Order date</div>
-                              <div className="font-medium text-foreground">{format(new Date(detail.invoice.orderDate), 'dd MMM yyyy')}</div>
-                            </div>
-                          ) : (
-                            <div className="rounded-2xl bg-muted/30 px-3 py-2">
-                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">Order date</div>
-                              <div className="font-medium text-muted-foreground">Not set</div>
-                            </div>
-                          )}
-                          <div className="rounded-2xl bg-muted/30 px-3 py-2">
-                            <div className="text-[11px] font-semibold uppercase text-muted-foreground">Quantity</div>
-                            <div className="font-mono font-bold text-foreground">{formatMT(detail.invoice.quantityMT)}</div>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-2 text-left text-sm sm:grid-cols-3 lg:text-right">
-                          <div className="rounded-2xl bg-primary/10 px-3 py-2">
+                        <div className="grid gap-3 text-left text-sm md:grid-cols-3">
+                          <div className="min-w-0 rounded-2xl bg-primary/10 px-4 py-3">
                             <div className="text-[11px] font-semibold uppercase text-muted-foreground">Amount</div>
-                            <div className="font-mono font-bold text-primary">{formatCurrency(detail.invoice.invoiceAmount)}</div>
+                            <div className="mt-1 break-words font-mono text-lg font-bold leading-tight text-primary [font-variant-numeric:tabular-nums]">{formatCurrency(detail.invoice.invoiceAmount)}</div>
                           </div>
-                          <div className="rounded-2xl bg-success/10 px-3 py-2">
+                          <div className="min-w-0 rounded-2xl bg-success/10 px-4 py-3">
                             <div className="text-[11px] font-semibold uppercase text-muted-foreground">Paid</div>
-                            <div className="font-mono font-bold text-success">{formatCurrency(detail.paidAmount)}</div>
+                            <div className="mt-1 break-words font-mono text-lg font-bold leading-tight text-success [font-variant-numeric:tabular-nums]">{formatCurrency(detail.paidAmount)}</div>
                           </div>
-                          <div className="rounded-2xl bg-destructive/10 px-3 py-2">
+                          <div className="min-w-0 rounded-2xl bg-destructive/10 px-4 py-3">
                             <div className="text-[11px] font-semibold uppercase text-muted-foreground">Pending</div>
-                            <div className="font-mono font-bold text-destructive">{formatCurrency(detail.pendingAmount)}</div>
+                            <div className="mt-1 break-words font-mono text-lg font-bold leading-tight text-destructive [font-variant-numeric:tabular-nums]">{formatCurrency(detail.pendingAmount)}</div>
                           </div>
                         </div>
                       </div>
