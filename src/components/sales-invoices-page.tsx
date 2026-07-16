@@ -38,6 +38,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
+  const [additionalCostBasicRate, setAdditionalCostBasicRate] = useState<number>(0)
+  const [additionalCostFinal, setAdditionalCostFinal] = useState<number>(0)
+  const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
   const [quickCustomerName, setQuickCustomerName] = useState('')
@@ -47,6 +50,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [quickCustomerState, setQuickCustomerState] = useState('')
   const [quickCustomerPincode, setQuickCustomerPincode] = useState('')
   const [quickCustomerCity, setQuickCustomerCity] = useState('')
+  const [quickCustomerShippingSame, setQuickCustomerShippingSame] = useState(true)
+  const [quickCustomerShippingAddress, setQuickCustomerShippingAddress] = useState('')
+  const [quickCustomerShippingState, setQuickCustomerShippingState] = useState('')
+  const [quickCustomerShippingPincode, setQuickCustomerShippingPincode] = useState('')
+  const [quickCustomerShippingCity, setQuickCustomerShippingCity] = useState('')
   const [quickCustomerGstin, setQuickCustomerGstin] = useState('')
   const [quickCustomerOpeningBalance, setQuickCustomerOpeningBalance] = useState('')
   const [showQuickItem, setShowQuickItem] = useState(false)
@@ -87,6 +95,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   
   const totalMT = filteredInvoices.reduce((sum, inv) => sum + inv.quantityMT, 0)
   const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
+  const gstPercentage = 18
 
   const addInvoiceItem = () => {
     setInvoiceItems(prev => [...prev, {
@@ -151,6 +160,25 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setInvoiceItems(prev => prev.filter((_, i) => i !== index))
   }
 
+  const handleAdditionalCostBasicRateChange = (value: string) => {
+    const basicRate = parseFloat(value) || 0
+    setAdditionalCostBasicRate(basicRate)
+    setAdditionalCostFinal(basicRate > 0 ? parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2)) : 0)
+  }
+
+  const handleAdditionalCostFinalChange = (value: string) => {
+    setAdditionalCostFinal(parseFloat(value) || 0)
+  }
+
+  const handleRoundOff = () => {
+    const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
+    const currentTotal = totalAmt + additionalCostFinal
+    const roundedTotal = Math.round(currentTotal)
+    const adjustment = parseFloat((roundedTotal - currentTotal).toFixed(2))
+    setRoundOffAdjustment(adjustment)
+    toast.success(`Round-off adjustment: ${adjustment >= 0 ? '+' : ''}${formatCurrency(adjustment)}`)
+  }
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
@@ -204,6 +232,13 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 
     const totalQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
     const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
+    const additionalCostBasicRate = parseFloat(formData.get('additionalCostBasicRate') as string) || 0
+    const additionalCost = additionalCostBasicRate > 0
+      ? parseFloat((additionalCostBasicRate * (1 + gstPercentage / 100)).toFixed(2))
+      : parseFloat(formData.get('additionalCost') as string) || 0
+    const additionalCostRemarks = (formData.get('additionalCostRemarks') as string) || ''
+    const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
+    const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
 
     if (editingInvoice) {
       const updatedInvoice: SalesInvoice = {
@@ -213,7 +248,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         invoiceDate: formData.get('invoiceDate') as string,
         items: invoiceItems,
         quantityMT: totalQty,
-        invoiceAmount: totalAmt,
+        invoiceAmount: finalInvoiceAmount,
+        additionalCost,
+        additionalCostBasicRate: additionalCostBasicRate || undefined,
+        additionalCostRemarks: additionalCostRemarks || undefined,
+        roundOffAdjustment: roundOffAdjustment || undefined,
       }
       setSalesInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updatedInvoice : inv))
     } else {
@@ -224,7 +263,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         invoiceDate: formData.get('invoiceDate') as string,
         items: invoiceItems,
         quantityMT: totalQty,
-        invoiceAmount: totalAmt,
+        invoiceAmount: finalInvoiceAmount,
+        additionalCost,
+        additionalCostBasicRate: additionalCostBasicRate || undefined,
+        additionalCostRemarks: additionalCostRemarks || undefined,
+        roundOffAdjustment: roundOffAdjustment || undefined,
         fy: currentFY
       }
       setSalesInvoices((prev) => [...prev, invoice])
@@ -233,6 +276,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setOpen(false)
     setInvoiceItems([])
     setEditingInvoice(null)
+    setAdditionalCostBasicRate(0)
+    setAdditionalCostFinal(0)
+    setRoundOffAdjustment(0)
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -247,6 +293,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setQuickCustomerState('')
       setQuickCustomerPincode('')
       setQuickCustomerCity('')
+      setQuickCustomerShippingSame(true)
+      setQuickCustomerShippingAddress('')
+      setQuickCustomerShippingState('')
+      setQuickCustomerShippingPincode('')
+      setQuickCustomerShippingCity('')
       setQuickCustomerGstin('')
       setQuickCustomerOpeningBalance('')
       setShowQuickItem(false)
@@ -267,6 +318,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         rate: 0,
         amount: 0
       }])
+      setAdditionalCostBasicRate(0)
+      setAdditionalCostFinal(0)
+      setRoundOffAdjustment(0)
       setTimeout(() => {
         document.querySelector('.erp-invoice-body')?.scrollTo({ top: 0 })
       }, 0)
@@ -282,6 +336,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setQuickCustomerState('')
       setQuickCustomerPincode('')
       setQuickCustomerCity('')
+      setQuickCustomerShippingSame(true)
+      setQuickCustomerShippingAddress('')
+      setQuickCustomerShippingState('')
+      setQuickCustomerShippingPincode('')
+      setQuickCustomerShippingCity('')
       setQuickCustomerGstin('')
       setQuickCustomerOpeningBalance('')
       setShowQuickItem(false)
@@ -296,6 +355,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setQuickItemSalesPrice('')
       setQuickItemOpeningStock('')
       setQuickItemGstRate('')
+      setAdditionalCostBasicRate(0)
+      setAdditionalCostFinal(0)
+      setRoundOffAdjustment(0)
     }
   }
 
@@ -309,6 +371,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setEditingInvoice(invoice)
     setSelectedCustomerId(invoice.customerId)
     setInvoiceItems(invoice.items || [])
+    setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
+    setAdditionalCostFinal(invoice.additionalCost || 0)
+    setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     setOpen(true)
   }
 
@@ -365,6 +430,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       state: quickCustomerState.trim() || undefined,
       pincode: quickCustomerPincode.trim() || undefined,
       city: quickCustomerCity.trim() || undefined,
+      shippingSameAsBilling: quickCustomerShippingSame,
+      shippingAddress: (quickCustomerShippingSame ? quickCustomerAddress : quickCustomerShippingAddress).trim() || undefined,
+      shippingState: (quickCustomerShippingSame ? quickCustomerState : quickCustomerShippingState).trim() || undefined,
+      shippingPincode: (quickCustomerShippingSame ? quickCustomerPincode : quickCustomerShippingPincode).trim() || undefined,
+      shippingCity: (quickCustomerShippingSame ? quickCustomerCity : quickCustomerShippingCity).trim() || undefined,
       gstin: quickCustomerGstin.trim() || undefined,
       openingBalance: parseFloat(quickCustomerOpeningBalance) || 0
     }
@@ -378,6 +448,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setQuickCustomerState('')
     setQuickCustomerPincode('')
     setQuickCustomerCity('')
+    setQuickCustomerShippingSame(true)
+    setQuickCustomerShippingAddress('')
+    setQuickCustomerShippingState('')
+    setQuickCustomerShippingPincode('')
+    setQuickCustomerShippingCity('')
     setQuickCustomerGstin('')
     setQuickCustomerOpeningBalance('')
     setShowQuickCustomer(false)
@@ -462,6 +537,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const fyDateRange = getFYDateRange(currentFY)
   const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
   const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
+  const totalInvoiceQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
+  const totalInvoiceAmount = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
 
   const handleDownloadInvoicePDF = (invoice: SalesInvoice) => {
     exportSalesInvoicePDF(invoice, customerMap.get(invoice.customerId), itemMap, {
@@ -722,15 +799,123 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                         </div>
 
                         {invoiceItems.length > 0 && (
-                          <div className="erp-total-panel">
-                            <div className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Total Quantity:</span>
-                                <span className="font-mono font-semibold text-foreground">{formatMT(invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0))}</span>
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <div className="erp-section-toolbar">
+                                <h3 className="erp-section-title">Additional Cost (Optional)</h3>
+                                <span className="text-[10px] text-muted-foreground font-medium">
+                                  GST: {gstPercentage}% • Final = Basic × {(1 + gstPercentage / 100).toFixed(2)}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground font-medium">Total Invoice Amount:</span>
-                                <span className="font-mono font-bold text-base text-primary">{formatCurrency(invoiceItems.reduce((sum, item) => sum + item.amount, 0))}</span>
+
+                              <div className="erp-table-panel">
+                                <Table>
+                                  <TableHeader className="bg-muted/50">
+                                    <TableRow className="hover:bg-muted/50">
+                                      <TableHead className="font-semibold text-foreground text-xs w-[25%] px-2">Remarks / Note</TableHead>
+                                      <TableHead className="font-semibold text-foreground text-xs w-[20%] px-2">Basic Rate</TableHead>
+                                      <TableHead className="font-semibold text-foreground text-xs w-[20%] px-2">Final Cost</TableHead>
+                                      <TableHead className="font-semibold text-foreground text-xs w-[35%] px-2">Description</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    <TableRow className="hover:bg-muted/30">
+                                      <TableCell className="px-2 py-2">
+                                        <Input
+                                          id="salesAdditionalCostRemarks"
+                                          name="additionalCostRemarks"
+                                          type="text"
+                                          defaultValue={editingInvoice?.additionalCostRemarks || ''}
+                                          placeholder="e.g., Freight, Handling"
+                                          className="h-8 bg-background text-xs px-2"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="px-2 py-2">
+                                        <Input
+                                          id="salesAdditionalCostBasicRate"
+                                          name="additionalCostBasicRate"
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={additionalCostBasicRate || ''}
+                                          onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
+                                          placeholder="0.00"
+                                          className="h-8 font-mono text-right bg-background text-xs px-2"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="px-2 py-2">
+                                        <Input
+                                          id="salesAdditionalCost"
+                                          name="additionalCost"
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={additionalCostFinal || ''}
+                                          onChange={(e) => handleAdditionalCostFinalChange(e.target.value)}
+                                          placeholder="0.00"
+                                          className="h-8 font-mono text-right bg-background text-xs px-2"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="px-2 py-2">
+                                        <span className="text-[10px] text-muted-foreground italic">
+                                          {additionalCostBasicRate > 0
+                                            ? `Auto-calculated: ${additionalCostBasicRate} × ${(1 + gstPercentage / 100).toFixed(2)} = ${additionalCostFinal.toFixed(2)}`
+                                            : 'Enter Basic Rate or Final Cost directly'}
+                                        </span>
+                                      </TableCell>
+                                    </TableRow>
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+
+                            <div className="erp-total-panel">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">Total Quantity:</span>
+                                    <span className="font-mono font-semibold text-foreground">{formatMT(totalInvoiceQty)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">Items Total:</span>
+                                    <span className="font-mono font-semibold text-foreground">{formatCurrency(totalInvoiceAmount)}</span>
+                                  </div>
+                                </div>
+                                {(additionalCostBasicRate > 0 || additionalCostFinal > 0) && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Additional Cost:</span>
+                                      <span className="font-mono font-semibold text-foreground">{formatCurrency(additionalCostFinal)}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {roundOffAdjustment !== 0 && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Round-off:</span>
+                                      <span className="font-mono font-semibold text-foreground">{roundOffAdjustment >= 0 ? '+' : ''}{formatCurrency(roundOffAdjustment)}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="h-px bg-border"></div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground font-medium">Final Invoice Amount:</span>
+                                      <span className="font-mono font-bold text-base text-primary">{formatCurrency(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment)}</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs px-2.5 gap-1.5"
+                                      onClick={handleRoundOff}
+                                    >
+                                      Round Off
+                                    </Button>
+                                  </div>
+                                </div>
+                                <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
                               </div>
                             </div>
                           </div>
@@ -814,6 +999,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                         setQuickCustomerState('')
                         setQuickCustomerPincode('')
                         setQuickCustomerCity('')
+                        setQuickCustomerShippingAddress('')
+                        setQuickCustomerShippingState('')
+                        setQuickCustomerShippingPincode('')
+                        setQuickCustomerShippingCity('')
                       }}>
                         Remove
                       </Button>
@@ -864,9 +1053,63 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                         />
                       </div>
                       <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <input type="checkbox" checked readOnly className="h-4 w-4 accent-primary" />
+                        <input
+                          type="checkbox"
+                          checked={quickCustomerShippingSame}
+                          onChange={(event) => setQuickCustomerShippingSame(event.target.checked)}
+                          className="h-4 w-4 accent-primary"
+                        />
                         Shipping address same as billing address
                       </label>
+                      {!quickCustomerShippingSame && (
+                        <div className="space-y-4 rounded-lg border border-border bg-background/70 p-4">
+                          <div className="font-semibold">Shipping Address</div>
+                          <div className="space-y-2">
+                            <Label htmlFor="quickCustomerShippingAddress" className="text-xs uppercase text-muted-foreground">
+                              Shipping Address
+                            </Label>
+                            <Textarea
+                              id="quickCustomerShippingAddress"
+                              value={quickCustomerShippingAddress}
+                              onChange={(event) => setQuickCustomerShippingAddress(event.target.value)}
+                              placeholder="Enter shipping address"
+                              rows={3}
+                            />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="quickCustomerShippingState" className="text-xs uppercase text-muted-foreground">State</Label>
+                              <Input
+                                id="quickCustomerShippingState"
+                                value={quickCustomerShippingState}
+                                onChange={(event) => setQuickCustomerShippingState(event.target.value)}
+                                placeholder="Enter State"
+                                className="h-10"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="quickCustomerShippingPincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
+                              <Input
+                                id="quickCustomerShippingPincode"
+                                value={quickCustomerShippingPincode}
+                                onChange={(event) => setQuickCustomerShippingPincode(event.target.value)}
+                                placeholder="Enter Pincode"
+                                className="h-10"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="quickCustomerShippingCity" className="text-xs uppercase text-muted-foreground">City</Label>
+                            <Input
+                              id="quickCustomerShippingCity"
+                              value={quickCustomerShippingCity}
+                              onChange={(event) => setQuickCustomerShippingCity(event.target.value)}
+                              placeholder="Enter City"
+                              className="h-10"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

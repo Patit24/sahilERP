@@ -20,6 +20,11 @@ export interface Supplier {
   state?: string
   pincode?: string
   city?: string
+  shippingSameAsBilling?: boolean
+  shippingAddress?: string
+  shippingState?: string
+  shippingPincode?: string
+  shippingCity?: string
   gstin?: string
   paymentCDRules: PaymentCDRule[]
   invoiceCloseCDRules: InvoiceCloseCDRule[]
@@ -116,6 +121,11 @@ export interface Customer {
   state?: string
   pincode?: string
   city?: string
+  shippingSameAsBilling?: boolean
+  shippingAddress?: string
+  shippingState?: string
+  shippingPincode?: string
+  shippingCity?: string
   gstin?: string
   openingBalance?: number
 }
@@ -252,6 +262,10 @@ export interface SalesInvoice {
   items?: InvoiceItem[]
   quantityMT: number
   invoiceAmount: number
+  additionalCost?: number
+  additionalCostBasicRate?: number
+  additionalCostRemarks?: string
+  roundOffAdjustment?: number
   fy: string
 }
 

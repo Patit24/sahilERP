@@ -52,6 +52,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [quickSupplierState, setQuickSupplierState] = useState('')
   const [quickSupplierPincode, setQuickSupplierPincode] = useState('')
   const [quickSupplierCity, setQuickSupplierCity] = useState('')
+  const [quickSupplierShippingSame, setQuickSupplierShippingSame] = useState(true)
+  const [quickSupplierShippingAddress, setQuickSupplierShippingAddress] = useState('')
+  const [quickSupplierShippingState, setQuickSupplierShippingState] = useState('')
+  const [quickSupplierShippingPincode, setQuickSupplierShippingPincode] = useState('')
+  const [quickSupplierShippingCity, setQuickSupplierShippingCity] = useState('')
   const [quickSupplierGstin, setQuickSupplierGstin] = useState('')
   const [quickSupplierOpeningBalance, setQuickSupplierOpeningBalance] = useState('')
   const [quickSupplierAdvanceCD, setQuickSupplierAdvanceCD] = useState('')
@@ -323,6 +328,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setQuickSupplierState('')
       setQuickSupplierPincode('')
       setQuickSupplierCity('')
+      setQuickSupplierShippingSame(true)
+      setQuickSupplierShippingAddress('')
+      setQuickSupplierShippingState('')
+      setQuickSupplierShippingPincode('')
+      setQuickSupplierShippingCity('')
       setQuickSupplierGstin('')
       setQuickSupplierOpeningBalance('')
       setQuickSupplierAdvanceCD('')
@@ -369,6 +379,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setQuickSupplierState('')
       setQuickSupplierPincode('')
       setQuickSupplierCity('')
+      setQuickSupplierShippingSame(true)
+      setQuickSupplierShippingAddress('')
+      setQuickSupplierShippingState('')
+      setQuickSupplierShippingPincode('')
+      setQuickSupplierShippingCity('')
       setQuickSupplierGstin('')
       setQuickSupplierOpeningBalance('')
       setQuickSupplierAdvanceCD('')
@@ -463,6 +478,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       state: quickSupplierState.trim() || undefined,
       pincode: quickSupplierPincode.trim() || undefined,
       city: quickSupplierCity.trim() || undefined,
+      shippingSameAsBilling: quickSupplierShippingSame,
+      shippingAddress: (quickSupplierShippingSame ? quickSupplierAddress : quickSupplierShippingAddress).trim() || undefined,
+      shippingState: (quickSupplierShippingSame ? quickSupplierState : quickSupplierShippingState).trim() || undefined,
+      shippingPincode: (quickSupplierShippingSame ? quickSupplierPincode : quickSupplierShippingPincode).trim() || undefined,
+      shippingCity: (quickSupplierShippingSame ? quickSupplierCity : quickSupplierShippingCity).trim() || undefined,
       gstin: quickSupplierGstin.trim() || undefined,
       openingBalance: parseFloat(quickSupplierOpeningBalance) || 0,
       advanceCDPercentage: parseFloat(quickSupplierAdvanceCD) || 0,
@@ -482,6 +502,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setQuickSupplierState('')
     setQuickSupplierPincode('')
     setQuickSupplierCity('')
+    setQuickSupplierShippingSame(true)
+    setQuickSupplierShippingAddress('')
+    setQuickSupplierShippingState('')
+    setQuickSupplierShippingPincode('')
+    setQuickSupplierShippingCity('')
     setQuickSupplierGstin('')
     setQuickSupplierOpeningBalance('')
     setQuickSupplierAdvanceCD('')
@@ -1001,6 +1026,10 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                     setQuickSupplierState('')
                     setQuickSupplierPincode('')
                     setQuickSupplierCity('')
+                    setQuickSupplierShippingAddress('')
+                    setQuickSupplierShippingState('')
+                    setQuickSupplierShippingPincode('')
+                    setQuickSupplierShippingCity('')
                   }}>
                     Remove
                   </Button>
@@ -1051,9 +1080,63 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                     />
                   </div>
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <input type="checkbox" checked readOnly className="h-4 w-4 accent-primary" />
+                    <input
+                      type="checkbox"
+                      checked={quickSupplierShippingSame}
+                      onChange={(event) => setQuickSupplierShippingSame(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
                     Shipping address same as billing address
                   </label>
+                  {!quickSupplierShippingSame && (
+                    <div className="space-y-4 rounded-lg border border-border bg-background/70 p-4">
+                      <div className="font-semibold">Shipping Address</div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickSupplierShippingAddress" className="text-xs uppercase text-muted-foreground">
+                          Shipping Address
+                        </Label>
+                        <Textarea
+                          id="quickSupplierShippingAddress"
+                          value={quickSupplierShippingAddress}
+                          onChange={(event) => setQuickSupplierShippingAddress(event.target.value)}
+                          placeholder="Enter shipping address"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="quickSupplierShippingState" className="text-xs uppercase text-muted-foreground">State</Label>
+                          <Input
+                            id="quickSupplierShippingState"
+                            value={quickSupplierShippingState}
+                            onChange={(event) => setQuickSupplierShippingState(event.target.value)}
+                            placeholder="Enter State"
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="quickSupplierShippingPincode" className="text-xs uppercase text-muted-foreground">Pincode</Label>
+                          <Input
+                            id="quickSupplierShippingPincode"
+                            value={quickSupplierShippingPincode}
+                            onChange={(event) => setQuickSupplierShippingPincode(event.target.value)}
+                            placeholder="Enter Pincode"
+                            className="h-10"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickSupplierShippingCity" className="text-xs uppercase text-muted-foreground">City</Label>
+                        <Input
+                          id="quickSupplierShippingCity"
+                          value={quickSupplierShippingCity}
+                          onChange={(event) => setQuickSupplierShippingCity(event.target.value)}
+                          placeholder="Enter City"
+                          className="h-10"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
