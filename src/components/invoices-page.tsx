@@ -64,7 +64,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [selectedPickerItemId, setSelectedPickerItemId] = useState('')
   const [quickItemName, setQuickItemName] = useState('')
   const [quickItemUnit, setQuickItemUnit] = useState<Item['unit']>('MT')
-  const [quickItemType, setQuickItemType] = useState<'Product' | 'Service'>('Product')
   const [quickItemCategory, setQuickItemCategory] = useState('')
   const [quickItemPurchasePrice, setQuickItemPurchasePrice] = useState('')
   const [quickItemSalesPrice, setQuickItemSalesPrice] = useState('')
@@ -336,7 +335,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setSelectedPickerItemId('')
       setQuickItemName('')
       setQuickItemUnit('MT')
-      setQuickItemType('Product')
       setQuickItemCategory('')
       setQuickItemPurchasePrice('')
       setQuickItemSalesPrice('')
@@ -383,7 +381,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setSelectedPickerItemId('')
       setQuickItemName('')
       setQuickItemUnit('MT')
-      setQuickItemType('Product')
       setQuickItemCategory('')
       setQuickItemPurchasePrice('')
       setQuickItemSalesPrice('')
@@ -511,7 +508,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       id: `item-${Date.now()}`,
       name,
       unit: quickItemUnit,
-      itemType: quickItemType,
       category: quickItemCategory.trim() || undefined,
       purchasePrice: parseFloat(quickItemPurchasePrice) || undefined,
       salesPrice: parseFloat(quickItemSalesPrice) || undefined,
@@ -531,7 +527,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setSelectedPickerItemId(item.id)
     setQuickItemName('')
     setQuickItemUnit('MT')
-    setQuickItemType('Product')
     setQuickItemCategory('')
     setQuickItemPurchasePrice('')
     setQuickItemSalesPrice('')
@@ -1255,7 +1250,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         </Dialog>
 
         <Dialog open={showQuickItem} onOpenChange={setShowQuickItem}>
-          <DialogContent className="max-w-[min(920px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
+          <DialogContent className="max-w-[min(720px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
             <DialogHeader className="border-b border-border px-6 py-5">
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Package size={22} className="text-primary" weight="duotone" />
@@ -1263,38 +1258,12 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
               </DialogTitle>
             </DialogHeader>
 
-            <div className="grid min-h-[420px] border-b border-border md:grid-cols-[240px_1fr]">
-              <aside className="border-r border-border bg-muted/20 p-4">
-                <div className="rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">Basic Details *</div>
-                <div className="mt-5 space-y-4 text-sm font-medium text-muted-foreground">
-                  <div>Advance Details</div>
-                  <div>Stock Details</div>
-                  <div>Pricing Details</div>
-                  <div>Party Wise Prices</div>
-                  <div>Custom Fields</div>
-                </div>
-              </aside>
-
-              <div className="p-5">
-                <div className="rounded-xl border border-border p-5">
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Item Type <span className="text-destructive">*</span></Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {(['Product', 'Service'] as const).map(type => (
-                          <Button
-                            key={type}
-                            type="button"
-                            variant={quickItemType === type ? 'default' : 'outline'}
-                            className="h-11 justify-between"
-                            onClick={() => setQuickItemType(type)}
-                          >
-                            {type}
-                            <span className="h-4 w-4 rounded-full border border-current" />
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
+            <div className="border-b border-border p-6">
+              <div className="mb-4 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
+                Basic Details *
+              </div>
+              <div className="rounded-xl border border-border p-5">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="quickItemCategory">Category</Label>
                       <Input
@@ -1377,23 +1346,17 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         className="h-11 font-mono"
                       />
                     </div>
-                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-between gap-3 px-6 py-4">
+            <div className="flex justify-end gap-3 px-6 py-4">
               <Button type="button" variant="outline" onClick={() => setShowQuickItem(false)}>
                 Cancel
               </Button>
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" disabled={!quickItemName.trim()} onClick={handleQuickItemCreate}>
-                  Save & New
-                </Button>
-                <Button type="button" disabled={!quickItemName.trim()} onClick={handleQuickItemCreate}>
-                  Save Item
-                </Button>
-              </div>
+              <Button type="button" disabled={!quickItemName.trim()} onClick={handleQuickItemCreate}>
+                Save Item
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

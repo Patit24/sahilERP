@@ -5,7 +5,6 @@ export interface Item {
   description?: string
   openingStock?: number
   openingValue?: number
-  itemType?: 'Product' | 'Service'
   category?: string
   purchasePrice?: number
   salesPrice?: number
