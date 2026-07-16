@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus } from '@phosphor-icons/react'
+import { ArrowLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -528,7 +528,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                       onClick={() => handleOpenChange(false)}
                       aria-label="Back to sales invoices"
                     >
-                      <X size={18} />
+                      <ArrowLeft size={24} />
                     </Button>
                     <div className="min-w-0">
                       <h2 className="truncate text-xl font-semibold">
@@ -537,21 +537,29 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                       <p className="text-sm text-muted-foreground">Bill to customer and add invoice items</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <Button type="button" variant="outline" className="h-10 min-w-28" disabled>
+                  <div className="erp-reference-actions">
+                    <Button type="button" variant="ghost" size="icon" className="erp-keyboard-button" aria-label="Keyboard shortcuts">
+                      <Keyboard size={20} weight="fill" />
+                    </Button>
+                    <Button type="button" variant="outline" className="erp-upload-button">
+                      <Barcode size={18} weight="bold" />
+                      Upload using Phone
+                    </Button>
+                    <Button type="button" variant="outline" className="erp-settings-button">
+                      <GearSix size={22} weight="duotone" />
+                      Settings
+                    </Button>
+                    <Button type="button" variant="outline" className="erp-save-new-button" disabled>
                       Save & New
                     </Button>
-                    <Button type="button" variant="outline" className="h-10 min-w-24" onClick={() => handleOpenChange(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="h-10 min-w-32" disabled={invoiceItems.length === 0}>
+                    <Button type="submit" className="erp-save-button" disabled={invoiceItems.length === 0}>
                       {editingInvoice ? 'Update' : 'Save'}
                     </Button>
                   </div>
                 </div>
                 <div className="erp-invoice-body erp-invoice-page-body">
                       <div className="erp-form-panel">
-                        <h3 className="erp-section-title">Invoice Header</h3>
+                        <h3 className="erp-section-title">Bill To</h3>
                         <div className="erp-responsive-grid">
 	                          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
                             <Label htmlFor="customerId" className="text-xs font-medium">Customer <span className="text-destructive">*</span></Label>
