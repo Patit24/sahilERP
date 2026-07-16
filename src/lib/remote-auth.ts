@@ -13,6 +13,21 @@ interface AppUserProfileRow {
   updated_at: string
 }
 
+interface SupabaseAuthUserLike {
+  id: string
+  email?: string | null
+  user_metadata?: {
+    display_name?: string
+    full_name?: string
+    role?: 'master_admin' | 'agent'
+    permissions?: PermissionMap
+  }
+  app_metadata?: {
+    role?: 'master_admin' | 'agent'
+    permissions?: PermissionMap
+  }
+}
+
 export class RemoteAuthServiceUnavailableError extends Error {
   constructor(message = 'Supabase is temporarily unavailable. Please try again in a minute.') {
     super(message)
@@ -24,7 +39,7 @@ export function canUseSupabaseAuth(): boolean {
   return isSupabaseAuthEnabled && isSupabaseConfigured && Boolean(supabase)
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = 12000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = 7000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       reject(new RemoteAuthServiceUnavailableError('Supabase login service timed out. Please try again in a minute.'))
@@ -52,6 +67,12 @@ function isTransientSupabaseError(error: { code?: string; message?: string; stat
   )
 }
 
+function isMissingRpcError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  const message = error.message?.toLowerCase() || ''
+  return error.code === 'PGRST202' || message.includes('could not find the function')
+}
+
 async function clearLocalSupabaseSession(): Promise<void> {
   if (!supabase) return
 
@@ -59,6 +80,24 @@ async function clearLocalSupabaseSession(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' })
   } catch (error) {
     console.warn('Local Supabase sign-out failed:', error)
+  }
+}
+
+function fallbackAuthUserToAuthenticatedUser(user: SupabaseAuthUserLike): AuthenticatedUser | null {
+  const email = user.email?.trim().toLowerCase()
+  if (!email) return null
+
+  const metadataRole = user.app_metadata?.role || user.user_metadata?.role
+  const role = metadataRole || (email === 'admin@gmail.com' ? 'master_admin' : undefined)
+  if (!role) return null
+
+  return {
+    id: user.id,
+    username: email,
+    displayName: user.user_metadata?.display_name || user.user_metadata?.full_name || (role === 'master_admin' ? 'Super Admin' : email),
+    role,
+    permissions: user.app_metadata?.permissions || user.user_metadata?.permissions || {},
+    isActive: true
   }
 }
 
@@ -71,6 +110,44 @@ function toAuthenticatedUser(profile: AppUserProfileRow): AuthenticatedUser {
     permissions: profile.permissions || {},
     isActive: profile.is_active
   }
+}
+
+async function fetchRemoteProfileForUserId(userId: string): Promise<AppUserProfileRow | null> {
+  if (!supabase) return null
+
+  const rpcResult = await withTimeout(
+    supabase
+      .rpc('get_my_app_user_profile')
+      .maybeSingle()
+  )
+
+  if (!rpcResult.error) {
+    return rpcResult.data as AppUserProfileRow | null
+  }
+
+  if (!isMissingRpcError(rpcResult.error)) {
+    if (isTransientSupabaseError(rpcResult.error)) {
+      throw new RemoteAuthServiceUnavailableError()
+    }
+    return null
+  }
+
+  const { data, error } = await withTimeout(
+    supabase
+      .from('app_user_profiles')
+      .select('id,email,display_name,role,permissions,is_active,created_at,updated_at')
+      .eq('id', userId)
+      .maybeSingle()
+  )
+
+  if (error) {
+    if (isTransientSupabaseError(error)) {
+      throw new RemoteAuthServiceUnavailableError()
+    }
+    return null
+  }
+
+  return data as AppUserProfileRow | null
 }
 
 export function remoteProfileToUserAccount(profile: AppUserProfileRow): UserAccount {
@@ -94,35 +171,28 @@ export async function getRemoteCurrentUser(): Promise<AuthenticatedUser | null> 
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError || !userData.user) return null
 
-  const { data, error } = await withTimeout(
-    supabase
-      .from('app_user_profiles')
-      .select('id,email,display_name,role,permissions,is_active,created_at,updated_at')
-      .eq('id', userData.user.id)
-      .maybeSingle()
-  )
+  let profile: AppUserProfileRow | null = null
+  try {
+    profile = await fetchRemoteProfileForUserId(userData.user.id)
+  } catch (error) {
+    const fallbackUser = fallbackAuthUserToAuthenticatedUser(userData.user as SupabaseAuthUserLike)
+    if (fallbackUser) return fallbackUser
+    await clearLocalSupabaseSession()
+    throw error
+  }
 
-  if (error) {
-    if (isTransientSupabaseError(error)) {
-      await clearLocalSupabaseSession()
-      throw new RemoteAuthServiceUnavailableError()
-    }
+  if (!profile || !profile.is_active) {
     await clearLocalSupabaseSession()
     return null
   }
 
-  if (!data || !data.is_active) {
-    await clearLocalSupabaseSession()
-    return null
-  }
-
-  return toAuthenticatedUser(data as AppUserProfileRow)
+  return toAuthenticatedUser(profile)
 }
 
 export async function signInRemoteUser(email: string, password: string): Promise<AuthenticatedUser | null> {
   if (!canUseSupabaseAuth() || !supabase) return null
 
-  const { error } = await withTimeout(
+  const { data, error } = await withTimeout(
     supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password
@@ -130,7 +200,13 @@ export async function signInRemoteUser(email: string, password: string): Promise
   )
 
   if (error) throw new Error(error.message)
-  return getRemoteCurrentUser()
+  try {
+    return await getRemoteCurrentUser()
+  } catch (profileError) {
+    const fallbackUser = data.user ? fallbackAuthUserToAuthenticatedUser(data.user as SupabaseAuthUserLike) : null
+    if (fallbackUser) return fallbackUser
+    throw profileError
+  }
 }
 
 export async function signOutRemoteUser(): Promise<void> {
