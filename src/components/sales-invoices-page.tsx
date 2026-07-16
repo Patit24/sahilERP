@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard } from '@phosphor-icons/react'
+import { ArrowLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +49,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [amountReceived, setAmountReceived] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
+  const [signatureDataUrl, setSignatureDataUrl] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
   const [showQuickItem, setShowQuickItem] = useState(false)
@@ -200,6 +201,25 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     toast.success(`Round-off adjustment: ${adjustment >= 0 ? '+' : ''}${formatCurrency(adjustment)}`)
   }
 
+  const handleSignatureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a signature image')
+      event.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setSignatureDataUrl(typeof reader.result === 'string' ? reader.result : '')
+      toast.success('Signature added to invoice')
+    }
+    reader.onerror = () => toast.error('Could not read signature image')
+    reader.readAsDataURL(file)
+  }
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
@@ -278,6 +298,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         additionalCostBasicRate: additionalCostBasicRate || undefined,
         additionalCostRemarks: additionalCostRemarks || undefined,
         roundOffAdjustment: roundOffAdjustment || undefined,
+        signatureDataUrl: signatureDataUrl || undefined,
       }
       setSalesInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updatedInvoice : inv))
       syncInvoicePayment(editingInvoice.id, customerId, invoiceNo, invoiceDate, receivedAmount, selectedPaymentMode)
@@ -295,6 +316,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         additionalCostBasicRate: additionalCostBasicRate || undefined,
         additionalCostRemarks: additionalCostRemarks || undefined,
         roundOffAdjustment: roundOffAdjustment || undefined,
+        signatureDataUrl: signatureDataUrl || undefined,
         fy: currentFY
       }
       setSalesInvoices((prev) => [...prev, invoice])
@@ -310,6 +332,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setAmountReceived('')
     setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
+    setSignatureDataUrl('')
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -334,6 +357,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setAmountReceived('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
+      setSignatureDataUrl('')
       setTimeout(() => {
         document.querySelector('.erp-invoice-body')?.scrollTo({ top: 0 })
       }, 0)
@@ -353,6 +377,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setAmountReceived('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
+      setSignatureDataUrl('')
     }
   }
 
@@ -373,6 +398,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setAmountReceived(linkedPayment ? String(linkedPayment.amount) : '')
     setPaymentMode(linkedPayment?.counterName || 'Cash')
     setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
+    setSignatureDataUrl(invoice.signatureDataUrl || '')
     setOpen(true)
   }
 
@@ -453,7 +479,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     exportSalesInvoicePDF(invoice, customerMap.get(invoice.customerId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
-      phone: '9083876218'
+      phone: '9083876218',
+      signatureDataUrl: invoice.signatureDataUrl,
+      paidAmount: customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))?.amount || 0
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
   }
@@ -933,6 +961,54 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                     <span className="font-semibold text-emerald-600">Balance Amount</span>
                                     <span className="font-mono font-bold text-emerald-600">{formatCurrency(balanceAmountPreview)}</span>
                                   </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-dashed border-primary/35 bg-background/80 p-4 shadow-sm">
+                              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+                                <div>
+                                  <h3 className="text-sm font-semibold text-foreground">Invoice Signature</h3>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Upload a signature image to show on this invoice PDF.
+                                  </p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <Label
+                                      htmlFor="salesInvoiceSignature"
+                                      className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-medium shadow-sm hover:bg-muted"
+                                    >
+                                      <UploadSimple size={16} weight="bold" />
+                                      Upload Signature
+                                    </Label>
+                                    <Input
+                                      id="salesInvoiceSignature"
+                                      type="file"
+                                      accept="image/png,image/jpeg,image/webp"
+                                      className="sr-only"
+                                      onChange={handleSignatureUpload}
+                                    />
+                                    {signatureDataUrl && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="h-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        onClick={() => setSignatureDataUrl('')}
+                                      >
+                                        Remove
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex min-h-24 items-center justify-center rounded-xl border border-border/70 bg-muted/30 p-3">
+                                  {signatureDataUrl ? (
+                                    <img
+                                      src={signatureDataUrl}
+                                      alt="Invoice signature preview"
+                                      className="max-h-20 max-w-full object-contain"
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No signature uploaded</span>
+                                  )}
                                 </div>
                               </div>
                             </div>

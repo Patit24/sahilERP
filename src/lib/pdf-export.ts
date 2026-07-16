@@ -8,7 +8,8 @@ import {
   PurchaseInvoice,
   SalesInvoice,
   Customer,
-  Item
+  Item,
+  InvoiceItem
 } from './types'
 import { formatCurrency, formatMT } from './calculations'
 
@@ -929,6 +930,216 @@ export function exportSupplierLedgerPDF(
   doc.save(fileName)
 }
 
+interface StyledInvoiceOptions {
+  invoiceNo: string
+  invoiceDate: string
+  partyLabel: string
+  partyName: string
+  partyAddress?: string
+  partyPhone?: string
+  businessName: string
+  state?: string
+  phone?: string
+  items?: InvoiceItem[]
+  itemMap: Map<string, Item>
+  quantityMT: number
+  invoiceAmount: number
+  additionalCost?: number
+  additionalCostRemarks?: string
+  roundOffAdjustment?: number
+  paidAmount?: number
+  signatureDataUrl?: string
+  filePrefix: string
+  footerLabel?: string
+  advancePayment?: {
+    paymentDate: string
+    paymentAmount: number
+    bookingMT?: number
+    allocatedAmount: number
+    remainingAdvanceAmount: number
+    sourceLabel?: string
+  }
+}
+
+function drawInvoiceTextBlock(doc: jsPDF, label: string, value: string, x: number, y: number, maxWidth = 48) {
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(45, 45, 45)
+  doc.text(label.toUpperCase(), x, y)
+  doc.setDrawColor(45, 45, 45)
+  doc.setLineWidth(0.25)
+  doc.line(x, y + 3, x + 5, y + 3)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(55, 55, 55)
+  doc.text(value || '-', x, y + 13, { maxWidth })
+}
+
+function addInvoiceSignature(doc: jsPDF, signatureDataUrl: string | undefined, x: number, y: number) {
+  if (!signatureDataUrl) return false
+
+  try {
+    const imageType = signatureDataUrl.includes('image/jpeg') || signatureDataUrl.includes('image/jpg') ? 'JPEG' : 'PNG'
+    doc.addImage(signatureDataUrl, imageType, x, y, 38, 16, undefined, 'FAST')
+    return true
+  } catch {
+    return false
+  }
+}
+
+function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
+  const doc = new jsPDF('portrait', 'mm', 'a4')
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 15
+  const contentWidth = pageWidth - margin * 2
+  const invoiceDate = options.invoiceDate
+    ? new Date(options.invoiceDate).toLocaleDateString('en-IN')
+    : '-'
+  const dueDate = invoiceDate
+  const paidAmount = Math.max(0, options.paidAmount || options.advancePayment?.allocatedAmount || 0)
+  const amountDue = Math.max(0, options.invoiceAmount - paidAmount)
+
+  doc.setFillColor(0, 0, 0)
+  doc.rect(0, 0, pageWidth, 50, 'F')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(14)
+  doc.setTextColor(255, 255, 255)
+  doc.text('I N V O I C E', pageWidth / 2, 23, { align: 'center' })
+  doc.setFontSize(9)
+  doc.setTextColor(150, 150, 150)
+  doc.text(options.businessName.toUpperCase(), pageWidth / 2, 37, { align: 'center' })
+  doc.setTextColor(45, 45, 45)
+
+  drawInvoiceTextBlock(doc, options.partyLabel, options.partyName, margin + 12, 76, 45)
+  drawInvoiceTextBlock(doc, 'From', `${options.businessName}\n${options.state || ''}${options.phone ? `\nPhone: ${options.phone}` : ''}`, margin + 62, 76, 55)
+  drawInvoiceTextBlock(doc, 'Due Date', dueDate, pageWidth - margin - 36, 76, 34)
+
+  const partyDetails = [
+    options.partyAddress ? `Address: ${options.partyAddress}` : '',
+    options.partyPhone ? `Phone: ${options.partyPhone}` : '',
+    `Invoice No: ${options.invoiceNo}`,
+    `Invoice Date: ${invoiceDate}`
+  ].filter(Boolean).join('   |   ')
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(95, 95, 95)
+  doc.text(partyDetails, margin + 12, 101, { maxWidth: contentWidth - 24 })
+
+  const rows = (options.items || []).map((line, index) => {
+    const item = options.itemMap.get(line.itemId)
+    return [
+      `${index + 1}. ${item?.name || 'Unknown item'}`,
+      item?.description || `${item?.unit || 'MT'} material`,
+      formatMT(line.quantityMT),
+      formatAmountForPDF(line.amount).replace('Rs.', '')
+    ]
+  })
+
+  autoTable(doc, {
+    startY: 112,
+    head: [['ITEM', 'DESCRIPTION', 'QTY', 'TOTAL']],
+    body: rows.length > 0 ? rows : [['-', 'No items', '-', '-']],
+    theme: 'plain',
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [35, 35, 35],
+      fontStyle: 'bold',
+      halign: 'center',
+      fontSize: 8,
+      cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [55, 55, 55],
+      minCellHeight: 14,
+      cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
+    },
+    columnStyles: {
+      0: { cellWidth: 42, halign: 'left' },
+      1: { cellWidth: 72, halign: 'left' },
+      2: { cellWidth: 30, halign: 'center' },
+      3: { cellWidth: 36, halign: 'center', fontStyle: 'bold' }
+    },
+    margin: { left: margin + 8, right: margin + 8 }
+  })
+
+  doc.setDrawColor(45, 45, 45)
+  doc.setLineWidth(0.35)
+  doc.rect(margin, 108, contentWidth, 82)
+  doc.line(margin, 124, pageWidth - margin, 124)
+
+  const summaryY = Math.max((doc as any).lastAutoTable?.finalY || 190, 196)
+  const leftY = summaryY + 8
+  doc.setTextColor(45, 45, 45)
+  drawInvoiceTextBlock(doc, 'Phone', options.phone || '-', margin + 12, leftY, 44)
+  drawInvoiceTextBlock(doc, 'Web', 'sktraders.local', margin + 62, leftY, 52)
+
+  const totalsX = pageWidth - margin - 70
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('Subtotal', totalsX + 34, summaryY + 10, { align: 'right' })
+  doc.text(formatAmountForPDF(options.invoiceAmount - (options.additionalCost || 0)).replace('Rs.', ''), totalsX + 62, summaryY + 10, { align: 'right' })
+
+  if (options.additionalCost) {
+    doc.text(options.additionalCostRemarks || 'Additional', totalsX + 34, summaryY + 17, { align: 'right' })
+    doc.text(formatAmountForPDF(options.additionalCost).replace('Rs.', ''), totalsX + 62, summaryY + 17, { align: 'right' })
+  }
+
+  if (options.roundOffAdjustment) {
+    doc.text('Round off', totalsX + 34, summaryY + 24, { align: 'right' })
+    doc.text(formatAmountForPDF(options.roundOffAdjustment).replace('Rs.', ''), totalsX + 62, summaryY + 24, { align: 'right' })
+  }
+
+  if (paidAmount > 0) {
+    doc.text('Deposit (paid)', totalsX + 34, summaryY + 31, { align: 'right' })
+    doc.text(`-${formatAmountForPDF(paidAmount).replace('Rs.', '')}`, totalsX + 62, summaryY + 31, { align: 'right' })
+  }
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.text('TOTAL QTY', totalsX + 34, summaryY + 44, { align: 'right' })
+  doc.text(formatMT(options.quantityMT), totalsX + 62, summaryY + 44, { align: 'right' })
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.text('AMOUNT DUE', totalsX + 34, summaryY + 55, { align: 'right' })
+  doc.text(formatAmountForPDF(amountDue).replace('Rs.', ''), totalsX + 62, summaryY + 55, { align: 'right' })
+
+  const signatureAdded = addInvoiceSignature(doc, options.signatureDataUrl, margin + 12, leftY + 38)
+  if (!signatureAdded) {
+    doc.setFont('times', 'italic')
+    doc.setFontSize(21)
+    doc.setTextColor(15, 15, 15)
+    doc.text('Thank you!', margin + 12, leftY + 50)
+  } else {
+    doc.setFont('times', 'italic')
+    doc.setFontSize(16)
+    doc.text('Thank you!', margin + 12, leftY + 62)
+  }
+
+  if (options.advancePayment) {
+    const advanceY = Math.min(leftY + 72, pageHeight - 34)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(85, 85, 85)
+    doc.text(
+      `Advance: ${formatAmountForPDF(options.advancePayment.paymentAmount)} | Booking: ${options.advancePayment.bookingMT ? formatMT(options.advancePayment.bookingMT) : '-'} | Allocated: ${formatAmountForPDF(options.advancePayment.allocatedAmount)} | Remaining: ${formatAmountForPDF(options.advancePayment.remainingAdvanceAmount)}`,
+      margin + 12,
+      advanceY,
+      { maxWidth: contentWidth - 24 }
+    )
+  }
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(130, 130, 130)
+  doc.text(options.footerLabel || 'Generated from SK TRADERS ERP', pageWidth / 2, 286, { align: 'center' })
+
+  const safeInvoiceNo = options.invoiceNo.replace(/[^a-z0-9_-]+/gi, '_')
+  doc.save(`${options.filePrefix}_${safeInvoiceNo}.pdf`)
+}
+
 export function exportPurchaseInvoicePDF(
   invoice: PurchaseInvoice,
   supplier: Supplier | undefined,
@@ -937,6 +1148,8 @@ export function exportPurchaseInvoicePDF(
     businessName: string
     state?: string
     phone?: string
+    signatureDataUrl?: string
+    paidAmount?: number
     advancePayment?: {
       paymentDate: string
       paymentAmount: number
@@ -947,137 +1160,28 @@ export function exportPurchaseInvoicePDF(
     }
   }
 ) {
-  const doc = new jsPDF('portrait', 'mm', 'a4')
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const margin = 14
-  const contentWidth = pageWidth - margin * 2
-  const invoiceDate = invoice.invoiceDate
-    ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN')
-    : '-'
-
-  doc.setDrawColor(20, 20, 20)
-  doc.setLineWidth(0.35)
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.text('BILL OF SUPPLY', margin, 16)
-  doc.setFontSize(8)
-  doc.text('ORIGINAL FOR RECIPIENT', pageWidth - margin, 16, { align: 'right' })
-
-  doc.rect(margin, 20, contentWidth, 36)
-  doc.setFontSize(14)
-  doc.text(options.businessName || 'SK TRADERS', pageWidth / 2, 31, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text(options.state || 'West Bengal', pageWidth / 2, 38, { align: 'center' })
-  doc.text(`Mobile: ${options.phone || '9083876218'}`, pageWidth / 2, 44, { align: 'center' })
-
-  doc.rect(margin, 56, contentWidth / 2, 34)
-  doc.rect(margin + contentWidth / 2, 56, contentWidth / 2, 34)
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('SUPPLIER', margin + 4, 64)
-  doc.setFontSize(10)
-  doc.text(supplier?.name || 'Unknown Supplier', margin + 4, 71)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text('Address: -', margin + 4, 78)
-  doc.text('Mobile: -', margin + 4, 84)
-
-  const metaX = margin + contentWidth / 2
-  const metaCellWidth = contentWidth / 6
-  doc.line(metaX + metaCellWidth, 56, metaX + metaCellWidth, 90)
-  doc.line(metaX + metaCellWidth * 2, 56, metaX + metaCellWidth * 2, 90)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('Invoice No.', metaX + metaCellWidth / 2, 69, { align: 'center' })
-  doc.text('Invoice Date', metaX + metaCellWidth * 1.5, 69, { align: 'center' })
-  doc.text('Due Date', metaX + metaCellWidth * 2.5, 69, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.text(invoice.invoiceNo, metaX + metaCellWidth / 2, 78, { align: 'center' })
-  doc.text(invoiceDate, metaX + metaCellWidth * 1.5, 78, { align: 'center' })
-  doc.text('-', metaX + metaCellWidth * 2.5, 78, { align: 'center' })
-
-  const rows = (invoice.items || []).map((line, index) => {
-    const item = itemMap.get(line.itemId)
-    return [
-      String(index + 1),
-      item?.name || 'Unknown item',
-      formatMT(line.quantityMT),
-      formatAmountForPDF(line.rate).replace('Rs.', ''),
-      '0',
-      formatAmountForPDF(line.amount).replace('Rs.', '')
-    ]
+  exportStyledInvoicePDF({
+    invoiceNo: invoice.invoiceNo,
+    invoiceDate: invoice.invoiceDate,
+    partyLabel: 'Bill From',
+    partyName: supplier?.name || 'Unknown Supplier',
+    partyAddress: supplier?.address,
+    partyPhone: supplier?.phone,
+    businessName: options.businessName || 'SK TRADERS',
+    state: options.state,
+    phone: options.phone,
+    items: invoice.items,
+    itemMap,
+    quantityMT: invoice.quantityMT,
+    invoiceAmount: invoice.invoiceAmount,
+    additionalCost: invoice.additionalCost,
+    additionalCostRemarks: invoice.additionalCostRemarks,
+    roundOffAdjustment: invoice.roundOffAdjustment,
+    paidAmount: options.paidAmount,
+    signatureDataUrl: options.signatureDataUrl || invoice.signatureDataUrl,
+    filePrefix: 'Purchase_Invoice',
+    advancePayment: options.advancePayment
   })
-
-  autoTable(doc, {
-    startY: 90,
-    head: [['S.NO.', 'ITEMS', 'QTY.', 'RATE', 'DISC.', 'AMOUNT']],
-    body: rows.length > 0 ? rows : [['-', 'No items', '-', '-', '-', '-']],
-    theme: 'grid',
-    headStyles: {
-      fillColor: [230, 230, 230],
-      textColor: [20, 20, 20],
-      fontStyle: 'bold',
-      halign: 'center',
-      lineColor: [20, 20, 20],
-      lineWidth: 0.25
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: [20, 20, 20],
-      lineColor: [20, 20, 20],
-      lineWidth: 0.25,
-      minCellHeight: 9
-    },
-    columnStyles: {
-      0: { cellWidth: 16, halign: 'center' },
-      1: { cellWidth: 70, halign: 'left' },
-      2: { cellWidth: 26, halign: 'right' },
-      3: { cellWidth: 26, halign: 'right' },
-      4: { cellWidth: 22, halign: 'right' },
-      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }
-    },
-    margin: { left: margin, right: margin },
-  })
-
-  const finalY = (doc as any).lastAutoTable?.finalY || 130
-  const summaryY = Math.min(finalY + 10, 260)
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Total Quantity: ${formatMT(invoice.quantityMT)}`, margin, summaryY)
-  if (invoice.additionalCost) {
-    doc.text(`Additional Cost: ${formatAmountForPDF(invoice.additionalCost)}`, margin, summaryY + 7)
-  }
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.text(`Final Invoice Amount: ${formatAmountForPDF(invoice.invoiceAmount)}`, pageWidth - margin, summaryY, { align: 'right' })
-
-  if (options.advancePayment) {
-    const advanceY = summaryY + 18
-    doc.setDrawColor(42, 99, 132)
-    doc.setFillColor(240, 247, 251)
-    doc.roundedRect(margin, advanceY, contentWidth, 34, 2, 2, 'FD')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.text('ADVANCE PAYMENT / BOOKING DETAILS', margin + 4, advanceY + 7)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.text(`Source: ${options.advancePayment.sourceLabel || 'Supplier Payment Allocation'}`, margin + 4, advanceY + 13)
-    doc.text(`Payment Date: ${new Date(options.advancePayment.paymentDate).toLocaleDateString('en-IN')}`, margin + 4, advanceY + 19)
-    doc.text(`Advance Amount: ${formatAmountForPDF(options.advancePayment.paymentAmount)}`, margin + 4, advanceY + 25)
-    doc.text(`Booking Quantity: ${options.advancePayment.bookingMT ? formatMT(options.advancePayment.bookingMT) : '-'}`, margin + 78, advanceY + 19)
-    doc.text(`Allocated To This Invoice: ${formatAmountForPDF(options.advancePayment.allocatedAmount)}`, margin + 78, advanceY + 25)
-    doc.text(`Remaining Advance: ${formatAmountForPDF(options.advancePayment.remainingAdvanceAmount)}`, margin + 150, advanceY + 25)
-  }
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text('Generated from SK TRADERS ERP', margin, 286)
-
-  const safeInvoiceNo = invoice.invoiceNo.replace(/[^a-z0-9_-]+/gi, '_')
-  doc.save(`Purchase_Invoice_${safeInvoiceNo}.pdf`)
 }
 
 export function exportSalesInvoicePDF(
@@ -1088,114 +1192,29 @@ export function exportSalesInvoicePDF(
     businessName: string
     state?: string
     phone?: string
+    signatureDataUrl?: string
+    paidAmount?: number
   }
 ) {
-  const doc = new jsPDF('portrait', 'mm', 'a4')
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const margin = 14
-  const contentWidth = pageWidth - margin * 2
-  const invoiceDate = invoice.invoiceDate
-    ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN')
-    : '-'
-
-  doc.setDrawColor(20, 20, 20)
-  doc.setLineWidth(0.35)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.text('TAX INVOICE', margin, 16)
-  doc.setFontSize(8)
-  doc.text('ORIGINAL FOR RECIPIENT', pageWidth - margin, 16, { align: 'right' })
-
-  doc.rect(margin, 20, contentWidth, 36)
-  doc.setFontSize(14)
-  doc.text(options.businessName || 'SK TRADERS', pageWidth / 2, 31, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text(options.state || 'West Bengal', pageWidth / 2, 38, { align: 'center' })
-  doc.text(`Mobile: ${options.phone || '9083876218'}`, pageWidth / 2, 44, { align: 'center' })
-
-  doc.rect(margin, 56, contentWidth / 2, 34)
-  doc.rect(margin + contentWidth / 2, 56, contentWidth / 2, 34)
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('BILL TO', margin + 4, 64)
-  doc.setFontSize(10)
-  doc.text(customer?.name || 'Unknown Customer', margin + 4, 71)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text(`Address: ${customer?.address || '-'}`, margin + 4, 78, { maxWidth: contentWidth / 2 - 8 })
-  doc.text(`Mobile: ${customer?.phone || '-'}`, margin + 4, 86)
-
-  const metaX = margin + contentWidth / 2
-  const metaCellWidth = contentWidth / 6
-  doc.line(metaX + metaCellWidth, 56, metaX + metaCellWidth, 90)
-  doc.line(metaX + metaCellWidth * 2, 56, metaX + metaCellWidth * 2, 90)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('Invoice No.', metaX + metaCellWidth / 2, 69, { align: 'center' })
-  doc.text('Invoice Date', metaX + metaCellWidth * 1.5, 69, { align: 'center' })
-  doc.text('Due Date', metaX + metaCellWidth * 2.5, 69, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.text(invoice.invoiceNo, metaX + metaCellWidth / 2, 78, { align: 'center' })
-  doc.text(invoiceDate, metaX + metaCellWidth * 1.5, 78, { align: 'center' })
-  doc.text('-', metaX + metaCellWidth * 2.5, 78, { align: 'center' })
-
-  const rows = (invoice.items || []).map((line, index) => {
-    const item = itemMap.get(line.itemId)
-    return [
-      String(index + 1),
-      item?.name || 'Unknown item',
-      formatMT(line.quantityMT),
-      formatAmountForPDF(line.rate).replace('Rs.', ''),
-      '0',
-      formatAmountForPDF(line.amount).replace('Rs.', '')
-    ]
+  exportStyledInvoicePDF({
+    invoiceNo: invoice.invoiceNo,
+    invoiceDate: invoice.invoiceDate,
+    partyLabel: 'Bill To',
+    partyName: customer?.name || 'Unknown Customer',
+    partyAddress: customer?.address,
+    partyPhone: customer?.phone,
+    businessName: options.businessName || 'SK TRADERS',
+    state: options.state,
+    phone: options.phone,
+    items: invoice.items,
+    itemMap,
+    quantityMT: invoice.quantityMT,
+    invoiceAmount: invoice.invoiceAmount,
+    additionalCost: invoice.additionalCost,
+    additionalCostRemarks: invoice.additionalCostRemarks,
+    roundOffAdjustment: invoice.roundOffAdjustment,
+    paidAmount: options.paidAmount,
+    signatureDataUrl: options.signatureDataUrl || invoice.signatureDataUrl,
+    filePrefix: 'Sales_Invoice'
   })
-
-  autoTable(doc, {
-    startY: 90,
-    head: [['S.NO.', 'ITEMS', 'QTY.', 'RATE', 'DISC.', 'AMOUNT']],
-    body: rows.length > 0 ? rows : [['-', 'No items', '-', '-', '-', '-']],
-    theme: 'grid',
-    headStyles: {
-      fillColor: [230, 230, 230],
-      textColor: [20, 20, 20],
-      fontStyle: 'bold',
-      halign: 'center',
-      lineColor: [20, 20, 20],
-      lineWidth: 0.25
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: [20, 20, 20],
-      lineColor: [20, 20, 20],
-      lineWidth: 0.25,
-      minCellHeight: 9
-    },
-    columnStyles: {
-      0: { cellWidth: 16, halign: 'center' },
-      1: { cellWidth: 70, halign: 'left' },
-      2: { cellWidth: 26, halign: 'right' },
-      3: { cellWidth: 26, halign: 'right' },
-      4: { cellWidth: 22, halign: 'right' },
-      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }
-    },
-    margin: { left: margin, right: margin },
-  })
-
-  const finalY = (doc as any).lastAutoTable?.finalY || 130
-  const summaryY = Math.min(finalY + 10, 260)
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Total Quantity: ${formatMT(invoice.quantityMT)}`, margin, summaryY)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.text(`Final Invoice Amount: ${formatAmountForPDF(invoice.invoiceAmount)}`, pageWidth - margin, summaryY, { align: 'right' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text('Generated from SK TRADERS ERP', margin, 286)
-
-  const safeInvoiceNo = invoice.invoiceNo.replace(/[^a-z0-9_-]+/gi, '_')
-  doc.save(`Sales_Invoice_${safeInvoiceNo}.pdf`)
 }
