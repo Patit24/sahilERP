@@ -137,10 +137,21 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     }])
   }
 
+  const getInvoiceItemGstRate = (itemId: string) => {
+    const item = items.find((candidate) => candidate.id === itemId)
+    return typeof item?.gstRate === 'number' && !Number.isNaN(item.gstRate)
+      ? item.gstRate
+      : gstPercentage
+  }
+
+  const calculateRateWithItemGst = (basicRate: number, itemId: string) => (
+    basicRate > 0 ? parseFloat((basicRate * (1 + getInvoiceItemGstRate(itemId) / 100)).toFixed(2)) : 0
+  )
+
   const addInvoiceItemWithItem = (itemId: string) => {
     const item = items.find((candidate) => candidate.id === itemId)
     const basicRate = item?.purchasePrice || 0
-    const rate = basicRate > 0 ? parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2)) : 0
+    const rate = calculateRateWithItemGst(basicRate, itemId)
     const row = {
       itemId,
       quantityMT: 0,
@@ -176,17 +187,18 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       
       if (field === 'itemId') {
         item.itemId = value as string
+        const selectedItem = items.find((candidate) => candidate.id === item.itemId)
+        const basicRate = item.basicRate && item.basicRate > 0 ? item.basicRate : selectedItem?.purchasePrice || 0
+        item.basicRate = basicRate
+        item.rate = calculateRateWithItemGst(basicRate, item.itemId)
+        item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
       } else if (field === 'quantityMT') {
         item.quantityMT = parseFloat(value as string) || 0
         item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
       } else if (field === 'basicRate') {
         const basicRate = parseFloat(value as string) || 0
         item.basicRate = basicRate
-        if (basicRate > 0) {
-          item.rate = parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2))
-        } else {
-          item.rate = 0
-        }
+        item.rate = calculateRateWithItemGst(basicRate, item.itemId)
         item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
       } else if (field === 'rate') {
         item.rate = parseFloat(value as string) || 0
@@ -623,7 +635,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                     </h3>
                     <div className="erp-toolbar-actions">
                       <span className="text-[10px] text-muted-foreground font-medium">
-                        GST: {gstPercentage}% • Rate = Basic Rate × {(1 + gstPercentage / 100).toFixed(2)}
+                        Rate uses item GST • fallback company GST: {gstPercentage}%
                       </span>
                       <Button 
                         type="button" 
@@ -1122,7 +1134,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           onSave={(item) => {
             setItems((prev) => [...prev, item])
             const basicRate = item.purchasePrice || 0
-            const rate = basicRate > 0 ? parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2)) : 0
+            const gstRate = typeof item.gstRate === 'number' && !Number.isNaN(item.gstRate) ? item.gstRate : gstPercentage
+            const rate = basicRate > 0 ? parseFloat((basicRate * (1 + gstRate / 100)).toFixed(2)) : 0
             setInvoiceItems((prev) => {
               const row = { itemId: item.id, quantityMT: 0, basicRate, rate, amount: 0 }
               const emptyIndex = prev.findIndex((existing) => !existing.itemId)
