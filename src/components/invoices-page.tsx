@@ -62,6 +62,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [itemSearch, setItemSearch] = useState('')
   const [selectedItemCategory, setSelectedItemCategory] = useState('all')
   const [selectedPickerItemId, setSelectedPickerItemId] = useState('')
+  const [pickerQuantities, setPickerQuantities] = useState<Record<string, number>>({})
+  const [showAdditionalCharge, setShowAdditionalCharge] = useState(false)
   
   const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
   const fyMonths = getFYMonths(currentFY)
@@ -151,16 +153,36 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     basicRate > 0 ? parseFloat((basicRate * (1 + getInvoiceItemGstRate(itemId) / 100)).toFixed(2)) : 0
   )
 
-  const addInvoiceItemWithItem = (itemId: string) => {
+  const updatePickerQuantity = (itemId: string, nextQuantity: number) => {
+    setPickerQuantities((prev) => {
+      const quantity = Math.max(0, Number.isFinite(nextQuantity) ? nextQuantity : 0)
+      const updated = { ...prev }
+      if (quantity <= 0) {
+        delete updated[itemId]
+      } else {
+        updated[itemId] = quantity
+      }
+      return updated
+    })
+  }
+
+  const resetItemPicker = () => {
+    setSelectedPickerItemId('')
+    setItemSearch('')
+    setSelectedItemCategory('all')
+    setPickerQuantities({})
+  }
+
+  const addInvoiceItemWithItem = (itemId: string, quantityMT = 0) => {
     const item = items.find((candidate) => candidate.id === itemId)
     const basicRate = item?.purchasePrice || 0
     const rate = calculateRateWithItemGst(basicRate, itemId)
     const row = {
       itemId,
-      quantityMT: 0,
+      quantityMT,
       basicRate,
       rate,
-      amount: 0
+      amount: parseFloat((quantityMT * rate).toFixed(2))
     }
 
     setInvoiceItems(prev => {
@@ -171,16 +193,15 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   }
 
   const handleAddSelectedItemToBill = () => {
-    if (!selectedPickerItemId) {
-      toast.error('Please select an item first')
+    const selectedEntries = Object.entries(pickerQuantities).filter(([, quantity]) => quantity > 0)
+    if (selectedEntries.length === 0) {
+      toast.error('Please add quantity for an item first')
       return
     }
 
-    addInvoiceItemWithItem(selectedPickerItemId)
+    selectedEntries.forEach(([itemId, quantity]) => addInvoiceItemWithItem(itemId, quantity))
     setItemPickerOpen(false)
-    setSelectedPickerItemId('')
-    setItemSearch('')
-    setSelectedItemCategory('all')
+    resetItemPicker()
   }
 
   const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
@@ -391,6 +412,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
     setSignatureDataUrl('')
+    setShowAdditionalCharge(false)
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -405,6 +427,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setItemSearch('')
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
+      setPickerQuantities({})
       setInvoiceItems([{
         itemId: '',
         quantityMT: 0,
@@ -419,6 +442,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
       setSignatureDataUrl('')
+      setShowAdditionalCharge(false)
       
       setTimeout(() => {
         document.querySelector('.erp-invoice-body')?.scrollTo({ top: 0 })
@@ -439,6 +463,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setItemSearch('')
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
+      setPickerQuantities({})
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
       setRoundOffAdjustment(0)
@@ -446,6 +471,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
       setSignatureDataUrl('')
+      setShowAdditionalCharge(false)
     }
   }
 
@@ -463,6 +489,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setInvoiceItems(invoice.items || [])
     setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
     setAdditionalCostFinal(invoice.additionalCost || 0)
+    setShowAdditionalCharge(Boolean(invoice.additionalCost || invoice.additionalCostBasicRate || invoice.additionalCostRemarks))
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     const linkedPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     setAmountPaid(linkedPayment ? String(linkedPayment.amount) : '')
@@ -743,29 +770,19 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         type="button" 
                         size="sm" 
                         variant="outline"
-	                        className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary text-xs px-3"
-	                        onClick={() => setItemPickerOpen(true)}
-	                      >
-	                        <Plus size={14} weight="bold" />
-	                        Add Item
-	                      </Button>
-	                      <Button 
-	                        type="button" 
-	                        size="sm" 
-	                        variant="outline"
-	                        className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary text-xs px-3"
-	                        onClick={() => setShowQuickItem(true)}
-	                      >
-	                        <Plus size={14} weight="bold" />
-	                        New Item
-	                      </Button>
+                        className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary text-xs px-3"
+                        onClick={() => setItemPickerOpen(true)}
+                      >
+                        <Plus size={14} weight="bold" />
+                        Add Item
+                      </Button>
 	                    </div>
 	                  </div>
 
 	                  <div className="erp-table-panel">
                     {items.length === 0 && (
                       <div className="px-4 py-3 text-sm text-muted-foreground border-b border-border/50">
-                        No item master found. Use <span className="font-semibold text-primary">New Item</span> above to create one inside this invoice.
+                        No item master found. Click <span className="font-semibold text-primary">Add Item</span>, then use Create New Item inside the list.
                       </div>
                     )}
                     <div className="max-h-[320px] overflow-y-auto overflow-x-hidden">
@@ -876,16 +893,20 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                   {invoiceItems.length > 0 && (
                     <div className="space-y-3">
                       <div className="space-y-2">
-                        <div className="erp-section-toolbar">
-                          <h3 className="erp-section-title">
-                            Additional Cost (Optional)
-                          </h3>
-                          <span className="text-[10px] text-muted-foreground font-medium">
-                            GST: {gstPercentage}% • Final = Basic × {(1 + gstPercentage / 100).toFixed(2)}
-                          </span>
+                        <div className="erp-summary-link-row">
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="h-auto p-0 text-primary"
+                            onClick={() => setShowAdditionalCharge(true)}
+                          >
+                            + Add Additional Charges
+                          </Button>
+                          <span className="font-mono text-sm">{formatCurrency(additionalCostFinal)}</span>
                         </div>
 
-                        <div className="erp-table-panel">
+                        {showAdditionalCharge && (
+                        <div className="erp-table-panel erp-additional-charge-panel">
                           <Table>
                             <TableHeader className="bg-muted/50">
                               <TableRow className="hover:bg-muted/50">
@@ -952,7 +973,19 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                               </TableRow>
                             </TableBody>
                           </Table>
+                          <div className="border-t border-border/60 p-3">
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="h-auto p-0 text-primary disabled:cursor-not-allowed disabled:opacity-45"
+                              disabled={!additionalCostBasicRate && !additionalCostFinal}
+                              onClick={() => toast.info('First charge saved. More charge rows can be added after multi-charge storage is enabled.')}
+                            >
+                              + Add Another Charge
+                            </Button>
+                          </div>
                         </div>
+                        )}
                       </div>
                       
                       <div className="erp-total-panel">
@@ -986,6 +1019,12 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                             </div>
                           )}
                           <div className="h-px bg-border"></div>
+                          <div className="flex items-center justify-between text-xs">
+                            <Button type="button" variant="link" className="h-auto p-0 text-primary text-xs">
+                              + Add Discount
+                            </Button>
+                            <span className="font-mono font-semibold text-foreground">- {formatCurrency(0)}</span>
+                          </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className="flex items-center gap-2">
@@ -1170,7 +1209,13 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           }}
         />
 
-        <Dialog open={itemPickerOpen} onOpenChange={setItemPickerOpen}>
+        <Dialog
+          open={itemPickerOpen}
+          onOpenChange={(nextOpen) => {
+            setItemPickerOpen(nextOpen)
+            if (!nextOpen) resetItemPicker()
+          }}
+        >
           <DialogContent className="max-w-[min(1120px,calc(100vw-2rem))] max-h-[82dvh] p-0">
             <DialogHeader className="border-b border-border px-6 py-5">
               <DialogTitle className="text-xl">Add Items to Bill</DialogTitle>
@@ -1225,30 +1270,66 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredPickerItems.map(item => (
-                          <TableRow
-                            key={item.id}
-                            className={selectedPickerItemId === item.id ? 'bg-primary/10' : 'cursor-pointer'}
-                            onClick={() => setSelectedPickerItemId(item.id)}
-                          >
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  checked={selectedPickerItemId === item.id}
-                                  onChange={() => setSelectedPickerItemId(item.id)}
-                                  className="h-4 w-4 accent-primary"
-                                />
-                                <span>{item.name}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{item.itemCode || '-'}</TableCell>
-                            <TableCell className="text-right font-mono">{item.openingStock ?? 0}</TableCell>
-                            <TableCell className="text-right font-mono">{item.salesPrice ? formatCurrency(item.salesPrice) : '-'}</TableCell>
-                            <TableCell className="text-right font-mono">{item.purchasePrice ? formatCurrency(item.purchasePrice) : '-'}</TableCell>
-                            <TableCell className="text-right font-mono">0</TableCell>
-                          </TableRow>
-                        ))
+                        filteredPickerItems.map(item => {
+                          const pickerQuantity = pickerQuantities[item.id] || 0
+                          return (
+                            <TableRow
+                              key={item.id}
+                              className={pickerQuantity > 0 ? 'bg-primary/10' : ''}
+                            >
+                              <TableCell className="font-medium">{item.name}</TableCell>
+                              <TableCell>{item.itemCode || '-'}</TableCell>
+                              <TableCell className="text-right font-mono">{item.openingStock ?? 0} {item.unit}</TableCell>
+                              <TableCell className="text-right font-mono">{item.salesPrice ? formatCurrency(item.salesPrice) : '-'}</TableCell>
+                              <TableCell className="text-right font-mono">{item.purchasePrice ? formatCurrency(item.purchasePrice) : '-'}</TableCell>
+                              <TableCell className="text-right">
+                                {pickerQuantity > 0 ? (
+                                  <div className="erp-picker-stepper">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => updatePickerQuantity(item.id, pickerQuantity - 1)}
+                                    >
+                                      -
+                                    </Button>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.001"
+                                      value={pickerQuantity}
+                                      onChange={(event) => updatePickerQuantity(item.id, parseFloat(event.target.value) || 0)}
+                                      className="h-7 w-14 px-1 text-center font-mono"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => updatePickerQuantity(item.id, pickerQuantity + 1)}
+                                    >
+                                      +
+                                    </Button>
+                                    <span className="erp-picker-unit">{item.unit}</span>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-9 min-w-32 border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                                    onClick={() => {
+                                      setSelectedPickerItemId(item.id)
+                                      updatePickerQuantity(item.id, 1)
+                                    }}
+                                  >
+                                    + Add
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -1258,18 +1339,16 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
 
             <div className="flex items-center justify-between border-t border-border px-6 py-4">
               <div className="text-sm text-primary">
-                Show {selectedPickerItemId ? 1 : 0} Item(s) Selected
+                Show {Object.values(pickerQuantities).filter((quantity) => quantity > 0).length} Item(s) Selected
               </div>
               <div className="flex gap-3">
                 <Button type="button" variant="outline" onClick={() => {
                   setItemPickerOpen(false)
-                  setSelectedPickerItemId('')
-                  setItemSearch('')
-                  setSelectedItemCategory('all')
+                  resetItemPicker()
                 }}>
                   Cancel [ESC]
                 </Button>
-                <Button type="button" onClick={handleAddSelectedItemToBill} disabled={!selectedPickerItemId}>
+                <Button type="button" onClick={handleAddSelectedItemToBill} disabled={Object.values(pickerQuantities).every((quantity) => quantity <= 0)}>
                   Add to Bill [F7]
                 </Button>
               </div>

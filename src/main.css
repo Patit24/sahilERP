@@ -257,6 +257,40 @@
   border-radius: 1.2rem;
 }
 
+.erp-picker-stepper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  min-width: 12.5rem;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  background: #eef3fb;
+  box-shadow: inset 3px 3px 7px rgba(148, 163, 184, 0.32), inset -3px -3px 7px rgba(255, 255, 255, 0.86);
+}
+
+.erp-picker-unit {
+  min-width: 3.2rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.erp-summary-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.erp-additional-charge-panel {
+  margin-top: 0.45rem;
+}
+
 .erp-table-panel > div {
   overflow-x: auto !important;
   overflow-y: auto;
