@@ -48,6 +48,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [additionalCostBasicRate, setAdditionalCostBasicRate] = useState<number>(0)
   const [additionalCostFinal, setAdditionalCostFinal] = useState<number>(0)
+  const [additionalCostTaxMode, setAdditionalCostTaxMode] = useState<'none' | 'gst'>('none')
+  const [additionalCostGstRate, setAdditionalCostGstRate] = useState<number>(gstPercentage)
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [amountPaid, setAmountPaid] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
@@ -241,11 +243,25 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const handleAdditionalCostBasicRateChange = (value: string) => {
     const basicRate = parseFloat(value) || 0
     setAdditionalCostBasicRate(basicRate)
-    if (basicRate > 0) {
-      const finalCost = parseFloat((basicRate * (1 + gstPercentage / 100)).toFixed(2))
-      setAdditionalCostFinal(finalCost)
-    } else {
-      setAdditionalCostFinal(0)
+    const finalCost = additionalCostTaxMode === 'gst'
+      ? parseFloat((basicRate * (1 + additionalCostGstRate / 100)).toFixed(2))
+      : basicRate
+    setAdditionalCostFinal(finalCost)
+  }
+
+  const handleAdditionalCostTaxModeChange = (value: 'none' | 'gst') => {
+    setAdditionalCostTaxMode(value)
+    const finalCost = value === 'gst'
+      ? parseFloat((additionalCostBasicRate * (1 + additionalCostGstRate / 100)).toFixed(2))
+      : additionalCostBasicRate
+    setAdditionalCostFinal(finalCost)
+  }
+
+  const handleAdditionalCostGstRateChange = (value: string) => {
+    const rate = parseFloat(value) || 0
+    setAdditionalCostGstRate(rate)
+    if (additionalCostTaxMode === 'gst') {
+      setAdditionalCostFinal(parseFloat((additionalCostBasicRate * (1 + rate / 100)).toFixed(2)))
     }
   }
 
@@ -352,9 +368,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     const totalQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
     const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
     const additionalCostBasicRate = parseFloat(formData.get('additionalCostBasicRate') as string) || 0
-    const additionalCost = additionalCostBasicRate > 0 
-      ? parseFloat((additionalCostBasicRate * (1 + gstPercentage / 100)).toFixed(2))
-      : parseFloat(formData.get('additionalCost') as string) || 0
+    const additionalCost = parseFloat(formData.get('additionalCost') as string) || 0
     const additionalCostRemarks = (formData.get('additionalCostRemarks') as string) || ''
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
     const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
@@ -413,6 +427,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setMarkAsFullyPaid(false)
     setSignatureDataUrl('')
     setShowAdditionalCharge(false)
+    setAdditionalCostTaxMode('none')
+    setAdditionalCostGstRate(gstPercentage)
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -437,6 +453,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       }])
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
+      setAdditionalCostTaxMode('none')
+      setAdditionalCostGstRate(gstPercentage)
       setRoundOffAdjustment(0)
       setAmountPaid('')
       setPaymentMode('Cash')
@@ -466,6 +484,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setPickerQuantities({})
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
+      setAdditionalCostTaxMode('none')
+      setAdditionalCostGstRate(gstPercentage)
       setRoundOffAdjustment(0)
       setAmountPaid('')
       setPaymentMode('Cash')
@@ -489,6 +509,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setInvoiceItems(invoice.items || [])
     setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
     setAdditionalCostFinal(invoice.additionalCost || 0)
+    setAdditionalCostTaxMode(invoice.additionalCostBasicRate && invoice.additionalCost && invoice.additionalCost > invoice.additionalCostBasicRate ? 'gst' : 'none')
+    setAdditionalCostGstRate(gstPercentage)
     setShowAdditionalCharge(Boolean(invoice.additionalCost || invoice.additionalCostBasicRate || invoice.additionalCostRemarks))
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     const linkedPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
@@ -890,8 +912,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                     </div>
                   </div>
 
-                  {invoiceItems.length > 0 && (
-                    <div className="space-y-3">
+                  <div className="space-y-3">
                       <div className="space-y-2">
                         <div className="erp-summary-link-row">
                           <Button
@@ -906,80 +927,73 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         </div>
 
                         {showAdditionalCharge && (
-                        <div className="erp-table-panel erp-additional-charge-panel">
-                          <Table>
-                            <TableHeader className="bg-muted/50">
-                              <TableRow className="hover:bg-muted/50">
-                                <TableHead className="font-semibold text-foreground text-xs w-[25%] px-2">
-                                  Remarks / Note
-                                </TableHead>
-                                <TableHead className="font-semibold text-foreground text-xs w-[20%] px-2">
-                                  Basic Rate
-                                </TableHead>
-                                <TableHead className="font-semibold text-foreground text-xs w-[20%] px-2">
-                                  Final Cost
-                                </TableHead>
-                                <TableHead className="font-semibold text-foreground text-xs w-[35%] px-2">Description</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              <TableRow className="hover:bg-muted/30">
-                                <TableCell className="px-2 py-2">
-                                  <Input 
-                                    id="additionalCostRemarks" 
-                                    name="additionalCostRemarks"
-                                    type="text"
-                                    defaultValue={editingInvoice?.additionalCostRemarks || ''}
-                                    placeholder="e.g., Freight, Handling"
-                                    className="h-8 bg-background text-xs px-2"
-                                  />
-                                </TableCell>
-
-                                <TableCell className="px-2 py-2">
-                                  <Input 
-                                    id="additionalCostBasicRate" 
-                                    name="additionalCostBasicRate"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={additionalCostBasicRate || ''}
-                                    onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
-                                    placeholder="0.00"
-                                    className="h-8 font-mono text-right bg-background text-xs px-2"
-                                  />
-                                </TableCell>
-
-                                <TableCell className="px-2 py-2">
-                                  <Input 
-                                    id="additionalCost" 
-                                    name="additionalCost"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={additionalCostFinal || ''}
-                                    onChange={(e) => handleAdditionalCostFinalChange(e.target.value)}
-                                    placeholder="0.00"
-                                    className="h-8 font-mono text-right bg-background text-xs px-2"
-                                  />
-                                </TableCell>
-
-                                <TableCell className="px-2 py-2">
-                                  <span className="text-[10px] text-muted-foreground italic">
-                                    {additionalCostBasicRate > 0 
-                                      ? `Auto-calculated: ${additionalCostBasicRate} × ${(1 + gstPercentage / 100).toFixed(2)} = ${additionalCostFinal.toFixed(2)}`
-                                      : 'Enter Basic Rate or Final Cost directly'}
-                                  </span>
-                                </TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                          <div className="border-t border-border/60 p-3">
+                        <div className="erp-additional-charge-panel">
+                          <div className="erp-additional-charge-row">
+                            <Input
+                              id="additionalCostRemarks"
+                              name="additionalCostRemarks"
+                              type="text"
+                              defaultValue={editingInvoice?.additionalCostRemarks || ''}
+                              placeholder="Enter charge (ex. Transport Charge)"
+                              className="h-10 bg-muted/70 text-sm"
+                            />
+                            <div className="erp-money-input">
+                              <span>₹</span>
+                              <Input
+                                id="additionalCostBasicRate"
+                                name="additionalCostBasicRate"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={additionalCostBasicRate || ''}
+                                onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
+                                placeholder="0"
+                                className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
+                              />
+                            </div>
+                            <Select value={additionalCostTaxMode} onValueChange={(value) => handleAdditionalCostTaxModeChange(value as 'none' | 'gst')}>
+                              <SelectTrigger className="h-10 bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Tax Applicable</SelectItem>
+                                <SelectItem value="gst">GST Applicable</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {additionalCostTaxMode === 'gst' && (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={additionalCostGstRate || ''}
+                                onChange={(e) => handleAdditionalCostGstRateChange(e.target.value)}
+                                placeholder="GST %"
+                                className="h-10 w-28 bg-background text-right font-mono"
+                              />
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => {
+                                setShowAdditionalCharge(false)
+                                setAdditionalCostBasicRate(0)
+                                setAdditionalCostFinal(0)
+                                setAdditionalCostTaxMode('none')
+                              }}
+                            >
+                              <X size={18} weight="bold" />
+                            </Button>
+                            <input type="hidden" id="additionalCost" name="additionalCost" value={additionalCostFinal || ''} />
+                          </div>
+                          <div className="px-1 pt-2">
                             <Button
                               type="button"
                               variant="link"
                               className="h-auto p-0 text-primary disabled:cursor-not-allowed disabled:opacity-45"
                               disabled={!additionalCostBasicRate && !additionalCostFinal}
-                              onClick={() => toast.info('First charge saved. More charge rows can be added after multi-charge storage is enabled.')}
+                              onClick={() => setShowAdditionalCharge(true)}
                             >
                               + Add Another Charge
                             </Button>
@@ -1167,8 +1181,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
