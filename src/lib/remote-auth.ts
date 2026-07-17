@@ -39,7 +39,10 @@ export function canUseSupabaseAuth(): boolean {
   return isSupabaseAuthEnabled && isSupabaseConfigured && Boolean(supabase)
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = 7000): Promise<T> {
+type SupabaseErrorLike = { code?: string; message?: string; status?: number } | null
+type SupabaseResultLike = { error?: SupabaseErrorLike }
+
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = 20000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       reject(new RemoteAuthServiceUnavailableError('Supabase login service timed out. Please try again in a minute.'))
@@ -52,7 +55,48 @@ function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = 7000): Promise<T> {
   })
 }
 
-function isTransientSupabaseError(error: { code?: string; message?: string; status?: number } | null): boolean {
+async function withTransientRetry<T>(operation: () => PromiseLike<T>, attempts = 2): Promise<T> {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await withTimeout(operation())
+    } catch (error) {
+      lastError = error
+      if (!(error instanceof RemoteAuthServiceUnavailableError) || attempt === attempts - 1) {
+        throw error
+      }
+    }
+  }
+
+  throw lastError
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function withTransientResultRetry<T extends SupabaseResultLike>(
+  operation: () => PromiseLike<T>,
+  attempts = 3
+): Promise<T> {
+  let lastResult: T | null = null
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const result = await withTransientRetry(operation, 1)
+    lastResult = result
+
+    if (!isTransientSupabaseError(result.error || null) || attempt === attempts - 1) {
+      return result
+    }
+
+    await wait(350 * (attempt + 1))
+  }
+
+  return lastResult as T
+}
+
+function isTransientSupabaseError(error: SupabaseErrorLike): boolean {
   if (!error) return false
   const message = error.message?.toLowerCase() || ''
   return (
@@ -114,9 +158,10 @@ function toAuthenticatedUser(profile: AppUserProfileRow): AuthenticatedUser {
 
 async function fetchRemoteProfileForUserId(userId: string): Promise<AppUserProfileRow | null> {
   if (!supabase) return null
+  const client = supabase
 
-  const rpcResult = await withTimeout(
-    supabase
+  const rpcResult = await withTransientResultRetry(() =>
+    client
       .rpc('get_my_app_user_profile')
       .maybeSingle()
   )
@@ -132,8 +177,8 @@ async function fetchRemoteProfileForUserId(userId: string): Promise<AppUserProfi
     return null
   }
 
-  const { data, error } = await withTimeout(
-    supabase
+  const { data, error } = await withTransientResultRetry(() =>
+    client
       .from('app_user_profiles')
       .select('id,email,display_name,role,permissions,is_active,created_at,updated_at')
       .eq('id', userId)
@@ -167,8 +212,9 @@ export function remoteProfileToUserAccount(profile: AppUserProfileRow): UserAcco
 
 export async function getRemoteCurrentUser(): Promise<AuthenticatedUser | null> {
   if (!canUseSupabaseAuth() || !supabase) return null
+  const client = supabase
 
-  const { data: userData, error: userError } = await supabase.auth.getUser()
+  const { data: userData, error: userError } = await withTransientResultRetry(() => client.auth.getUser())
   if (userError || !userData.user) return null
 
   let profile: AppUserProfileRow | null = null
@@ -191,9 +237,10 @@ export async function getRemoteCurrentUser(): Promise<AuthenticatedUser | null> 
 
 export async function signInRemoteUser(email: string, password: string): Promise<AuthenticatedUser | null> {
   if (!canUseSupabaseAuth() || !supabase) return null
+  const client = supabase
 
-  const { data, error } = await withTimeout(
-    supabase.auth.signInWithPassword({
+  const { data, error } = await withTransientResultRetry(() =>
+    client.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password
     })
@@ -215,9 +262,10 @@ export async function signOutRemoteUser(): Promise<void> {
 
 export async function listRemoteUserProfiles(): Promise<UserAccount[]> {
   if (!canUseSupabaseAuth() || !supabase) return []
+  const client = supabase
 
-  const { data, error } = await withTimeout(
-    supabase
+  const { data, error } = await withTransientResultRetry(() =>
+    client
       .from('app_user_profiles')
       .select('id,email,display_name,role,permissions,is_active,created_at,updated_at')
       .order('created_at', { ascending: false })

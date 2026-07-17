@@ -160,6 +160,7 @@ import {
   canUseRemoteStorage,
   loadRemoteTenantData,
   RemoteSnapshotConflictError,
+  RemoteStorageUnavailableError,
   saveRemoteTenantData,
   subscribeTenantData
 } from '@/lib/remote-storage'
@@ -575,18 +576,31 @@ function App() {
     }
 
     const loadRemote = async () => {
-      if (canUseRemoteStorage()) {
-        const remoteSnapshot = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
-        if (remoteSnapshot && !cancelled) {
-          remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
-          if (!isLocalCacheDisabled) {
-            localStorage.setItem(partitionKey, JSON.stringify(remoteSnapshot.payload))
+      try {
+        if (canUseRemoteStorage()) {
+          const remoteSnapshot = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
+          if (remoteSnapshot && !cancelled) {
+            remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
+            if (!isLocalCacheDisabled) {
+              localStorage.setItem(partitionKey, JSON.stringify(remoteSnapshot.payload))
+            }
+            applyTenantData(remoteSnapshot.payload)
+            appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
           }
-          applyTenantData(remoteSnapshot.payload)
-          appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
+        }
+        if (!cancelled) setTenantHydrated(true)
+      } catch (error) {
+        if (cancelled) return
+        const message = error instanceof RemoteStorageUnavailableError
+          ? error.message
+          : 'Unable to load saved company data from Supabase.'
+        toast.error(message)
+        if (!isLocalCacheDisabled && storedData) {
+          setTenantHydrated(true)
+        } else {
+          setTenantHydrated(false)
         }
       }
-      if (!cancelled) setTenantHydrated(true)
     }
 
     loadRemote()
