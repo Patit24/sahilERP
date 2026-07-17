@@ -1239,25 +1239,28 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
             if (!nextOpen) resetItemPicker()
           }}
         >
-          <DialogContent className="max-w-[min(1120px,calc(100vw-2rem))] max-h-[82dvh] p-0">
-            <DialogHeader className="border-b border-border px-6 py-5">
-              <DialogTitle className="text-xl">Add Items to Bill</DialogTitle>
+          <DialogContent
+            className="erp-item-picker-dialog max-h-[82dvh] p-0"
+            style={{ width: 'min(1180px, calc(100vw - 2rem))', maxWidth: 'min(1180px, calc(100vw - 2rem))' }}
+          >
+            <DialogHeader className="erp-item-picker-header border-b border-border px-6 py-5">
+              <DialogTitle className="erp-item-picker-title text-xl">Add Items to Bill</DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4 px-6 py-5">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
-                <div className="relative">
+            <div className="erp-item-picker-body space-y-4 px-6 py-5">
+              <div className="erp-item-picker-toolbar grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
+                <div className="erp-item-picker-search relative">
                   <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={itemSearch}
                     onChange={(event) => setItemSearch(event.target.value)}
                     placeholder="Search by Item/ Serial no./ HSN code/ SKU/ Custom Field / Category"
-                    className="h-11 pl-10 pr-10"
+                    className="erp-item-picker-input h-11 pl-10 pr-10"
                   />
                   <Barcode size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 </div>
                 <Select value={selectedItemCategory} onValueChange={setSelectedItemCategory}>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="erp-item-picker-category h-11">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1267,15 +1270,15 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                     ))}
                   </SelectContent>
                 </Select>
-                <Button type="button" className="h-11" onClick={() => setShowQuickItem(true)}>
+                <Button type="button" className="erp-item-picker-create h-11" onClick={() => setShowQuickItem(true)}>
                   Create New Item
                 </Button>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-border">
-                <div className="max-h-[420px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-muted">
+              <div className="erp-item-picker-table-card overflow-hidden rounded-xl border border-border">
+                <div className="erp-item-picker-table-scroll max-h-[420px] overflow-y-auto">
+                  <Table className="erp-item-picker-table">
+                    <TableHeader className="erp-item-picker-table-head sticky top-0 z-10 bg-muted">
                       <TableRow>
                         <TableHead className="w-[34%]">Item Name</TableHead>
                         <TableHead>Item Code</TableHead>
@@ -1298,7 +1301,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                           return (
                             <TableRow
                               key={item.id}
-                              className={pickerQuantity > 0 ? 'bg-primary/10' : ''}
+                              className={pickerQuantity > 0 ? 'erp-item-picker-row is-selected bg-primary/10' : 'erp-item-picker-row'}
                             >
                               <TableCell className="font-medium">{item.name}</TableCell>
                               <TableCell>{item.itemCode || '-'}</TableCell>
@@ -1360,11 +1363,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-border px-6 py-4">
-              <div className="text-sm text-primary">
+            <div className="erp-item-picker-footer flex items-center justify-between border-t border-border px-6 py-4">
+              <div className="erp-item-picker-selected-count text-sm text-primary">
                 Show {Object.values(pickerQuantities).filter((quantity) => quantity > 0).length} Item(s) Selected
               </div>
-              <div className="flex gap-3">
+              <div className="erp-item-picker-actions flex gap-3">
                 <Button type="button" variant="outline" onClick={() => {
                   setItemPickerOpen(false)
                   resetItemPicker()

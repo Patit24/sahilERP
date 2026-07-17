@@ -278,6 +278,172 @@
   text-transform: uppercase;
 }
 
+.erp-item-picker-dialog {
+  width: min(1180px, calc(100vw - 2rem)) !important;
+  max-width: min(1180px, calc(100vw - 2rem)) !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.74) !important;
+  border-radius: 1.55rem !important;
+  background:
+    linear-gradient(145deg, rgba(248, 251, 255, 0.56), rgba(225, 232, 243, 0.96)),
+    #e9ecf3 !important;
+  box-shadow:
+    22px 22px 48px rgba(39, 48, 66, 0.26),
+    -14px -14px 36px rgba(255, 255, 255, 0.78) !important;
+}
+
+.erp-item-picker-header {
+  padding: 1.35rem 1.75rem !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background: rgba(233, 236, 243, 0.74) !important;
+}
+
+.erp-item-picker-title {
+  color: #111827 !important;
+  font-size: 1.25rem !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+}
+
+.erp-item-picker-body {
+  min-width: 0 !important;
+  padding: 1.55rem 1.75rem !important;
+}
+
+.erp-item-picker-toolbar {
+  grid-template-columns: minmax(320px, 1fr) minmax(180px, 0.32fr) max-content !important;
+  gap: 0.9rem !important;
+  align-items: center !important;
+}
+
+.erp-item-picker-search,
+.erp-item-picker-category,
+.erp-item-picker-input {
+  min-width: 0 !important;
+}
+
+.erp-item-picker-input,
+.erp-item-picker-category {
+  height: 3.25rem !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  border-radius: 0.95rem !important;
+  background: #eef2f8 !important;
+  box-shadow: var(--neo-shadow-inset) !important;
+}
+
+.erp-item-picker-create {
+  min-width: 11.25rem !important;
+  height: 3.25rem !important;
+  border-radius: 0.95rem !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  font-weight: 850 !important;
+  box-shadow: 8px 8px 18px rgba(37, 99, 235, 0.22), -8px -8px 18px rgba(255, 255, 255, 0.78) !important;
+  white-space: nowrap !important;
+}
+
+.erp-item-picker-table-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.74) !important;
+  border-radius: 1.25rem !important;
+  background: rgba(255, 255, 255, 0.42) !important;
+  box-shadow: var(--neo-shadow-sm) !important;
+}
+
+.erp-item-picker-table-scroll {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  max-height: min(42dvh, 420px) !important;
+  overflow: auto !important;
+}
+
+.erp-item-picker-table {
+  min-width: 980px !important;
+  table-layout: fixed !important;
+}
+
+.erp-item-picker-table-head {
+  background:
+    linear-gradient(145deg, rgba(248, 250, 252, 0.92), rgba(226, 232, 240, 0.86)),
+    #eef2f8 !important;
+}
+
+.erp-item-picker-table th {
+  height: 3.55rem !important;
+  color: #5c6676 !important;
+  font-size: 0.78rem !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.erp-item-picker-table td {
+  height: 4.95rem !important;
+  border-color: rgba(148, 163, 184, 0.16) !important;
+  color: #1f2937 !important;
+  font-size: 0.93rem !important;
+  vertical-align: middle !important;
+}
+
+.erp-item-picker-row {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.erp-item-picker-row:hover {
+  background: rgba(239, 246, 255, 0.68) !important;
+}
+
+.erp-item-picker-row.is-selected {
+  background:
+    linear-gradient(90deg, rgba(37, 99, 235, 0.11), rgba(20, 184, 166, 0.08)),
+    rgba(255, 255, 255, 0.42) !important;
+}
+
+.erp-item-picker-row [data-slot="button"] {
+  border-radius: 0.82rem !important;
+  font-weight: 850 !important;
+}
+
+.erp-item-picker-row [data-slot="input"] {
+  border-radius: 0.72rem !important;
+}
+
+.erp-item-picker-table .erp-picker-stepper {
+  min-width: 12rem !important;
+  justify-content: center !important;
+  background: rgba(238, 243, 251, 0.92) !important;
+}
+
+.erp-item-picker-footer {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  gap: 1rem !important;
+  padding: 1.15rem 1.75rem !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background: rgba(233, 236, 243, 0.82) !important;
+}
+
+.erp-item-picker-selected-count {
+  color: #254d67 !important;
+  font-weight: 750 !important;
+}
+
+.erp-item-picker-actions {
+  align-items: center !important;
+}
+
+.erp-item-picker-actions [data-slot="button"] {
+  min-width: 10rem !important;
+  min-height: 3rem !important;
+  border-radius: 0.9rem !important;
+  font-weight: 850 !important;
+}
+
 .erp-summary-link-row {
   display: flex;
   align-items: center;
@@ -1472,6 +1638,38 @@
   }
 
   @media (max-width: 720px) {
+    .erp-item-picker-dialog {
+      width: calc(100vw - 1rem) !important;
+      max-height: calc(100dvh - 1rem) !important;
+      border-radius: 1.25rem !important;
+    }
+
+    .erp-item-picker-header,
+    .erp-item-picker-body,
+    .erp-item-picker-footer {
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+
+    .erp-item-picker-toolbar {
+      grid-template-columns: 1fr !important;
+    }
+
+    .erp-item-picker-create,
+    .erp-item-picker-actions [data-slot="button"] {
+      width: 100% !important;
+    }
+
+    .erp-item-picker-footer,
+    .erp-item-picker-actions {
+      align-items: stretch !important;
+      flex-direction: column !important;
+    }
+
+    .erp-item-picker-table {
+      min-width: 860px !important;
+    }
+
     .erp-payment-settlement-grid,
     .erp-payment-fields-grid,
     .erp-signature-grid,
@@ -2476,7 +2674,7 @@
     overflow-y: auto;
   }
 
-  [data-slot="dialog-content"]:not(.erp-invoice-dialog):not(.shortcut-dialog):not(.business-settings-dialog):not(.invoice-preview-dialog):not(.expense-entry-dialog) {
+  [data-slot="dialog-content"]:not(.erp-invoice-dialog):not(.erp-item-picker-dialog):not(.shortcut-dialog):not(.business-settings-dialog):not(.invoice-preview-dialog):not(.expense-entry-dialog) {
     width: min(760px, calc(100vw - 3rem)) !important;
     max-width: min(760px, calc(100vw - 3rem)) !important;
     max-height: min(78dvh, 760px) !important;
