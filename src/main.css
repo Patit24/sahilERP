@@ -29,6 +29,242 @@
   }
 }
 
+/* Reference-style invoice builder refinements */
+.erp-invoice-page-shell,
+.erp-invoice-page-form,
+.erp-invoice-page-body {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+.erp-invoice-page-body {
+  overflow-x: hidden !important;
+}
+
+.erp-invoice-page-body > * {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+.erp-reference-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid rgba(144, 157, 178, 0.28);
+  border-radius: 1.35rem;
+  background: rgba(248, 251, 255, 0.72);
+  box-shadow:
+    12px 12px 28px rgba(145, 158, 181, 0.18),
+    -12px -12px 28px rgba(255, 255, 255, 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.erp-reference-item-table {
+  min-width: 1180px;
+  width: 100%;
+}
+
+.erp-reference-item-head,
+.erp-reference-item-row {
+  display: grid;
+  grid-template-columns: 64px minmax(280px, 1.55fr) 110px 120px 155px 125px 145px 165px 64px;
+  align-items: center;
+}
+
+.erp-reference-item-head {
+  min-height: 58px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(144, 157, 178, 0.22);
+  border-radius: 1.35rem 1.35rem 0 0;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.erp-reference-item-head > span {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border-right: 1px solid rgba(144, 157, 178, 0.22);
+  color: #182234;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.erp-reference-item-head > span:last-child {
+  border-right: 0;
+  justify-content: center;
+}
+
+.erp-reference-row-plus {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: #9aa8bd;
+  color: #ffffff;
+  box-shadow:
+    7px 7px 16px rgba(145, 158, 181, 0.26),
+    -7px -7px 16px rgba(255, 255, 255, 0.76);
+}
+
+.erp-reference-item-row {
+  min-height: 76px;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(144, 157, 178, 0.18);
+  background: rgba(243, 247, 253, 0.55);
+}
+
+.erp-reference-item-row:last-of-type {
+  border-bottom: 0;
+}
+
+.erp-reference-row-number {
+  justify-self: center;
+  color: #637083;
+  font-weight: 700;
+}
+
+.erp-reference-item-row > * {
+  margin-inline: 0.55rem;
+  min-width: 0;
+}
+
+.erp-reference-cell-input {
+  min-height: 46px !important;
+  border: 0 !important;
+  border-radius: 0.75rem !important;
+  background: rgba(239, 244, 251, 0.95) !important;
+  box-shadow:
+    inset 4px 4px 10px rgba(145, 158, 181, 0.18),
+    inset -4px -4px 10px rgba(255, 255, 255, 0.8) !important;
+}
+
+.erp-reference-remove-row {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  border: 0;
+  border-radius: 0.85rem;
+  color: #d11f3a;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    6px 6px 14px rgba(145, 158, 181, 0.16),
+    -6px -6px 14px rgba(255, 255, 255, 0.74);
+}
+
+.erp-reference-add-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 1rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid rgba(144, 157, 178, 0.18);
+}
+
+.erp-reference-add-item-dashed,
+.erp-reference-scan-button {
+  min-height: 64px;
+  border-radius: 0.15rem;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.erp-reference-add-item-dashed {
+  border: 2px dashed #6aa0ff;
+  color: #4384ff;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.erp-reference-scan-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  border: 1px solid rgba(87, 104, 128, 0.34);
+  color: #1f2b3a;
+  font-weight: 800;
+}
+
+.erp-reference-scan-button svg {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.erp-reference-notes-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.erp-note-action {
+  width: 100%;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 1rem;
+  color: #1f4d6b;
+  font-size: 1.02rem;
+  font-weight: 700;
+  text-align: left;
+  background: rgba(238, 244, 252, 0.85);
+  box-shadow:
+    10px 10px 22px rgba(145, 158, 181, 0.18),
+    -10px -10px 22px rgba(255, 255, 255, 0.78);
+}
+
+.erp-inline-editor {
+  overflow: hidden;
+  border: 1px solid rgba(144, 157, 178, 0.24);
+  border-radius: 1.1rem;
+  background: rgba(248, 251, 255, 0.78);
+  box-shadow:
+    10px 10px 22px rgba(145, 158, 181, 0.16),
+    -10px -10px 22px rgba(255, 255, 255, 0.72);
+}
+
+.erp-inline-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid rgba(144, 157, 178, 0.2);
+  color: #182234;
+  font-weight: 800;
+}
+
+.erp-inline-editor textarea {
+  min-height: 110px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: none;
+}
+
+.erp-reference-totals-panel {
+  max-width: 100%;
+}
+
+@media (max-width: 920px) {
+  .erp-reference-add-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-reference-scan-button {
+    min-height: 58px;
+  }
+}
+
 /* Final app-scope overrides: keep Tailwind utilities from flattening the neumorphic skin. */
 #root,
 #root .app-workspace,
@@ -3145,5 +3381,98 @@
     align-items: flex-start;
     flex-direction: column;
     padding: 0.9rem 1rem 1.05rem;
+  }
+}
+
+/* Final invoice-builder polish: keep the wide bill table contained and make actions feel intentional. */
+.erp-invoice-page-shell .erp-invoice-page-form,
+.erp-invoice-page-shell .erp-invoice-page-body,
+.erp-invoice-page-shell .erp-invoice-reference-footer,
+.erp-invoice-page-shell .erp-reference-notes-panel,
+.erp-invoice-page-shell .erp-reference-totals-panel {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+.erp-invoice-page-shell {
+  overflow: hidden !important;
+}
+
+.erp-invoice-page-shell .erp-invoice-page-body {
+  overflow-x: clip !important;
+  padding-inline: clamp(1rem, 1.8vw, 1.7rem) !important;
+}
+
+.erp-invoice-page-shell .erp-reference-table-wrap {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.74) !important;
+  border-radius: 1.25rem !important;
+  background:
+    linear-gradient(145deg, rgba(248, 251, 255, 0.78), rgba(226, 233, 244, 0.66)),
+    #e9ecf3 !important;
+  box-shadow:
+    14px 14px 30px rgba(145, 158, 181, 0.18),
+    -14px -14px 30px rgba(255, 255, 255, 0.78) !important;
+}
+
+.erp-invoice-page-shell .erp-reference-item-table {
+  width: max(100%, 1180px) !important;
+  min-width: 1180px !important;
+}
+
+.erp-invoice-page-shell .erp-reference-item-head {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-bottom: 1px solid rgba(144, 157, 178, 0.24) !important;
+}
+
+.erp-invoice-page-shell .erp-reference-add-item-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 280px !important;
+  gap: 1rem !important;
+  padding: 0.8rem 1rem 1rem !important;
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+
+.erp-invoice-page-shell .erp-reference-add-item-dashed {
+  min-height: 58px !important;
+  border: 2px dashed #5f91ff !important;
+  border-radius: 0.2rem !important;
+  color: #4384ff !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+  font-weight: 800 !important;
+}
+
+.erp-invoice-page-shell .erp-reference-scan-button {
+  min-height: 58px !important;
+  border: 1px solid rgba(76, 91, 113, 0.36) !important;
+  border-radius: 0.2rem !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+}
+
+.erp-invoice-page-shell .erp-note-action {
+  min-height: 64px !important;
+  border: 1px solid rgba(255, 255, 255, 0.82) !important;
+  border-radius: 1rem !important;
+  background:
+    linear-gradient(145deg, rgba(247, 250, 255, 0.84), rgba(226, 233, 244, 0.76)),
+    #e9ecf3 !important;
+  color: #1f4d6b !important;
+  box-shadow:
+    10px 10px 22px rgba(145, 158, 181, 0.18),
+    -10px -10px 22px rgba(255, 255, 255, 0.78) !important;
+}
+
+.erp-invoice-page-shell .erp-note-action:hover,
+.erp-invoice-page-shell .erp-reference-add-item-dashed:hover,
+.erp-invoice-page-shell .erp-reference-scan-button:hover {
+  transform: translateY(-1px);
+  filter: saturate(1.03);
+}
+
+@media (max-width: 920px) {
+  .erp-invoice-page-shell .erp-reference-add-item-row {
+    grid-template-columns: 1fr !important;
   }
 }

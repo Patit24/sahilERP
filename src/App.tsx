@@ -165,7 +165,11 @@ import {
   subscribeTenantData
 } from '@/lib/remote-storage'
 import { appendServerAuditLog } from '@/lib/remote-audit'
-import { syncRelationalTenantData } from '@/lib/relational-sync'
+import {
+  loadRelationalTenantData,
+  RelationalStorageNotReadyError,
+  saveRelationalTenantData
+} from '@/lib/relational-sync'
 import { isLocalCacheDisabled } from '@/lib/supabase-client'
 import {
   canUseSupabaseAuth,
@@ -466,6 +470,7 @@ function App() {
   const [isHoveringsidebar, setIsHoveringsidebar] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   const remoteRevisionRef = useRef<Record<string, number | null>>({})
+  const relationalStorageActiveRef = useRef(false)
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const [addBusinessDialogOpen, setAddBusinessDialogOpen] = useState(false)
   const [editBusinessDialogOpen, setEditBusinessDialogOpen] = useState(false)
@@ -610,6 +615,7 @@ function App() {
     const companyId = metadata.activeCompanyId
     const cachedSnapshot = readTenantCache(companyId, partitionKey)
     const storedData = isLocalCacheDisabled ? null : localStorage.getItem(partitionKey)
+    relationalStorageActiveRef.current = false
     
     const applyTenantData = (parsedData: Partial<TenantData>) => {
       if (cancelled) return
@@ -642,12 +648,36 @@ function App() {
     const loadRemote = async () => {
       try {
         if (canUseRemoteStorage()) {
-          const remoteSnapshot = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
-          if (remoteSnapshot && !cancelled) {
-            remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
-            writeTenantCache(metadata.activeCompanyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
-            applyTenantData(remoteSnapshot.payload)
-            appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
+          let shouldUseLegacySnapshot = false
+
+          try {
+            const relationalPayload = await loadRelationalTenantData(companyId, activeFY)
+            if (relationalPayload && !cancelled) {
+              relationalStorageActiveRef.current = true
+              remoteRevisionRef.current[partitionKey] = null
+              writeTenantCache(companyId, partitionKey, relationalPayload, null)
+              applyTenantData(relationalPayload)
+              appendAuditLog('relational_tenant_loaded', undefined, partitionKey)
+              setTenantHydrated(true)
+              return
+            }
+          } catch (error) {
+            if (error instanceof RelationalStorageNotReadyError) {
+              console.info(error.message)
+              shouldUseLegacySnapshot = true
+            } else {
+              throw error
+            }
+          }
+
+          if (shouldUseLegacySnapshot) {
+            const remoteSnapshot = await loadRemoteTenantData(companyId, partitionKey)
+            if (remoteSnapshot && !cancelled) {
+              remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
+              writeTenantCache(companyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
+              applyTenantData(remoteSnapshot.payload)
+              appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
+            }
           }
         }
         if (!cancelled) setTenantHydrated(true)
@@ -707,24 +737,42 @@ function App() {
       remoteRevisionRef.current[partitionKey] ?? null
     )
     if (canUseRemoteStorage()) {
-      saveRemoteTenantData(
-        metadata.activeCompanyId,
-        partitionKey,
-        tenantData,
-        remoteRevisionRef.current[partitionKey] ?? null
-      )
-        .then((snapshot) => {
-          if (snapshot) {
-            remoteRevisionRef.current[partitionKey] = snapshot.revision
-            writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
-            void syncRelationalTenantData(metadata.activeCompanyId, activeFY, tenantData)
+      const saveLegacySnapshot = async () => {
+        const snapshot = await saveRemoteTenantData(
+          metadata.activeCompanyId,
+          partitionKey,
+          tenantData,
+          remoteRevisionRef.current[partitionKey] ?? null
+        )
+        if (snapshot) {
+          relationalStorageActiveRef.current = false
+          remoteRevisionRef.current[partitionKey] = snapshot.revision
+          writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
+        }
+      }
+
+      const saveRemote = async () => {
+        try {
+          await saveRelationalTenantData(metadata.activeCompanyId, activeFY, tenantData)
+          relationalStorageActiveRef.current = true
+          remoteRevisionRef.current[partitionKey] = null
+          writeTenantCache(metadata.activeCompanyId, partitionKey, tenantData, null)
+        } catch (error) {
+          if (error instanceof RelationalStorageNotReadyError) {
+            await saveLegacySnapshot()
+            return
           }
-        })
+          throw error
+        }
+      }
+
+      saveRemote()
         .catch(async (error) => {
           if (error instanceof RemoteSnapshotConflictError) {
             toast.error('Remote data changed. Reloading latest company data.')
             const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
             if (latest) {
+              relationalStorageActiveRef.current = false
               remoteRevisionRef.current[partitionKey] = latest.revision
               writeTenantCache(metadata.activeCompanyId, partitionKey, latest.payload, latest.revision)
               setSuppliers(latest.payload.suppliers || [])
@@ -777,6 +825,7 @@ function App() {
   useEffect(() => {
     if (!tenantHydrated || !canUseRemoteStorage()) return
     if (useServerAuth && !canSyncRemoteTenant) return
+    if (relationalStorageActiveRef.current) return
 
     return subscribeTenantData(metadata.activeCompanyId, tenantKey, (remoteSnapshot) => {
       remoteRevisionRef.current[tenantKey] = remoteSnapshot.revision

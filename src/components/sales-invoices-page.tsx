@@ -34,6 +34,8 @@ interface SalesInvoicesPageProps {
   isLocked?: boolean
 }
 
+const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
+
 export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, customers, setCustomers, customerPayments, setCustomerPayments, items, setItems, currentFY, isLocked = false }: SalesInvoicesPageProps) {
   const [open, setOpen] = useState(false)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
@@ -63,6 +65,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [selectedPickerItemId, setSelectedPickerItemId] = useState('')
   const [pickerQuantities, setPickerQuantities] = useState<Record<string, number>>({})
   const [showAdditionalCharge, setShowAdditionalCharge] = useState(false)
+  const [showInvoiceNotes, setShowInvoiceNotes] = useState(false)
+  const [invoiceNotes, setInvoiceNotes] = useState('')
+  const [showInvoiceTerms, setShowInvoiceTerms] = useState(false)
+  const [invoiceTerms, setInvoiceTerms] = useState('')
   
   const fyInvoices = salesInvoices.filter(inv => inv.fy === currentFY)
   const fyMonths = getFYMonths(currentFY)
@@ -125,15 +131,6 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     }
   }
 
-  const addInvoiceItem = () => {
-    setInvoiceItems(prev => [...prev, {
-      itemId: '',
-      quantityMT: 0,
-      rate: 0,
-      amount: 0
-    }])
-  }
-
   const updatePickerQuantity = (itemId: string, nextQuantity: number) => {
     setPickerQuantities((prev) => {
       const quantity = Math.max(0, Number.isFinite(nextQuantity) ? nextQuantity : 0)
@@ -152,6 +149,13 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setItemSearch('')
     setSelectedItemCategory('all')
     setPickerQuantities({})
+  }
+
+  const getInvoiceItemGstRate = (itemId: string) => {
+    const item = items.find((candidate) => candidate.id === itemId)
+    return typeof item?.gstRate === 'number' && !Number.isNaN(item.gstRate)
+      ? item.gstRate
+      : gstPercentage
   }
 
   const addInvoiceItemWithItem = (itemId: string, quantityMT = 0) => {
@@ -378,6 +382,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setMarkAsFullyPaid(false)
     setSignatureDataUrl('')
     setShowAdditionalCharge(false)
+    setShowInvoiceNotes(false)
+    setInvoiceNotes('')
+    setShowInvoiceTerms(false)
+    setInvoiceTerms('')
     setAdditionalCostTaxMode('none')
     setAdditionalCostGstRate(gstPercentage)
   }
@@ -395,12 +403,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
       setPickerQuantities({})
-      setInvoiceItems([{
-        itemId: '',
-        quantityMT: 0,
-        rate: 0,
-        amount: 0
-      }])
+      setInvoiceItems([])
       setAdditionalCostBasicRate(0)
       setAdditionalCostFinal(0)
       setAdditionalCostTaxMode('none')
@@ -411,6 +414,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setMarkAsFullyPaid(false)
       setSignatureDataUrl('')
       setShowAdditionalCharge(false)
+      setShowInvoiceNotes(false)
+      setInvoiceNotes('')
+      setShowInvoiceTerms(false)
+      setInvoiceTerms('')
       setTimeout(() => {
         document.querySelector('.erp-invoice-body')?.scrollTo({ top: 0 })
       }, 0)
@@ -437,6 +444,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setMarkAsFullyPaid(false)
       setSignatureDataUrl('')
       setShowAdditionalCharge(false)
+      setShowInvoiceNotes(false)
+      setInvoiceNotes('')
+      setShowInvoiceTerms(false)
+      setInvoiceTerms('')
     }
   }
 
@@ -463,6 +474,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setPaymentMode(linkedPayment?.counterName || 'Cash')
     setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
     setSignatureDataUrl(invoice.signatureDataUrl || '')
+    setShowInvoiceNotes(false)
+    setInvoiceNotes('')
+    setShowInvoiceTerms(false)
+    setInvoiceTerms('')
     setOpen(true)
   }
 
@@ -778,124 +793,134 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 	                          <h3 className="erp-section-title">
 	                            Invoice Items <span className="text-destructive">*</span>
 	                          </h3>
-	                          <div className="erp-toolbar-actions">
-	                            <Button 
-	                              type="button" 
-	                              size="sm" 
-	                              variant="outline"
-	                              className="h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary text-xs px-3"
-	                              onClick={() => setItemPickerOpen(true)}
-	                            >
-	                              <Plus size={14} weight="bold" />
-	                              Add Item
-	                            </Button>
-	                          </div>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              Rate uses item GST • fallback company GST: {gstPercentage}%
+                            </span>
 	                        </div>
 
-	                          <div className="erp-table-panel">
+	                          <div className="erp-reference-table-wrap">
                               {items.length === 0 && (
                                 <div className="px-4 py-3 text-sm text-muted-foreground border-b border-border/50">
                                   No item master found. Click <span className="font-semibold text-primary">Add Item</span>, then use Create New Item inside the list.
                                 </div>
                               )}
-                              <div className="max-h-[320px] overflow-y-auto overflow-x-hidden">
-                            <Table>
-                              <TableHeader className="sticky top-0 bg-muted/50 z-10">
-                                <TableRow className="hover:bg-muted/50">
-                                  <TableHead className="font-semibold text-foreground text-xs w-[34%] px-2">
-                                    Item <span className="text-destructive">*</span>
-                                  </TableHead>
-                                  <TableHead className="font-semibold text-foreground text-xs w-[18%] px-2">
-                                    Qty (MT) <span className="text-destructive">*</span>
-                                  </TableHead>
-                                  <TableHead className="font-semibold text-foreground text-xs w-[18%] px-2">
-                                    Rate <span className="text-destructive">*</span>
-                                  </TableHead>
-                                  <TableHead className="font-semibold text-foreground text-xs w-[22%] px-2">Amount</TableHead>
-                                  <TableHead className="w-[8%] px-1"></TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
+                              <div className="erp-reference-item-table">
+                                <div className="erp-reference-item-head">
+                                  <span>No</span>
+                                  <span>Items/ Services</span>
+                                  <span>HSN/ SAC</span>
+                                  <span>Qty</span>
+                                  <span>Price/Item (₹)</span>
+                                  <span>Discount</span>
+                                  <span>Tax</span>
+                                  <span>Amount (₹)</span>
+                                  <button type="button" className="erp-reference-row-plus" onClick={() => setItemPickerOpen(true)} aria-label="Add item">
+                                    <Plus size={22} weight="bold" />
+                                  </button>
+                                </div>
+
                                 {invoiceItems.map((item, index) => (
-                                  <TableRow key={index} className="hover:bg-muted/30">
-                                    <TableCell className="px-2 py-2">
-                                      <Select 
-                                        value={item.itemId}
-                                        onValueChange={(value) => updateInvoiceItem(index, 'itemId', value)}
-                                      >
-                                        <SelectTrigger className="h-8 w-full border-border/60 text-xs">
-                                          <SelectValue placeholder="Select an item" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {items.map((itm) => (
-                                            <SelectItem key={itm.id} value={itm.id}>
-                                              {itm.name} ({itm.unit})
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </TableCell>
-
-                                    <TableCell className="px-2 py-2">
-                                      <Input
-                                        type="number"
-                                        step="0.001"
-                                        min="0"
-                                        value={item.quantityMT || ''}
-                                        onChange={(e) => updateInvoiceItem(index, 'quantityMT', e.target.value)}
-                                        placeholder="0"
-                                        className="h-8 font-mono text-right border-border/60 text-xs px-2"
-                                      />
-                                    </TableCell>
-
-                                    <TableCell className="px-2 py-2">
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={item.rate || ''}
-                                        onChange={(e) => updateInvoiceItem(index, 'rate', e.target.value)}
-                                        placeholder="0"
-                                        className="h-8 font-mono text-right border-border/60 text-xs px-2"
-                                      />
-                                    </TableCell>
-
-                                    <TableCell className="px-2 py-2">
-                                      <Input 
-                                        type="text"
-                                        value={formatCurrency(item.amount)}
-                                        disabled
-                                        className="h-8 font-mono text-right bg-muted/50 border-muted text-xs px-2"
-                                      />
-                                    </TableCell>
-
-                                    <TableCell className="px-1 py-2 text-center">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                                        onClick={() => removeInvoiceItem(index)}
-                                        disabled={invoiceItems.length === 1}
-                                      >
-                                        <X size={16} weight="bold" />
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
+                                  <div className="erp-reference-item-row" key={index}>
+                                    <span className="erp-reference-row-number">{index + 1}</span>
+                                    <Select value={item.itemId} onValueChange={(value) => updateInvoiceItem(index, 'itemId', value)}>
+                                      <SelectTrigger className="erp-reference-cell-input">
+                                        <SelectValue placeholder="Select an item" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {items.map((itm) => (
+                                          <SelectItem key={itm.id} value={itm.id}>
+                                            {itm.name} ({itm.unit})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Input value="-" disabled className="erp-reference-cell-input text-center" />
+                                    <Input
+                                      type="number"
+                                      step="0.001"
+                                      min="0"
+                                      value={item.quantityMT || ''}
+                                      onChange={(e) => updateInvoiceItem(index, 'quantityMT', e.target.value)}
+                                      placeholder="0"
+                                      className="erp-reference-cell-input font-mono text-right"
+                                    />
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={item.rate || ''}
+                                      onChange={(e) => updateInvoiceItem(index, 'rate', e.target.value)}
+                                      placeholder="0"
+                                      className="erp-reference-cell-input font-mono text-right"
+                                    />
+                                    <Input value="-" disabled className="erp-reference-cell-input text-center" />
+                                    <Input value={`GST @ ${getInvoiceItemGstRate(item.itemId)}%`} disabled className="erp-reference-cell-input text-center" />
+                                    <Input value={formatCurrency(item.amount)} disabled className="erp-reference-cell-input font-mono text-right" />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="erp-reference-remove-row"
+                                      onClick={() => removeInvoiceItem(index)}
+                                      aria-label="Remove item"
+                                    >
+                                      <X size={16} weight="bold" />
+                                    </Button>
+                                  </div>
                                 ))}
-                              </TableBody>
-                            </Table>
-                          </div>
+
+                                <div className="erp-reference-add-item-row">
+                                  <button type="button" className="erp-reference-add-item-dashed" onClick={() => setItemPickerOpen(true)}>
+                                    <Plus size={18} weight="bold" />
+                                    Add Item
+                                  </button>
+                                  <button type="button" className="erp-reference-scan-button" onClick={() => toast.info('Barcode scanner is not configured yet')}>
+                                    <Barcode size={30} weight="bold" />
+                                    <span>Scan Barcode</span>
+                                  </button>
+                                </div>
+                              </div>
                         </div>
 
                         <div className="erp-invoice-reference-footer">
                           <div className="erp-reference-notes-panel">
-                            <Button type="button" variant="link" className="h-auto justify-start p-0 text-primary">
-                              + Add Notes
-                            </Button>
-                            <Button type="button" variant="link" className="h-auto justify-start p-0 text-primary">
-                              + Add Terms and Conditions
-                            </Button>
+                            {!showInvoiceNotes ? (
+                              <button type="button" className="erp-note-action" onClick={() => setShowInvoiceNotes(true)}>
+                                + Add Notes
+                              </button>
+                            ) : (
+                              <div className="erp-inline-editor">
+                                <div className="erp-inline-editor-header">
+                                  <span>Notes</span>
+                                  <button type="button" onClick={() => { setShowInvoiceNotes(false); setInvoiceNotes('') }} aria-label="Remove notes">
+                                    <X size={16} weight="bold" />
+                                  </button>
+                                </div>
+                                <Textarea value={invoiceNotes} onChange={(event) => setInvoiceNotes(event.target.value)} placeholder="Enter invoice notes" />
+                              </div>
+                            )}
+                            {!showInvoiceTerms ? (
+                              <button
+                                type="button"
+                                className="erp-note-action"
+                                onClick={() => {
+                                  setShowInvoiceTerms(true)
+                                  setInvoiceTerms((current) => current || DEFAULT_INVOICE_TERMS)
+                                }}
+                              >
+                                + Add Terms and Conditions
+                              </button>
+                            ) : (
+                              <div className="erp-inline-editor">
+                                <div className="erp-inline-editor-header">
+                                  <span>Terms and Conditions</span>
+                                  <button type="button" onClick={() => { setShowInvoiceTerms(false); setInvoiceTerms('') }} aria-label="Remove terms and conditions">
+                                    <X size={16} weight="bold" />
+                                  </button>
+                                </div>
+                                <Textarea value={invoiceTerms} onChange={(event) => setInvoiceTerms(event.target.value)} />
+                              </div>
+                            )}
                           </div>
                           <div className="erp-reference-totals-panel">
                             <div className="space-y-2">
