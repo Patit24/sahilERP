@@ -1043,18 +1043,18 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               </div>
                             </div>
 
-                            <div className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
+                            <div className="erp-payment-settlement-panel">
                               <input type="hidden" name="amountReceived" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountReceived} />
                               <input type="hidden" name="paymentMode" value={paymentMode} />
 
-                              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                              <div className="erp-payment-settlement-grid">
                                 <div className="space-y-3">
-                                  <div className="flex items-center justify-between gap-3">
+                                  <div className="erp-payment-header-row">
                                     <div>
                                       <h3 className="text-sm font-semibold text-foreground">Payment Settlement</h3>
                                       <p className="text-xs text-muted-foreground">Record amount received while saving this sales invoice.</p>
                                     </div>
-                                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                    <label className="erp-paid-toggle">
                                       <Checkbox
                                         checked={markAsFullyPaid}
                                         onCheckedChange={(checked) => setMarkAsFullyPaid(Boolean(checked))}
@@ -1063,8 +1063,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                     </label>
                                   </div>
 
-                                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
-                                    <div className="space-y-1.5">
+                                  <div className="erp-payment-fields-grid">
+                                    <div className="erp-payment-field">
                                       <Label htmlFor="salesAmountReceived">Amount Received</Label>
                                       <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
@@ -1078,12 +1078,12 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                           onChange={(event) => setAmountReceived(event.target.value)}
                                           disabled={markAsFullyPaid}
                                           placeholder="0.00"
-                                          className="h-11 pl-8 font-mono text-right"
+                                          className="erp-payment-amount-input pl-8 font-mono text-right"
                                         />
                                       </div>
                                     </div>
 
-                                    <div className="space-y-1.5">
+                                    <div className="erp-payment-field">
                                       <Label>Mode</Label>
                                       <Select value={paymentMode} onValueChange={setPaymentMode}>
                                         <SelectTrigger className="h-11">
@@ -1100,7 +1100,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                   </div>
                                 </div>
 
-                                <div className="rounded-xl bg-muted/40 p-3">
+                                <div className="erp-payment-summary-card">
                                   <div className="flex items-center justify-between border-b border-border/70 py-2 text-sm">
                                     <span className="text-muted-foreground">Total Amount</span>
                                     <span className="font-mono font-semibold">{formatCurrency(finalInvoiceAmountPreview)}</span>
@@ -1117,8 +1117,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               </div>
                             </div>
 
-                            <div className="rounded-2xl border border-dashed border-primary/35 bg-background/80 p-4 shadow-sm">
-                              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+                            <div className="erp-signature-panel">
+                              <div className="erp-signature-grid">
                                 <div>
                                   <h3 className="text-sm font-semibold text-foreground">Invoice Signature</h3>
                                   <p className="mt-1 text-xs text-muted-foreground">
@@ -1127,7 +1127,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                   <div className="mt-3 flex flex-wrap gap-2">
                                     <Label
                                       htmlFor="salesInvoiceSignature"
-                                      className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-medium shadow-sm hover:bg-muted"
+                                      className="erp-signature-upload-button"
                                     >
                                       <UploadSimple size={16} weight="bold" />
                                       Upload Signature
@@ -1151,7 +1151,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex min-h-24 items-center justify-center rounded-xl border border-border/70 bg-muted/30 p-3">
+                                <div className="erp-signature-preview">
                                   {signatureDataUrl ? (
                                     <img
                                       src={signatureDataUrl}
