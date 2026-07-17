@@ -1180,6 +1180,195 @@
   }
 }
 
+.erp-invoice-page-body > .erp-form-panel > .erp-responsive-grid > .erp-party-picker-field {
+  position: relative !important;
+  z-index: 20 !important;
+  grid-column: span 6 !important;
+  min-height: 9.7rem !important;
+  padding: 1.1rem 1.6rem !important;
+  border: 0 !important;
+}
+
+.erp-party-add-box {
+  display: inline-flex;
+  width: min(35rem, 100%);
+  min-height: 9.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  border: 2px dashed #4b84ff;
+  border-radius: 0.25rem;
+  background: #ffffff;
+  color: #4384ff;
+  font-size: 1.08rem;
+  font-weight: 650;
+  line-height: 1;
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+
+.erp-party-add-box:hover,
+.erp-party-add-box:focus-visible {
+  border-color: #1f6eff;
+  background: #fbfdff;
+  color: #1f6eff;
+  outline: 0;
+}
+
+.erp-party-dropdown-card {
+  position: relative;
+  width: min(35rem, 100%);
+  border-radius: 0.28rem;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
+.erp-party-search-row {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 3.2rem !important;
+  align-items: center !important;
+  gap: 0.65rem;
+  padding: 0 0.9rem;
+  border: 2px solid #9b8cff !important;
+  border-radius: 0.32rem;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(88, 111, 255, 0.16) !important;
+}
+
+.erp-invoice-page-body .erp-party-search-row input {
+  height: 100% !important;
+  min-width: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #2c3440 !important;
+  box-shadow: none !important;
+  font-size: 1.04rem !important;
+  font-weight: 400 !important;
+  outline: 0 !important;
+}
+
+.erp-party-search-row svg,
+.erp-party-search-row button {
+  color: #637083;
+}
+
+.erp-party-search-row button {
+  display: inline-flex;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.35rem;
+}
+
+.erp-party-options {
+  position: absolute;
+  top: calc(100% + 0.1rem);
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  border: 1px solid #d7dbe2;
+  border-radius: 0 0 0.32rem 0.32rem;
+  background: #ffffff;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
+}
+
+.erp-party-options-head,
+.erp-party-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.erp-party-options-head {
+  min-height: 2.8rem;
+  padding: 0 1.35rem;
+  background: #f1f2f5;
+  color: #252b35;
+  font-size: 0.94rem;
+  font-weight: 650;
+}
+
+.erp-party-option {
+  width: 100%;
+  min-height: 3.9rem;
+  padding: 0 1.35rem;
+  border: 0;
+  border-top: 1px solid #e3e6eb;
+  background: #ffffff;
+  color: #2c3440;
+  text-align: left;
+  cursor: pointer;
+}
+
+.erp-party-option:hover,
+.erp-party-option:focus-visible {
+  background: #f8fbff;
+  outline: 0;
+}
+
+.erp-party-option span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.erp-party-option span:last-child {
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
+.erp-party-create-option {
+  display: inline-flex;
+  width: calc(100% - 2rem);
+  min-height: 3.05rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  margin: 0.65rem 1rem 0.8rem;
+  border: 2px dashed #62a9ff;
+  border-radius: 0.28rem;
+  background: #ffffff;
+  color: #087cff;
+  font-size: 1.02rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.erp-party-create-option:hover,
+.erp-party-create-option:focus-visible {
+  border-color: #0d7dff;
+  background: #f7fbff;
+  outline: 0;
+}
+
+@media (max-width: 900px) {
+  .erp-invoice-page-body > .erp-form-panel > .erp-responsive-grid > .erp-party-picker-field {
+    grid-column: 1 / -1 !important;
+    padding: 1rem !important;
+  }
+
+  .erp-party-add-box,
+  .erp-party-dropdown-card {
+    width: 100%;
+  }
+
+  .erp-party-add-box {
+    min-height: 8rem;
+  }
+}
+
 /*
   ---break---
 */

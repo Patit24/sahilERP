@@ -54,6 +54,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
   const [signatureDataUrl, setSignatureDataUrl] = useState('')
   const [selectedSupplierId, setSelectedSupplierId] = useState('')
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false)
+  const [supplierSearch, setSupplierSearch] = useState('')
   const [showQuickSupplier, setShowQuickSupplier] = useState(false)
   const [showQuickItem, setShowQuickItem] = useState(false)
   const [itemPickerOpen, setItemPickerOpen] = useState(false)
@@ -383,6 +385,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setOpen(false)
     setInvoiceItems([])
     setEditingInvoice(null)
+    setSupplierPickerOpen(false)
+    setSupplierSearch('')
     setAmountPaid('')
     setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
@@ -393,6 +397,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setOpen(newOpen)
     if (newOpen && !editingInvoice) {
       setSelectedSupplierId('')
+      setSupplierPickerOpen(false)
+      setSupplierSearch('')
       setShowQuickSupplier(false)
       setShowQuickItem(false)
       setItemPickerOpen(false)
@@ -425,6 +431,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setInvoiceItems([])
       setEditingInvoice(null)
       setSelectedSupplierId('')
+      setSupplierPickerOpen(false)
+      setSupplierSearch('')
       setShowQuickSupplier(false)
       setShowQuickItem(false)
       setItemPickerOpen(false)
@@ -450,6 +458,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     }
     setEditingInvoice(invoice)
     setSelectedSupplierId(invoice.supplierId)
+    setSupplierPickerOpen(false)
+    setSupplierSearch('')
     setInvoiceItems(invoice.items || [])
     setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
     setAdditionalCostFinal(invoice.additionalCost || 0)
@@ -495,6 +505,14 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   }
 
   const supplierMap = new Map(suppliers.map(s => [s.id, s]))
+  const selectedInvoiceSupplier = selectedSupplierId ? supplierMap.get(selectedSupplierId) : undefined
+  const filteredSuppliers = suppliers.filter((supplier) => {
+    const query = supplierSearch.trim().toLowerCase()
+    if (!query) return true
+    return [supplier.name, supplier.phone, supplier.gstin]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  })
   const itemMap = new Map(items.map(i => [i.id, i]))
   const filteredPickerItems = useMemo(() => {
     const query = itemSearch.trim().toLowerCase()
@@ -600,32 +618,88 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                 <div className="erp-form-panel">
                   <h3 className="erp-section-title">Bill From</h3>
                   <div className="erp-responsive-grid">
-	                    <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                      <Label htmlFor="supplierId" className="text-xs font-medium">Supplier <span className="text-destructive">*</span></Label>
-	                      <div className="flex gap-2">
-	                      <Select name="supplierId" value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-	                        <SelectTrigger id="supplierId" className="h-9 bg-background text-sm">
-	                          <SelectValue placeholder="Select supplier" />
-	                        </SelectTrigger>
-	                        <SelectContent>
-	                          {suppliers.map(supplier => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-	                          ))}
-	                        </SelectContent>
-	                      </Select>
-	                        <Button
-	                          type="button"
-	                          variant="outline"
-	                          className="h-9 shrink-0 gap-1.5 px-3 text-xs"
-	                          onClick={() => setShowQuickSupplier(true)}
-	                        >
-	                          <Plus size={14} weight="bold" />
-	                          New
-	                        </Button>
-	                      </div>
-	                    </div>
+                    <div className="erp-party-picker-field">
+                      <input type="hidden" name="supplierId" value={selectedSupplierId} />
+                      {!supplierPickerOpen && !selectedInvoiceSupplier ? (
+                        <button
+                          type="button"
+                          className="erp-party-add-box"
+                          onClick={() => setSupplierPickerOpen(true)}
+                        >
+                          <Plus size={18} weight="bold" />
+                          Add Party
+                        </button>
+                      ) : (
+                        <div className="erp-party-dropdown-card">
+                          <div className="erp-party-search-row">
+                            <MagnifyingGlass size={20} />
+                            <input
+                              id="supplierId"
+                              type="text"
+                              value={supplierSearch}
+                              onChange={(event) => setSupplierSearch(event.target.value)}
+                              onFocus={() => setSupplierPickerOpen(true)}
+                              placeholder={selectedInvoiceSupplier ? selectedInvoiceSupplier.name : 'Search party by name or number'}
+                              autoComplete="off"
+                            />
+                            <button
+                              type="button"
+                              aria-label="Toggle supplier list"
+                              onClick={() => setSupplierPickerOpen((open) => !open)}
+                            >
+                              <span>⌄</span>
+                            </button>
+                          </div>
+
+                          {supplierPickerOpen && (
+                            <div className="erp-party-options">
+                              <div className="erp-party-options-head">
+                                <span>Party Name</span>
+                                <span>Balance</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="erp-party-option"
+                                onClick={() => {
+                                  setSelectedSupplierId('')
+                                  setSupplierSearch('')
+                                  setSupplierPickerOpen(false)
+                                }}
+                              >
+                                <span>Cash Sale</span>
+                                <span>{formatCurrency(0)}</span>
+                              </button>
+                              {filteredSuppliers.map((supplier) => (
+                                <button
+                                  type="button"
+                                  key={supplier.id}
+                                  className="erp-party-option"
+                                  onClick={() => {
+                                    setSelectedSupplierId(supplier.id)
+                                    setSupplierSearch('')
+                                    setSupplierPickerOpen(false)
+                                  }}
+                                >
+                                  <span>{supplier.name}</span>
+                                  <span>{formatCurrency(supplier.openingBalance || 0)}</span>
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                className="erp-party-create-option"
+                                onClick={() => {
+                                  setSupplierPickerOpen(false)
+                                  setShowQuickSupplier(true)
+                                }}
+                              >
+                                <Plus size={16} weight="bold" />
+                                Create Party
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="space-y-1.5">
                       <Label htmlFor="invoiceNo" className="text-xs font-medium">Invoice Number <span className="text-destructive">*</span></Label>

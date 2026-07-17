@@ -51,6 +51,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
   const [signatureDataUrl, setSignatureDataUrl] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
   const [showQuickItem, setShowQuickItem] = useState(false)
   const [itemPickerOpen, setItemPickerOpen] = useState(false)
@@ -326,6 +328,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setOpen(false)
     setInvoiceItems([])
     setEditingInvoice(null)
+    setCustomerPickerOpen(false)
+    setCustomerSearch('')
     setAdditionalCostBasicRate(0)
     setAdditionalCostFinal(0)
     setRoundOffAdjustment(0)
@@ -339,7 +343,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setOpen(newOpen)
     if (newOpen && !editingInvoice) {
       setSelectedCustomerId('')
-      setShowQuickCustomer(customers.length === 0)
+      setCustomerPickerOpen(false)
+      setCustomerSearch('')
+      setShowQuickCustomer(false)
       setShowQuickItem(false)
       setItemPickerOpen(false)
       setItemSearch('')
@@ -365,6 +371,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setInvoiceItems([])
       setEditingInvoice(null)
       setSelectedCustomerId('')
+      setCustomerPickerOpen(false)
+      setCustomerSearch('')
       setShowQuickCustomer(false)
       setShowQuickItem(false)
       setItemPickerOpen(false)
@@ -390,6 +398,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     }
     setEditingInvoice(invoice)
     setSelectedCustomerId(invoice.customerId)
+    setCustomerPickerOpen(false)
+    setCustomerSearch('')
     setInvoiceItems(invoice.items || [])
     setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
     setAdditionalCostFinal(invoice.additionalCost || 0)
@@ -443,6 +453,14 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   }
 
   const customerMap = new Map(customers.map(customer => [customer.id, customer]))
+  const selectedInvoiceCustomer = selectedCustomerId ? customerMap.get(selectedCustomerId) : undefined
+  const filteredCustomers = customers.filter((customer) => {
+    const query = customerSearch.trim().toLowerCase()
+    if (!query) return true
+    return [customer.name, customer.phone, customer.email, customer.gstin]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  })
   const itemMap = new Map(items.map(item => [item.id, item]))
   const filteredPickerItems = useMemo(() => {
     const query = itemSearch.trim().toLowerCase()
@@ -589,32 +607,88 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                       <div className="erp-form-panel">
                         <h3 className="erp-section-title">Bill To</h3>
                         <div className="erp-responsive-grid">
-	                          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                            <Label htmlFor="customerId" className="text-xs font-medium">Customer <span className="text-destructive">*</span></Label>
-	                            <div className="flex gap-2">
-	                            <Select name="customerId" value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-	                              <SelectTrigger id="customerId" className="h-9 bg-background text-sm">
-	                                <SelectValue placeholder="Select customer" />
-	                              </SelectTrigger>
-	                              <SelectContent>
-                                {customers.map((customer) => (
-                                  <SelectItem key={customer.id} value={customer.id}>
-                                    {customer.name}
-                                  </SelectItem>
-	                                ))}
-	                              </SelectContent>
-	                            </Select>
-	                              <Button
-	                                type="button"
-	                                variant="outline"
-	                                className="h-9 shrink-0 gap-1.5 px-3 text-xs"
-	                                onClick={() => setShowQuickCustomer(true)}
-	                              >
-	                                <Plus size={14} weight="bold" />
-	                                New
-	                              </Button>
-	                            </div>
-	                          </div>
+                          <div className="erp-party-picker-field">
+                            <input type="hidden" name="customerId" value={selectedCustomerId} />
+                            {!customerPickerOpen && !selectedInvoiceCustomer ? (
+                              <button
+                                type="button"
+                                className="erp-party-add-box"
+                                onClick={() => setCustomerPickerOpen(true)}
+                              >
+                                <Plus size={18} weight="bold" />
+                                Add Party
+                              </button>
+                            ) : (
+                              <div className="erp-party-dropdown-card">
+                                <div className="erp-party-search-row">
+                                  <MagnifyingGlass size={20} />
+                                  <input
+                                    id="customerId"
+                                    type="text"
+                                    value={customerSearch}
+                                    onChange={(event) => setCustomerSearch(event.target.value)}
+                                    onFocus={() => setCustomerPickerOpen(true)}
+                                    placeholder={selectedInvoiceCustomer ? selectedInvoiceCustomer.name : 'Search party by name or number'}
+                                    autoComplete="off"
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="Toggle customer list"
+                                    onClick={() => setCustomerPickerOpen((open) => !open)}
+                                  >
+                                    <span>⌄</span>
+                                  </button>
+                                </div>
+
+                                {customerPickerOpen && (
+                                  <div className="erp-party-options">
+                                    <div className="erp-party-options-head">
+                                      <span>Party Name</span>
+                                      <span>Balance</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="erp-party-option"
+                                      onClick={() => {
+                                        setSelectedCustomerId('')
+                                        setCustomerSearch('')
+                                        setCustomerPickerOpen(false)
+                                      }}
+                                    >
+                                      <span>Cash Sale</span>
+                                      <span>{formatCurrency(0)}</span>
+                                    </button>
+                                    {filteredCustomers.map((customer) => (
+                                      <button
+                                        type="button"
+                                        key={customer.id}
+                                        className="erp-party-option"
+                                        onClick={() => {
+                                          setSelectedCustomerId(customer.id)
+                                          setCustomerSearch('')
+                                          setCustomerPickerOpen(false)
+                                        }}
+                                      >
+                                        <span>{customer.name}</span>
+                                        <span>{formatCurrency(customer.openingBalance || 0)}</span>
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      className="erp-party-create-option"
+                                      onClick={() => {
+                                        setCustomerPickerOpen(false)
+                                        setShowQuickCustomer(true)
+                                      }}
+                                    >
+                                      <Plus size={16} weight="bold" />
+                                      Create Party
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           <div className="space-y-1.5">
                             <Label htmlFor="invoiceNo" className="text-xs font-medium">Invoice Number <span className="text-destructive">*</span></Label>
