@@ -225,11 +225,15 @@ export async function getRemoteCurrentUser(): Promise<AuthenticatedUser | null> 
   const { data: userData, error: userError } = await withTransientResultRetry(() => client.auth.getUser())
   if (userError || !userData.user) return null
 
+  const fallbackUser = fallbackAuthUserToAuthenticatedUser(userData.user as SupabaseAuthUserLike)
+  if (fallbackUser?.role === 'master_admin') {
+    return fallbackUser
+  }
+
   let profile: AppUserProfileRow | null = null
   try {
     profile = await fetchRemoteProfileForUserId(userData.user.id)
   } catch (error) {
-    const fallbackUser = fallbackAuthUserToAuthenticatedUser(userData.user as SupabaseAuthUserLike)
     if (fallbackUser) return fallbackUser
     await clearLocalSupabaseSession()
     throw error
@@ -255,10 +259,14 @@ export async function signInRemoteUser(email: string, password: string): Promise
   )
 
   if (error) throw new Error(error.message)
+  const fallbackUser = data.user ? fallbackAuthUserToAuthenticatedUser(data.user as SupabaseAuthUserLike) : null
+  if (fallbackUser?.role === 'master_admin') {
+    return fallbackUser
+  }
+
   try {
     return await getRemoteCurrentUser()
   } catch (profileError) {
-    const fallbackUser = data.user ? fallbackAuthUserToAuthenticatedUser(data.user as SupabaseAuthUserLike) : null
     if (fallbackUser) return fallbackUser
     throw profileError
   }

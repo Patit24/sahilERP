@@ -503,13 +503,13 @@ function App() {
   }, [useServerAuth])
 
   useEffect(() => {
-    if (!useServerAuth || !isMasterAdmin) return
+    if (!useServerAuth || !isMasterAdmin || activeView !== 'user-management') return
     listRemoteUserProfiles()
       .then(setUserAccounts)
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Unable to load server users')
       })
-  }, [useServerAuth, isMasterAdmin])
+  }, [useServerAuth, isMasterAdmin, activeView])
 
   useEffect(() => {
     if (!canAccessView(activeView)) {
@@ -750,14 +750,6 @@ function App() {
         }
         setCurrentUser(user)
         setIsAuthenticated(true)
-        if (user.role === 'master_admin') {
-          try {
-            const accounts = await listRemoteUserProfiles()
-            setUserAccounts(accounts)
-          } catch (profileListError) {
-            toast.error(profileListError instanceof Error ? profileListError.message : 'Unable to load server users')
-          }
-        }
         setAuthPasscode('')
         toast.success(`Welcome, ${user.displayName}`)
       } catch (error) {
