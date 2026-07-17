@@ -220,6 +220,25 @@ import CashBankVoucherEntryWrapper from '@/components/pages/CashBankVoucherEntry
 import CashBankBookReportWrapper from '@/components/pages/CashBankBookReportWrapper'
 import UserManagementPage, { PermissionOption } from '@/components/user-management-page'
 
+const tenantDataCollectionKeys: Array<keyof TenantData> = [
+  'suppliers',
+  'customers',
+  'items',
+  'invoices',
+  'payments',
+  'receivedDiscounts',
+  'salesInvoices',
+  'customerPayments',
+  'expenseTypes',
+  'expenseEntries',
+  'fixedSchemes',
+  'mtBookings'
+]
+
+function hasTenantRecords(data: TenantData): boolean {
+  return tenantDataCollectionKeys.some((key) => Array.isArray(data[key]) && data[key].length > 0)
+}
+
 type NavItem = {
   id: string
   label: string
@@ -628,6 +647,10 @@ function App() {
       expenseEntries,
       fixedSchemes,
       mtBookings
+    }
+
+    if (canUseRemoteStorage() && remoteRevisionRef.current[partitionKey] == null && !hasTenantRecords(tenantData)) {
+      return
     }
     
     if (!isLocalCacheDisabled) {
