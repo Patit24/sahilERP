@@ -239,6 +239,46 @@ function hasTenantRecords(data: TenantData): boolean {
   return tenantDataCollectionKeys.some((key) => Array.isArray(data[key]) && data[key].length > 0)
 }
 
+type TenantCacheEnvelope = {
+  payload: TenantData
+  revision: number | null
+  updatedAt: string
+}
+
+function getTenantCacheKey(companyId: string, tenantKey: string): string {
+  return `remote_cache_${companyId}_${tenantKey}`
+}
+
+function readTenantCache(companyId: string, tenantKey: string): TenantCacheEnvelope | null {
+  if (isLocalCacheDisabled) return null
+  try {
+    const raw = localStorage.getItem(getTenantCacheKey(companyId, tenantKey))
+    return raw ? safeJsonParse<TenantCacheEnvelope | null>(raw, null) : null
+  } catch (error) {
+    console.error('Failed to read tenant cache:', error)
+    return null
+  }
+}
+
+function writeTenantCache(
+  companyId: string,
+  tenantKey: string,
+  payload: TenantData,
+  revision: number | null
+): void {
+  if (isLocalCacheDisabled) return
+  try {
+    localStorage.setItem(tenantKey, JSON.stringify(payload))
+    localStorage.setItem(getTenantCacheKey(companyId, tenantKey), JSON.stringify({
+      payload,
+      revision,
+      updatedAt: new Date().toISOString()
+    }))
+  } catch (error) {
+    console.error('Failed to write tenant cache:', error)
+  }
+}
+
 type NavItem = {
   id: string
   label: string
@@ -567,6 +607,8 @@ function App() {
     setMTBookings([])
 
     const partitionKey = tenantKey
+    const companyId = metadata.activeCompanyId
+    const cachedSnapshot = readTenantCache(companyId, partitionKey)
     const storedData = isLocalCacheDisabled ? null : localStorage.getItem(partitionKey)
     
     const applyTenantData = (parsedData: Partial<TenantData>) => {
@@ -592,6 +634,9 @@ function App() {
       } catch (error) {
         console.error('Failed to load tenant data:', error)
       }
+    } else if (cachedSnapshot?.payload) {
+      remoteRevisionRef.current[partitionKey] = cachedSnapshot.revision
+      applyTenantData(cachedSnapshot.payload)
     }
 
     const loadRemote = async () => {
@@ -600,9 +645,7 @@ function App() {
           const remoteSnapshot = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
           if (remoteSnapshot && !cancelled) {
             remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
-            if (!isLocalCacheDisabled) {
-              localStorage.setItem(partitionKey, JSON.stringify(remoteSnapshot.payload))
-            }
+            writeTenantCache(metadata.activeCompanyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
             applyTenantData(remoteSnapshot.payload)
             appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
           }
@@ -614,7 +657,11 @@ function App() {
           ? error.message
           : 'Unable to load saved company data from Supabase.'
         toast.error(message)
-        if (!isLocalCacheDisabled && storedData) {
+        if (!isLocalCacheDisabled && (storedData || cachedSnapshot?.payload)) {
+          if (cachedSnapshot?.payload && !storedData) {
+            remoteRevisionRef.current[partitionKey] = cachedSnapshot.revision
+            applyTenantData(cachedSnapshot.payload)
+          }
           setTenantHydrated(true)
         } else {
           setTenantHydrated(false)
@@ -653,9 +700,12 @@ function App() {
       return
     }
     
-    if (!isLocalCacheDisabled) {
-      localStorage.setItem(partitionKey, JSON.stringify(tenantData))
-    }
+    writeTenantCache(
+      metadata.activeCompanyId,
+      partitionKey,
+      tenantData,
+      remoteRevisionRef.current[partitionKey] ?? null
+    )
     if (canUseRemoteStorage()) {
       saveRemoteTenantData(
         metadata.activeCompanyId,
@@ -666,6 +716,7 @@ function App() {
         .then((snapshot) => {
           if (snapshot) {
             remoteRevisionRef.current[partitionKey] = snapshot.revision
+            writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
             void syncRelationalTenantData(metadata.activeCompanyId, activeFY, tenantData)
           }
         })
@@ -675,9 +726,7 @@ function App() {
             const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
             if (latest) {
               remoteRevisionRef.current[partitionKey] = latest.revision
-              if (!isLocalCacheDisabled) {
-                localStorage.setItem(partitionKey, JSON.stringify(latest.payload))
-              }
+              writeTenantCache(metadata.activeCompanyId, partitionKey, latest.payload, latest.revision)
               setSuppliers(latest.payload.suppliers || [])
               setCustomers(latest.payload.customers || [])
               setItems(latest.payload.items || [])
@@ -731,9 +780,7 @@ function App() {
 
     return subscribeTenantData(metadata.activeCompanyId, tenantKey, (remoteSnapshot) => {
       remoteRevisionRef.current[tenantKey] = remoteSnapshot.revision
-      if (!isLocalCacheDisabled) {
-        localStorage.setItem(tenantKey, JSON.stringify(remoteSnapshot.payload))
-      }
+      writeTenantCache(metadata.activeCompanyId, tenantKey, remoteSnapshot.payload, remoteSnapshot.revision)
       setSuppliers(remoteSnapshot.payload.suppliers || [])
       setCustomers(remoteSnapshot.payload.customers || [])
       setItems(remoteSnapshot.payload.items || [])
@@ -872,7 +919,7 @@ function App() {
       setMTBookings([])
       
       const partitionKey = tenantKey
-      localStorage.setItem(partitionKey, JSON.stringify({
+      const emptyTenantData: TenantData = {
         suppliers: [],
         customers: [],
         items: [],
@@ -885,7 +932,8 @@ function App() {
         expenseEntries: [],
         fixedSchemes: [],
         mtBookings: []
-      }))
+      }
+      writeTenantCache(metadata.activeCompanyId, partitionKey, emptyTenantData, remoteRevisionRef.current[partitionKey] ?? null)
       localStorage.removeItem(cashBankKey)
       appendAuditLog('tenant_data_cleared', { cashBankCleared: true }, partitionKey)
       void appendServerAuditLog(metadata.activeCompanyId, partitionKey, 'tenant_data_cleared', { cashBankCleared: true })

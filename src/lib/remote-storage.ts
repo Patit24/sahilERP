@@ -82,6 +82,18 @@ async function withTransientResultRetry<T extends SupabaseResultLike>(
 }
 
 const DEVICE_ID_KEY = 'app_device_id'
+const TRANSIENT_COOLDOWN_MS = 60_000
+let remoteUnavailableUntil = 0
+
+function assertRemoteAvailable(): void {
+  if (Date.now() < remoteUnavailableUntil) {
+    throw new RemoteStorageUnavailableError()
+  }
+}
+
+function markRemoteUnavailable(): void {
+  remoteUnavailableUntil = Date.now() + TRANSIENT_COOLDOWN_MS
+}
 
 function getDeviceId(): string {
   let deviceId = localStorage.getItem(DEVICE_ID_KEY)
@@ -117,6 +129,7 @@ function isTransientSupabaseError(error: SupabaseErrorLike): boolean {
 
 export async function loadRemoteTenantData(companyId: string, tenantKey: string): Promise<TenantSnapshot | null> {
   if (!canUseRemoteStorage() || !supabase) return null
+  assertRemoteAvailable()
   const client = supabase
 
   const { data, error } = await withTransientResultRetry(() =>
@@ -131,6 +144,7 @@ export async function loadRemoteTenantData(companyId: string, tenantKey: string)
   if (error) {
     if (isTransientSupabaseError(error)) {
       console.error('Supabase load temporarily unavailable:', error)
+      markRemoteUnavailable()
       throw new RemoteStorageUnavailableError('Supabase data load timed out. Saved data was not overwritten.')
     }
     console.error('Supabase load failed:', error)
@@ -147,6 +161,7 @@ export async function saveRemoteTenantData(
   expectedRevision: number | null
 ): Promise<TenantSnapshot | null> {
   if (!canUseRemoteStorage() || !supabase) return null
+  assertRemoteAvailable()
   const client = supabase
 
   const { data, error } = await withTransientResultRetry(() =>
@@ -162,6 +177,7 @@ export async function saveRemoteTenantData(
   if (error) {
     if (isTransientSupabaseError(error)) {
       console.error('Supabase save temporarily unavailable:', error)
+      markRemoteUnavailable()
       throw new RemoteStorageUnavailableError()
     }
     if (
