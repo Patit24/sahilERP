@@ -63,7 +63,7 @@ function wait(ms: number): Promise<void> {
 
 async function withTransientResultRetry<T extends SupabaseResultLike>(
   operation: () => PromiseLike<T>,
-  attempts = 3
+  attempts = 1
 ): Promise<T> {
   let lastResult: T | null = null
 
