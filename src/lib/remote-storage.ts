@@ -104,9 +104,12 @@ function isTransientSupabaseError(error: SupabaseErrorLike): boolean {
     error.status === 504 ||
     error.code === '503' ||
     error.code === '504' ||
+    error.code === 'PGRST003' ||
     message.includes('service unavailable') ||
     message.includes('gateway timeout') ||
     message.includes('schema cache') ||
+    message.includes('connection pool') ||
+    message.includes('timed out acquiring') ||
     message.includes('fetch failed') ||
     message.includes('network')
   )

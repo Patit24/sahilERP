@@ -104,17 +104,25 @@ function isTransientSupabaseError(error: SupabaseErrorLike): boolean {
     error.status === 504 ||
     error.code === '503' ||
     error.code === '504' ||
+    error.code === 'PGRST003' ||
     message.includes('service unavailable') ||
     message.includes('gateway timeout') ||
+    message.includes('connection pool') ||
+    message.includes('timed out acquiring') ||
     message.includes('fetch failed') ||
     message.includes('network')
   )
 }
 
-function isMissingRpcError(error: { code?: string; message?: string } | null): boolean {
+function isMissingRpcError(error: { code?: string; message?: string; status?: number } | null): boolean {
   if (!error) return false
   const message = error.message?.toLowerCase() || ''
-  return error.code === 'PGRST202' || message.includes('could not find the function')
+  return (
+    error.status === 404 ||
+    error.code === 'PGRST202' ||
+    message.includes('could not find the function') ||
+    message.includes('function public.get_my_app_user_profile')
+  )
 }
 
 async function clearLocalSupabaseSession(): Promise<void> {
