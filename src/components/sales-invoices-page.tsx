@@ -888,7 +888,16 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                           </div>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="erp-invoice-reference-footer">
+                          <div className="erp-reference-notes-panel">
+                            <Button type="button" variant="link" className="h-auto justify-start p-0 text-primary">
+                              + Add Notes
+                            </Button>
+                            <Button type="button" variant="link" className="h-auto justify-start p-0 text-primary">
+                              + Add Terms and Conditions
+                            </Button>
+                          </div>
+                          <div className="erp-reference-totals-panel">
                             <div className="space-y-2">
                               <div className="erp-summary-link-row">
                                 <Button
@@ -1155,6 +1164,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                 </div>
                               </div>
                             </div>
+                          </div>
                         </div>
                       </div>
                     </div>
