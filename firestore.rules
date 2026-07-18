@@ -33,16 +33,16 @@ service cloud.firestore {
 
     // ─── Tenant Data Snapshots ──────────────────────────────────────
     match /tenants/{companyId}/snapshots/{tenantKey} {
-      // Any active user can read tenant data
-      allow read: if isActiveUser();
-      // Any active user can write tenant data
-      allow write: if isActiveUser();
+      // Any authenticated user can read tenant data
+      allow read: if isAuthenticated();
+      // Any authenticated user can write tenant data
+      allow write: if isAuthenticated();
     }
 
     // ─── Audit Logs ─────────────────────────────────────────────────
     match /audit_logs/{logId} {
-      // Any active user can append audit logs
-      allow create: if isActiveUser();
+      // Any authenticated user can append audit logs
+      allow create: if isAuthenticated();
       // Only master admin can read audit logs
       allow read: if isMasterAdmin();
       // No one can modify or delete audit logs
