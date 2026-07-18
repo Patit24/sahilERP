@@ -163,23 +163,18 @@ import {
   RemoteStorageUnavailableError,
   saveRemoteTenantData,
   subscribeTenantData
-} from '@/lib/remote-storage'
+} from '@/lib/firebase-storage'
 import { appendServerAuditLog } from '@/lib/remote-audit'
+import { isLocalCacheDisabled } from '@/lib/firebase-client'
 import {
-  loadRelationalTenantData,
-  RelationalStorageNotReadyError,
-  saveRelationalTenantData
-} from '@/lib/relational-sync'
-import { isLocalCacheDisabled } from '@/lib/supabase-client'
-import {
-  canUseSupabaseAuth,
+  canUseFirebaseAuth,
   getRemoteCurrentUser,
   listRemoteUserProfiles,
   RemoteAuthServiceUnavailableError,
   signInRemoteUser,
   signOutRemoteUser,
   updateRemoteUserProfile
-} from '@/lib/remote-auth'
+} from '@/lib/firebase-auth'
 import {
   Supplier,
   PurchaseInvoice,
@@ -380,7 +375,7 @@ const viewNames: Record<string, string> = {
 }
 
 function App() {
-  const useServerAuth = canUseSupabaseAuth()
+  const useServerAuth = canUseFirebaseAuth()
   const [metadata, setMetadata] = useState<AppMetadata>(() => {
     const stored = localStorage.getItem('app_metadata')
     if (!stored) {
@@ -470,7 +465,6 @@ function App() {
   const [isHoveringsidebar, setIsHoveringsidebar] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   const remoteRevisionRef = useRef<Record<string, number | null>>({})
-  const relationalStorageActiveRef = useRef(false)
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const [addBusinessDialogOpen, setAddBusinessDialogOpen] = useState(false)
   const [editBusinessDialogOpen, setEditBusinessDialogOpen] = useState(false)
@@ -615,8 +609,7 @@ function App() {
     const companyId = metadata.activeCompanyId
     const cachedSnapshot = readTenantCache(companyId, partitionKey)
     const storedData = isLocalCacheDisabled ? null : localStorage.getItem(partitionKey)
-    relationalStorageActiveRef.current = false
-    
+
     const applyTenantData = (parsedData: Partial<TenantData>) => {
       if (cancelled) return
       setSuppliers(parsedData.suppliers || [])
@@ -648,36 +641,12 @@ function App() {
     const loadRemote = async () => {
       try {
         if (canUseRemoteStorage()) {
-          let shouldUseLegacySnapshot = false
-
-          try {
-            const relationalPayload = await loadRelationalTenantData(companyId, activeFY)
-            if (relationalPayload && !cancelled) {
-              relationalStorageActiveRef.current = true
-              remoteRevisionRef.current[partitionKey] = null
-              writeTenantCache(companyId, partitionKey, relationalPayload, null)
-              applyTenantData(relationalPayload)
-              appendAuditLog('relational_tenant_loaded', undefined, partitionKey)
-              setTenantHydrated(true)
-              return
-            }
-          } catch (error) {
-            if (error instanceof RelationalStorageNotReadyError) {
-              console.info(error.message)
-              shouldUseLegacySnapshot = true
-            } else {
-              throw error
-            }
-          }
-
-          if (shouldUseLegacySnapshot) {
-            const remoteSnapshot = await loadRemoteTenantData(companyId, partitionKey)
-            if (remoteSnapshot && !cancelled) {
-              remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
-              writeTenantCache(companyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
-              applyTenantData(remoteSnapshot.payload)
-              appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
-            }
+          const remoteSnapshot = await loadRemoteTenantData(companyId, partitionKey)
+          if (remoteSnapshot && !cancelled) {
+            remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
+            writeTenantCache(companyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
+            applyTenantData(remoteSnapshot.payload)
+            appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
           }
         }
         if (!cancelled) setTenantHydrated(true)
@@ -685,7 +654,7 @@ function App() {
         if (cancelled) return
         const message = error instanceof RemoteStorageUnavailableError
           ? error.message
-          : 'Unable to load saved company data from Supabase.'
+          : 'Unable to load saved company data from Firebase.'
         toast.error(message)
         if (!isLocalCacheDisabled && (storedData || cachedSnapshot?.payload)) {
           if (cachedSnapshot?.payload && !storedData) {
@@ -737,7 +706,7 @@ function App() {
       remoteRevisionRef.current[partitionKey] ?? null
     )
     if (canUseRemoteStorage()) {
-      const saveLegacySnapshot = async () => {
+      const saveRemote = async () => {
         const snapshot = await saveRemoteTenantData(
           metadata.activeCompanyId,
           partitionKey,
@@ -745,24 +714,8 @@ function App() {
           remoteRevisionRef.current[partitionKey] ?? null
         )
         if (snapshot) {
-          relationalStorageActiveRef.current = false
           remoteRevisionRef.current[partitionKey] = snapshot.revision
           writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
-        }
-      }
-
-      const saveRemote = async () => {
-        try {
-          await saveRelationalTenantData(metadata.activeCompanyId, activeFY, tenantData)
-          relationalStorageActiveRef.current = true
-          remoteRevisionRef.current[partitionKey] = null
-          writeTenantCache(metadata.activeCompanyId, partitionKey, tenantData, null)
-        } catch (error) {
-          if (error instanceof RelationalStorageNotReadyError) {
-            await saveLegacySnapshot()
-            return
-          }
-          throw error
         }
       }
 
@@ -772,7 +725,6 @@ function App() {
             toast.error('Remote data changed. Reloading latest company data.')
             const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
             if (latest) {
-              relationalStorageActiveRef.current = false
               remoteRevisionRef.current[partitionKey] = latest.revision
               writeTenantCache(metadata.activeCompanyId, partitionKey, latest.payload, latest.revision)
               setSuppliers(latest.payload.suppliers || [])
@@ -825,8 +777,6 @@ function App() {
   useEffect(() => {
     if (!tenantHydrated || !canUseRemoteStorage()) return
     if (useServerAuth && !canSyncRemoteTenant) return
-    if (relationalStorageActiveRef.current) return
-
     return subscribeTenantData(metadata.activeCompanyId, tenantKey, (remoteSnapshot) => {
       remoteRevisionRef.current[tenantKey] = remoteSnapshot.revision
       writeTenantCache(metadata.activeCompanyId, tenantKey, remoteSnapshot.payload, remoteSnapshot.revision)

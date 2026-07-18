@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ───────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isMasterAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'master_admin';
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
+    }
+
+    // ─── User Profiles ──────────────────────────────────────────────
+    match /users/{userId} {
+      // Any authenticated user can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      // Master admin can read all user profiles
+      allow read: if isMasterAdmin();
+      // Master admin can create and update user profiles
+      allow create, update: if isMasterAdmin();
+      // No one can delete user profiles via client (use Admin SDK)
+      allow delete: if false;
+    }
+
+    // ─── Tenant Data Snapshots ──────────────────────────────────────
+    match /tenants/{companyId}/snapshots/{tenantKey} {
+      // Any active user can read tenant data
+      allow read: if isActiveUser();
+      // Any active user can write tenant data
+      allow write: if isActiveUser();
+    }
+
+    // ─── Audit Logs ─────────────────────────────────────────────────
+    match /audit_logs/{logId} {
+      // Any active user can append audit logs
+      allow create: if isActiveUser();
+      // Only master admin can read audit logs
+      allow read: if isMasterAdmin();
+      // No one can modify or delete audit logs
+      allow update, delete: if false;
+    }
+
+    // ─── Deny everything else ───────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,5 +1,5 @@
-import { supabase } from './supabase-client'
-import { isSupabaseAuthEnabled, isSupabaseConfigured } from './supabase-client'
+import { db } from './firebase-client'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 
 export async function appendServerAuditLog(
   companyId: string | null,
@@ -7,16 +7,17 @@ export async function appendServerAuditLog(
   action: string,
   details: Record<string, unknown> = {}
 ): Promise<void> {
-  if (!isSupabaseAuthEnabled || !isSupabaseConfigured || !supabase) return
+  if (!db) return
 
-  const { error } = await supabase.rpc('append_audit_log', {
-    p_company_id: companyId,
-    p_tenant_key: tenantKey,
-    p_action: action,
-    p_details: details
-  })
-
-  if (error) {
-    console.error('Server audit log failed:', error)
+  try {
+    await addDoc(collection(db, 'audit_logs'), {
+      companyId,
+      tenantKey,
+      action,
+      details,
+      timestamp: serverTimestamp()
+    })
+  } catch (error) {
+    console.error('Firebase audit log failed:', error)
   }
 }
