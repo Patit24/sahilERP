@@ -869,10 +869,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                     <Plus size={18} weight="bold" />
                                     Add Item
                                   </button>
-                                  <button type="button" className="erp-reference-scan-button" onClick={() => toast.info('Barcode scanner is not configured yet')}>
-                                    <Barcode size={30} weight="bold" />
-                                    <span>Scan Barcode</span>
-                                  </button>
+
                                 </div>
                               </div>
                         </div>
@@ -1074,17 +1071,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                     </Button>
                                     <input type="hidden" id="salesAdditionalCost" name="additionalCost" value={additionalCostFinal || ''} />
                                   </div>
-                                  <div className="px-1 pt-2">
-                                    <Button
-                                      type="button"
-                                      variant="link"
-                                      className="h-auto p-0 text-primary disabled:cursor-not-allowed disabled:opacity-45"
-                                      disabled={!additionalCostBasicRate && !additionalCostFinal}
-                                      onClick={() => setShowAdditionalCharge(true)}
-                                    >
-                                      + Add Another Charge
-                                    </Button>
-                                  </div>
+
                                 </div>
                                 )}
                               </div>

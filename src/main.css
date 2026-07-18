@@ -68,7 +68,7 @@
 .erp-reference-item-head,
 .erp-reference-item-row {
   display: grid;
-  grid-template-columns: 64px minmax(280px, 1.55fr) 110px 120px 155px 125px 145px 165px 64px;
+  grid-template-columns: 50px minmax(180px, 2fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(110px, 1fr) minmax(90px, 1fr) minmax(110px, 1fr) minmax(120px, 1fr) 50px;
   align-items: center;
 }
 
@@ -1831,12 +1831,12 @@
   align-content: center !important;
   min-width: 0 !important;
   width: 100% !important;
-  border: 1px solid rgba(255, 255, 255, 0.64) !important;
-    border-radius: 1.25rem !important;
-    background: rgba(255, 255, 255, 0.48) !important;
-    padding: 1rem 1.15rem !important;
-    box-shadow: var(--neo-shadow-inset) !important;
-  }
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.75rem !important;
+  background: #f8fafc !important;
+  padding: 1rem 1.15rem !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
 
   .erp-payment-summary-card > div {
     min-width: 0 !important;
@@ -2074,15 +2074,15 @@
   position: relative !important;
   z-index: 20 !important;
   grid-column: span 6 !important;
-  min-height: 9.7rem !important;
-  padding: 1.1rem 1.6rem !important;
+  min-height: 6.5rem !important;
+  padding: 0.8rem 1.2rem !important;
   border: 0 !important;
 }
 
 .erp-party-add-box {
   display: inline-flex;
   width: min(35rem, 100%);
-  min-height: 8.5rem;
+  min-height: 5.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -3460,8 +3460,8 @@
 }
 
 .erp-invoice-page-shell .erp-reference-item-table {
-  width: max(100%, 1250px) !important;
-  min-width: 1250px !important;
+  width: 100% !important;
+  min-width: 0 !important;
 }
 
 .erp-invoice-page-shell .erp-reference-item-head {
