@@ -520,7 +520,7 @@ function App() {
 
   const activeCompany = metadata.businesses.find(b => b.id === metadata.activeCompanyId)?.name || 'SK TRADERS'
   const activeFY = metadata.activeFY || getCurrentFY()
-  const tenantKey = `data_${metadata.activeCompanyId}_${activeFY}`
+  const tenantKey = `data_v3_${metadata.activeCompanyId}_${activeFY}`
   const cashBankKey = `cashbank_${metadata.activeCompanyId}_${activeFY}`
   const storedCompanies = metadata.businesses.map(b => b.name)
 
