@@ -61,14 +61,14 @@
 }
 
 .erp-reference-item-table {
-  min-width: 1250px;
+  min-width: 950px;
   width: 100%;
 }
 
 .erp-reference-item-head,
 .erp-reference-item-row {
   display: grid;
-  grid-template-columns: 64px minmax(280px, 1.55fr) 110px 120px 155px 125px 145px 165px 64px;
+  grid-template-columns: 50px minmax(180px, 2.5fr) minmax(80px, 1fr) minmax(90px, 1fr) minmax(110px, 1.2fr) minmax(90px, 1fr) minmax(100px, 1.1fr) minmax(120px, 1.3fr) 50px;
   align-items: center;
 }
 
@@ -3427,8 +3427,8 @@
 }
 
 .erp-invoice-page-shell .erp-reference-item-table {
-  width: max(100%, 1250px) !important;
-  min-width: 1250px !important;
+  width: max(100%, 950px) !important;
+  min-width: 950px !important;
 }
 
 .erp-invoice-page-shell .erp-reference-item-head {
