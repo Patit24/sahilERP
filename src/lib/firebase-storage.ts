@@ -81,20 +81,22 @@ export function canUseRemoteStorage(): boolean {
 }
 
 function stripUndefined(val: any): any {
-  if (val === null || val === undefined) {
-    return null
-  }
+  if (val === undefined) return undefined
+  if (val === null) return null
+  
   if (Array.isArray(val)) {
-    return val.map(stripUndefined)
+    return val.map(stripUndefined).filter(v => v !== undefined)
   }
+  
   if (typeof val === 'object') {
-    const res: Record<string, any> = {}
-    for (const k of Object.keys(val)) {
-      if (val[k] !== undefined) {
-        res[k] = stripUndefined(val[k])
+    const cleaned: any = {}
+    for (const key in val) {
+      const cleanedVal = stripUndefined(val[key])
+      if (cleanedVal !== undefined) {
+        cleaned[key] = cleanedVal
       }
     }
-    return res
+    return cleaned
   }
   return val
 }
