@@ -839,7 +839,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       type="number"
                                       step="0.001"
                                       min="0"
-                                      value={item.quantityMT || ''}
+                                      value={item.quantityMT === 0 ? 0 : item.quantityMT}
                                       onChange={(e) => updateInvoiceItem(index, 'quantityMT', e.target.value)}
                                       placeholder="0"
                                       className="erp-reference-cell-input font-mono text-right"
@@ -848,7 +848,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       type="number"
                                       step="0.01"
                                       min="0"
-                                      value={item.rate || ''}
+                                      value={item.rate === 0 ? 0 : item.rate}
                                       onChange={(e) => updateInvoiceItem(index, 'rate', e.target.value)}
                                       placeholder="0"
                                       className="erp-reference-cell-input font-mono text-right"
@@ -883,7 +883,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                         </div>
 
                         <div className="erp-invoice-reference-footer">
-                          <div className="erp-reference-notes-panel">
+                    <div className="erp-invoice-footer-col flex flex-col gap-3">
+<div className="erp-reference-notes-panel">
                             {!showInvoiceNotes ? (
                               <button type="button" className="erp-note-action" onClick={() => setShowInvoiceNotes(true)}>
                                 + Add Notes
@@ -922,153 +923,55 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               </div>
                             )}
                           </div>
-                          <div className="erp-reference-totals-panel">
-                            <div className="space-y-2">
-                              <div className="erp-summary-link-row">
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  className="h-auto p-0 text-primary"
-                                  onClick={() => setShowAdditionalCharge(true)}
-                                >
-                                  + Add Additional Charges
-                                </Button>
-                                <span className="font-mono text-sm">{formatCurrency(additionalCostFinal)}</span>
-                              </div>
-
-                              {showAdditionalCharge && (
-                              <div className="erp-additional-charge-panel">
-                                <div className="erp-additional-charge-row">
-                                  <Input
-                                    id="salesAdditionalCostRemarks"
-                                    name="additionalCostRemarks"
-                                    type="text"
-                                    defaultValue={editingInvoice?.additionalCostRemarks || ''}
-                                    placeholder="Enter charge (ex. Transport Charge)"
-                                    className="h-10 bg-muted/70 text-sm"
-                                  />
-                                  <div className="erp-money-input">
-                                    <span>₹</span>
-                                    <Input
-                                      id="salesAdditionalCostBasicRate"
-                                      name="additionalCostBasicRate"
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      value={additionalCostBasicRate || ''}
-                                      onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
-                                      placeholder="0"
-                                      className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
-                                    />
-                                  </div>
-                                  <Select value={additionalCostTaxMode} onValueChange={(value) => handleAdditionalCostTaxModeChange(value as 'none' | 'gst')}>
-                                    <SelectTrigger className="h-10 bg-background">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">No Tax Applicable</SelectItem>
-                                      <SelectItem value="gst">GST Applicable</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  {additionalCostTaxMode === 'gst' && (
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      value={additionalCostGstRate || ''}
-                                      onChange={(e) => handleAdditionalCostGstRateChange(e.target.value)}
-                                      placeholder="GST %"
-                                      className="h-10 w-28 bg-background text-right font-mono"
-                                    />
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-10 w-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => {
-                                      setShowAdditionalCharge(false)
-                                      setAdditionalCostBasicRate(0)
-                                      setAdditionalCostFinal(0)
-                                      setAdditionalCostTaxMode('none')
-                                    }}
-                                  >
-                                    <X size={18} weight="bold" />
-                                  </Button>
-                                  <input type="hidden" id="salesAdditionalCost" name="additionalCost" value={additionalCostFinal || ''} />
-                                </div>
-                                <div className="px-1 pt-2">
-                                  <Button
-                                    type="button"
-                                    variant="link"
-                                    className="h-auto p-0 text-primary disabled:cursor-not-allowed disabled:opacity-45"
-                                    disabled={!additionalCostBasicRate && !additionalCostFinal}
-                                    onClick={() => setShowAdditionalCharge(true)}
-                                  >
-                                    + Add Another Charge
-                                  </Button>
-                                </div>
-                              </div>
-                              )}
-                            </div>
-
-                            <div className="erp-total-panel">
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Total Quantity:</span>
-                                    <span className="font-mono font-semibold text-foreground">{formatMT(totalInvoiceQty)}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Items Total:</span>
-                                    <span className="font-mono font-semibold text-foreground">{formatCurrency(totalInvoiceAmount)}</span>
-                                  </div>
-                                </div>
-                                {(additionalCostBasicRate > 0 || additionalCostFinal > 0) && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-muted-foreground">Additional Cost:</span>
-                                      <span className="font-mono font-semibold text-foreground">{formatCurrency(additionalCostFinal)}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                {roundOffAdjustment !== 0 && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-muted-foreground">Round-off:</span>
-                                      <span className="font-mono font-semibold text-foreground">{roundOffAdjustment >= 0 ? '+' : ''}{formatCurrency(roundOffAdjustment)}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="h-px bg-border"></div>
-                                <div className="flex items-center justify-between text-xs">
-                                  <Button type="button" variant="link" className="h-auto p-0 text-primary text-xs">
-                                    + Add Discount
-                                  </Button>
-                                  <span className="font-mono font-semibold text-foreground">- {formatCurrency(0)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs text-muted-foreground font-medium">Final Invoice Amount:</span>
-                                      <span className="font-mono font-bold text-base text-primary">{formatCurrency(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment)}</span>
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs px-2.5 gap-1.5"
-                                      onClick={handleRoundOff}
+                          <div className="erp-signature-panel">
+                              <div className="erp-signature-grid">
+                                <div>
+                                  <h3 className="text-sm font-semibold text-foreground">Invoice Signature</h3>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Upload a signature image to show on this invoice PDF.
+                                  </p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <Label
+                                      htmlFor="salesInvoiceSignature"
+                                      className="erp-signature-upload-button"
                                     >
-                                      Round Off
-                                    </Button>
+                                      <UploadSimple size={16} weight="bold" />
+                                      Upload Signature
+                                    </Label>
+                                    <Input
+                                      id="salesInvoiceSignature"
+                                      type="file"
+                                      accept="image/png,image/jpeg,image/webp"
+                                      className="sr-only"
+                                      onChange={handleSignatureUpload}
+                                    />
+                                    {signatureDataUrl && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="h-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        onClick={() => setSignatureDataUrl('')}
+                                      >
+                                        Remove
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
-                                <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
+                                <div className="erp-signature-preview">
+                                  {signatureDataUrl ? (
+                                    <img
+                                      src={signatureDataUrl}
+                                      alt="Invoice signature preview"
+                                      className="max-h-20 max-w-full object-contain"
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No signature uploaded</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-
-                            <div className="erp-payment-settlement-panel">
+                    </div>
+<div className="erp-payment-settlement-panel">
                               <input type="hidden" name="amountReceived" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountReceived} />
                               <input type="hidden" name="paymentMode" value={paymentMode} />
 
@@ -1142,53 +1045,145 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               </div>
                             </div>
 
-                            <div className="erp-signature-panel">
-                              <div className="erp-signature-grid">
-                                <div>
-                                  <h3 className="text-sm font-semibold text-foreground">Invoice Signature</h3>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    Upload a signature image to show on this invoice PDF.
-                                  </p>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    <Label
-                                      htmlFor="salesInvoiceSignature"
-                                      className="erp-signature-upload-button"
-                                    >
-                                      <UploadSimple size={16} weight="bold" />
-                                      Upload Signature
-                                    </Label>
+                            <div className="erp-reference-totals-panel">
+                            <div className="space-y-2">
+                              {!showAdditionalCharge ? (
+                                <div className="erp-summary-link-row">
+                                  <Button
+                                    type="button"
+                                    variant="link"
+                                    className="h-auto p-0 text-primary"
+                                    onClick={() => setShowAdditionalCharge(true)}
+                                  >
+                                    + Add Additional Charges
+                                  </Button>
+                                  <span className="font-mono text-sm">{formatCurrency(additionalCostFinal)}</span>
+                                </div>
+                              ) : (
+                                <div className="erp-additional-charge-panel">
+                                  <div className="erp-additional-charge-row">
                                     <Input
-                                      id="salesInvoiceSignature"
-                                      type="file"
-                                      accept="image/png,image/jpeg,image/webp"
-                                      className="sr-only"
-                                      onChange={handleSignatureUpload}
+                                      id="salesAdditionalCostRemarks"
+                                      name="additionalCostRemarks"
+                                      type="text"
+                                      defaultValue={editingInvoice?.additionalCostRemarks || ''}
+                                      placeholder="Enter charge (ex. Transport Charge)"
+                                      className="h-10 bg-muted/70 text-sm"
                                     />
-                                    {signatureDataUrl && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="h-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                        onClick={() => setSignatureDataUrl('')}
-                                      >
-                                        Remove
-                                      </Button>
+                                    <div className="erp-money-input">
+                                      <span>₹</span>
+                                      <Input
+                                        id="salesAdditionalCostBasicRate"
+                                        name="additionalCostBasicRate"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={additionalCostBasicRate === 0 ? 0 : additionalCostBasicRate}
+                                        onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
+                                        placeholder="0"
+                                        className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
+                                      />
+                                    </div>
+                                    <Select value={additionalCostTaxMode} onValueChange={(value) => handleAdditionalCostTaxModeChange(value as 'none' | 'gst')}>
+                                      <SelectTrigger className="h-10 bg-background">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">No Tax Applicable</SelectItem>
+                                        <SelectItem value="gst">GST Applicable</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    {additionalCostTaxMode === 'gst' ? (
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={additionalCostGstRate === 0 ? 0 : additionalCostGstRate}
+                                        onChange={(e) => handleAdditionalCostGstRateChange(e.target.value)}
+                                        placeholder="GST %"
+                                        className="h-10 w-28 bg-background text-right font-mono"
+                                      />
+                                    ) : (
+                                      <div />
                                     )}
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-10 w-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                      onClick={() => {
+                                        setShowAdditionalCharge(false)
+                                        setAdditionalCostBasicRate(0)
+                                        setAdditionalCostFinal(0)
+                                        setAdditionalCostTaxMode('none')
+                                        setAdditionalCostGstRate(gstPercentage)
+                                      }}
+                                    >
+                                      <X size={18} weight="bold" />
+                                    </Button>
+                                    <input type="hidden" id="salesAdditionalCost" name="additionalCost" value={additionalCostFinal || ''} />
                                   </div>
                                 </div>
-                                <div className="erp-signature-preview">
-                                  {signatureDataUrl ? (
-                                    <img
-                                      src={signatureDataUrl}
-                                      alt="Invoice signature preview"
-                                      className="max-h-20 max-w-full object-contain"
-                                    />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">No signature uploaded</span>
-                                  )}
+                              )}
+                            </div>
+
+                            <div className="erp-total-panel">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">Total Quantity:</span>
+                                    <span className="font-mono font-semibold text-foreground">{formatMT(totalInvoiceQty)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">Items Total:</span>
+                                    <span className="font-mono font-semibold text-foreground">{formatCurrency(totalInvoiceAmount)}</span>
+                                  </div>
                                 </div>
+                                {(additionalCostBasicRate > 0 || additionalCostFinal > 0) && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Additional Cost:</span>
+                                      <span className="font-mono font-semibold text-foreground">{formatCurrency(additionalCostFinal)}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {roundOffAdjustment !== 0 && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Round-off:</span>
+                                      <span className="font-mono font-semibold text-foreground">{roundOffAdjustment >= 0 ? '+' : ''}{formatCurrency(roundOffAdjustment)}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="h-px bg-border"></div>
+                                <div className="flex items-center justify-between text-xs">
+                                  <Button type="button" variant="link" className="h-auto p-0 text-primary text-xs">
+                                    + Add Discount
+                                  </Button>
+                                  <span className="font-mono font-semibold text-foreground">- {formatCurrency(0)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground font-medium">Final Invoice Amount:</span>
+                                      <span className="font-mono font-bold text-base text-primary">{formatCurrency(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment)}</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs px-2.5 gap-1.5"
+                                      onClick={handleRoundOff}
+                                    >
+                                      Round Off
+                                    </Button>
+                                  </div>
+                                </div>
+                                <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
                               </div>
                             </div>
+
+                            
                           </div>
                         </div>
                       </div>
