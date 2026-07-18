@@ -162,8 +162,8 @@
 }
 
 .erp-reference-add-item-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  display: flex;
+  align-items: stretch;
   gap: 1rem;
   padding: 0.75rem 1rem 1rem;
   border-top: 1px solid rgba(144, 157, 178, 0.18);
@@ -177,20 +177,26 @@
 }
 
 .erp-reference-add-item-dashed {
-  border: 2px dashed #6aa0ff;
-  color: #4384ff;
+  flex: 1;
+  border: 2px dashed #93b5ff;
+  border-radius: 0.65rem;
+  color: #2b5bc9;
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .erp-reference-scan-button {
+  flex: 0 0 280px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.85rem;
-  border: 1px solid rgba(87, 104, 128, 0.34);
+  border: 1px solid rgba(87, 104, 128, 0.28);
+  border-radius: 0.65rem;
   color: #1f2b3a;
-  font-weight: 800;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .erp-reference-scan-button svg {
@@ -257,10 +263,12 @@
 
 @media (max-width: 920px) {
   .erp-reference-add-item-row {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .erp-reference-scan-button {
+    flex: none;
+    width: 100%;
     min-height: 58px;
   }
 }
@@ -2041,28 +2049,29 @@
 .erp-party-add-box {
   display: inline-flex;
   width: min(35rem, 100%);
-  min-height: 9.25rem;
+  min-height: 8.5rem;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
-  border: 2px dashed #4b84ff;
-  border-radius: 0.25rem;
-  background: #ffffff;
-  color: #4384ff;
-  font-size: 1.08rem;
-  font-weight: 650;
+  gap: 0.5rem;
+  border: 2px dashed #93b5ff;
+  border-radius: 0.85rem;
+  background: rgba(240, 246, 255, 0.45);
+  color: #2b5bc9;
+  font-size: 1.1rem;
+  font-weight: 700;
   line-height: 1;
   box-shadow: none;
   cursor: pointer;
-  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+  transition: all 0.2s ease;
 }
 
 .erp-party-add-box:hover,
 .erp-party-add-box:focus-visible {
-  border-color: #1f6eff;
-  background: #fbfdff;
+  border-color: #6aa0ff;
+  background: rgba(240, 246, 255, 0.9);
   color: #1f6eff;
   outline: 0;
+  transform: translateY(-1px);
 }
 
 .erp-party-dropdown-card {
@@ -3428,27 +3437,32 @@
 }
 
 .erp-invoice-page-shell .erp-reference-add-item-row {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 280px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
   gap: 1rem !important;
   padding: 0.8rem 1rem 1rem !important;
   background: rgba(255, 255, 255, 0.34) !important;
 }
 
 .erp-invoice-page-shell .erp-reference-add-item-dashed {
+  flex: 1 !important;
   min-height: 58px !important;
-  border: 2px dashed #5f91ff !important;
-  border-radius: 0.2rem !important;
-  color: #4384ff !important;
+  border: 2px dashed #93b5ff !important;
+  border-radius: 0.65rem !important;
+  color: #2b5bc9 !important;
   background: rgba(255, 255, 255, 0.5) !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
 }
 
 .erp-invoice-page-shell .erp-reference-scan-button {
+  flex: 0 0 280px !important;
   min-height: 58px !important;
-  border: 1px solid rgba(76, 91, 113, 0.36) !important;
-  border-radius: 0.2rem !important;
+  border: 1px solid rgba(76, 91, 113, 0.25) !important;
+  border-radius: 0.65rem !important;
   background: rgba(255, 255, 255, 0.6) !important;
+  color: #1f2b3a !important;
+  font-weight: 700 !important;
 }
 
 .erp-invoice-page-shell .erp-note-action {
@@ -3473,6 +3487,10 @@
 
 @media (max-width: 920px) {
   .erp-invoice-page-shell .erp-reference-add-item-row {
-    grid-template-columns: 1fr !important;
+    flex-direction: column !important;
+  }
+  .erp-invoice-page-shell .erp-reference-scan-button {
+    flex: none !important;
+    width: 100% !important;
   }
 }
