@@ -151,7 +151,7 @@ export interface PurchaseInvoice {
   additionalCostBasicRate?: number
   additionalCostRemarks?: string
   roundOffAdjustment?: number
-  signatureDataUrl?: string
+
   fy: string
   createdAt?: number
 }
@@ -268,7 +268,7 @@ export interface SalesInvoice {
   additionalCostBasicRate?: number
   additionalCostRemarks?: string
   roundOffAdjustment?: number
-  signatureDataUrl?: string
+
   fy: string
 }
 

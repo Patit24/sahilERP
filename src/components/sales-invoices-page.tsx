@@ -53,8 +53,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [amountReceived, setAmountReceived] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
-  const [signatureDataUrl, setSignatureDataUrl] = useState('')
-  const [selectedCustomerId, setSelectedCustomerId] = useState('')
+    const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
@@ -344,8 +343,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         additionalCostBasicRate: additionalCostBasicRate || undefined,
         additionalCostRemarks: additionalCostRemarks || undefined,
         roundOffAdjustment: roundOffAdjustment || undefined,
-        signatureDataUrl: signatureDataUrl || undefined,
-      }
+              }
       setSalesInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updatedInvoice : inv))
       syncInvoicePayment(editingInvoice.id, customerId, invoiceNo, invoiceDate, receivedAmount, selectedPaymentMode)
     } else {
@@ -362,8 +360,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         additionalCostBasicRate: additionalCostBasicRate || undefined,
         additionalCostRemarks: additionalCostRemarks || undefined,
         roundOffAdjustment: roundOffAdjustment || undefined,
-        signatureDataUrl: signatureDataUrl || undefined,
-        fy: currentFY
+                fy: currentFY
       }
       setSalesInvoices((prev) => [...prev, invoice])
       syncInvoicePayment(invoiceId, customerId, invoiceNo, invoiceDate, receivedAmount, selectedPaymentMode)
@@ -473,8 +470,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setAmountReceived(linkedPayment ? String(linkedPayment.amount) : '')
     setPaymentMode(linkedPayment?.counterName || 'Cash')
     setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
-    setSignatureDataUrl(invoice.signatureDataUrl || '')
-    setShowInvoiceNotes(false)
+        setShowInvoiceNotes(false)
     setInvoiceNotes('')
     setShowInvoiceTerms(false)
     setInvoiceTerms('')
@@ -567,8 +563,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-      signatureDataUrl: invoice.signatureDataUrl,
-      paidAmount: customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))?.amount || 0
+            paidAmount: customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))?.amount || 0
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
   }
@@ -839,7 +834,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       type="number"
                                       step="0.001"
                                       min="0"
-                                      value={item.quantityMT === 0 ? 0 : item.quantityMT}
+                                      value={item.quantityMT || ''}
                                       onChange={(e) => updateInvoiceItem(index, 'quantityMT', e.target.value)}
                                       placeholder="0"
                                       className="erp-reference-cell-input font-mono text-right"
@@ -848,7 +843,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       type="number"
                                       step="0.01"
                                       min="0"
-                                      value={item.rate === 0 ? 0 : item.rate}
+                                      value={item.rate || ''}
                                       onChange={(e) => updateInvoiceItem(index, 'rate', e.target.value)}
                                       placeholder="0"
                                       className="erp-reference-cell-input font-mono text-right"
@@ -883,106 +878,63 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                         </div>
 
                         <div className="erp-invoice-reference-footer">
-                    <div className="erp-invoice-footer-col flex flex-col gap-3">
-<div className="erp-reference-notes-panel">
-                            {!showInvoiceNotes ? (
-                              <button type="button" className="erp-note-action" onClick={() => setShowInvoiceNotes(true)}>
-                                + Add Notes
-                              </button>
-                            ) : (
-                              <div className="erp-inline-editor">
-                                <div className="erp-inline-editor-header">
-                                  <span>Notes</span>
-                                  <button type="button" onClick={() => { setShowInvoiceNotes(false); setInvoiceNotes('') }} aria-label="Remove notes">
-                                    <X size={16} weight="bold" />
-                                  </button>
-                                </div>
-                                <Textarea value={invoiceNotes} onChange={(event) => setInvoiceNotes(event.target.value)} placeholder="Enter invoice notes" />
-                              </div>
-                            )}
-                            {!showInvoiceTerms ? (
-                              <button
-                                type="button"
-                                className="erp-note-action"
-                                onClick={() => {
-                                  setShowInvoiceTerms(true)
-                                  setInvoiceTerms((current) => current || DEFAULT_INVOICE_TERMS)
-                                }}
-                              >
-                                + Add Terms and Conditions
-                              </button>
-                            ) : (
-                              <div className="erp-inline-editor">
-                                <div className="erp-inline-editor-header">
-                                  <span>Terms and Conditions</span>
-                                  <button type="button" onClick={() => { setShowInvoiceTerms(false); setInvoiceTerms('') }} aria-label="Remove terms and conditions">
-                                    <X size={16} weight="bold" />
-                                  </button>
-                                </div>
-                                <Textarea value={invoiceTerms} onChange={(event) => setInvoiceTerms(event.target.value)} />
-                              </div>
-                            )}
-                          </div>
-                          <div className="erp-signature-panel">
-                              <div className="erp-signature-grid">
-                                <div>
-                                  <h3 className="text-sm font-semibold text-foreground">Invoice Signature</h3>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    Upload a signature image to show on this invoice PDF.
-                                  </p>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    <Label
-                                      htmlFor="salesInvoiceSignature"
-                                      className="erp-signature-upload-button"
-                                    >
-                                      <UploadSimple size={16} weight="bold" />
-                                      Upload Signature
-                                    </Label>
-                                    <Input
-                                      id="salesInvoiceSignature"
-                                      type="file"
-                                      accept="image/png,image/jpeg,image/webp"
-                                      className="sr-only"
-                                      onChange={handleSignatureUpload}
-                                    />
-                                    {signatureDataUrl && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="h-10 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                        onClick={() => setSignatureDataUrl('')}
-                                      >
-                                        Remove
-                                      </Button>
-                                    )}
+                          <div className="erp-footer-col">
+                            <div className="erp-reference-notes-panel">
+                              {!showInvoiceNotes ? (
+                                <button type="button" className="erp-note-action" onClick={() => setShowInvoiceNotes(true)}>
+                                  + Add Notes
+                                </button>
+                              ) : (
+                                <div className="erp-inline-editor">
+                                  <div className="erp-inline-editor-header">
+                                    <span>Notes</span>
+                                    <button type="button" onClick={() => { setShowInvoiceNotes(false); setInvoiceNotes('') }} aria-label="Remove notes">
+                                      <X size={16} weight="bold" />
+                                    </button>
                                   </div>
+                                  <Textarea value={invoiceNotes} onChange={(event) => setInvoiceNotes(event.target.value)} placeholder="Enter invoice notes" />
                                 </div>
-                                <div className="erp-signature-preview">
-                                  {signatureDataUrl ? (
-                                    <img
-                                      src={signatureDataUrl}
-                                      alt="Invoice signature preview"
-                                      className="max-h-20 max-w-full object-contain"
-                                    />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">No signature uploaded</span>
-                                  )}
+                              )}
+                              {!showInvoiceTerms ? (
+                                <button
+                                  type="button"
+                                  className="erp-note-action"
+                                  onClick={() => {
+                                    setShowInvoiceTerms(true)
+                                    setInvoiceTerms((current) => current || DEFAULT_INVOICE_TERMS)
+                                  }}
+                                >
+                                  + Add Terms and Conditions
+                                </button>
+                              ) : (
+                                <div className="erp-inline-editor">
+                                  <div className="erp-inline-editor-header">
+                                    <span>Terms and Conditions</span>
+                                    <button type="button" onClick={() => { setShowInvoiceTerms(false); setInvoiceTerms('') }} aria-label="Remove terms and conditions">
+                                      <X size={16} weight="bold" />
+                                    </button>
+                                  </div>
+                                  <Textarea value={invoiceTerms} onChange={(event) => setInvoiceTerms(event.target.value)} />
                                 </div>
-                              </div>
+                              )}
                             </div>
-                    </div>
-<div className="erp-payment-settlement-panel">
+                            
+
+                          </div>
+
+                          <div className="erp-footer-col">
+                            <div className="erp-payment-settlement-panel">
                               <input type="hidden" name="amountReceived" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountReceived} />
                               <input type="hidden" name="paymentMode" value={paymentMode} />
 
-                              <div className="erp-payment-settlement-grid">
+                              <div className="erp-payment-settlement-grid flex flex-col gap-3">
                                 <div className="space-y-3">
                                   <div className="erp-payment-header-row">
                                     <div>
                                       <h3 className="text-sm font-semibold text-foreground">Payment Settlement</h3>
                                       <p className="text-xs text-muted-foreground">Record amount received while saving this sales invoice.</p>
                                     </div>
-                                    <label className="erp-paid-toggle">
+                                    <label className="erp-paid-toggle mt-2">
                                       <Checkbox
                                         checked={markAsFullyPaid}
                                         onCheckedChange={(checked) => setMarkAsFullyPaid(Boolean(checked))}
@@ -991,7 +943,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                     </label>
                                   </div>
 
-                                  <div className="erp-payment-fields-grid">
+                                  <div className="erp-payment-fields-grid flex flex-col gap-2">
                                     <div className="erp-payment-field">
                                       <Label htmlFor="salesAmountReceived">Amount Received</Label>
                                       <div className="relative">
@@ -1044,10 +996,11 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                 </div>
                               </div>
                             </div>
+                          </div>
 
+                          <div className="erp-footer-col">
                             <div className="erp-reference-totals-panel">
-                            <div className="space-y-2">
-                              {!showAdditionalCharge ? (
+                              <div className="space-y-2">
                                 <div className="erp-summary-link-row">
                                   <Button
                                     type="button"
@@ -1059,7 +1012,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                   </Button>
                                   <span className="font-mono text-sm">{formatCurrency(additionalCostFinal)}</span>
                                 </div>
-                              ) : (
+
+                                {showAdditionalCharge && (
                                 <div className="erp-additional-charge-panel">
                                   <div className="erp-additional-charge-row">
                                     <Input
@@ -1078,7 +1032,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        value={additionalCostBasicRate === 0 ? 0 : additionalCostBasicRate}
+                                        value={additionalCostBasicRate || ''}
                                         onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
                                         placeholder="0"
                                         className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
@@ -1093,18 +1047,16 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                         <SelectItem value="gst">GST Applicable</SelectItem>
                                       </SelectContent>
                                     </Select>
-                                    {additionalCostTaxMode === 'gst' ? (
+                                    {additionalCostTaxMode === 'gst' && (
                                       <Input
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        value={additionalCostGstRate === 0 ? 0 : additionalCostGstRate}
+                                        value={additionalCostGstRate || ''}
                                         onChange={(e) => handleAdditionalCostGstRateChange(e.target.value)}
                                         placeholder="GST %"
                                         className="h-10 w-28 bg-background text-right font-mono"
                                       />
-                                    ) : (
-                                      <div />
                                     )}
                                     <Button
                                       type="button"
@@ -1116,74 +1068,83 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                         setAdditionalCostBasicRate(0)
                                         setAdditionalCostFinal(0)
                                         setAdditionalCostTaxMode('none')
-                                        setAdditionalCostGstRate(gstPercentage)
                                       }}
                                     >
                                       <X size={18} weight="bold" />
                                     </Button>
                                     <input type="hidden" id="salesAdditionalCost" name="additionalCost" value={additionalCostFinal || ''} />
                                   </div>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="erp-total-panel">
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Total Quantity:</span>
-                                    <span className="font-mono font-semibold text-foreground">{formatMT(totalInvoiceQty)}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Items Total:</span>
-                                    <span className="font-mono font-semibold text-foreground">{formatCurrency(totalInvoiceAmount)}</span>
-                                  </div>
-                                </div>
-                                {(additionalCostBasicRate > 0 || additionalCostFinal > 0) && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-muted-foreground">Additional Cost:</span>
-                                      <span className="font-mono font-semibold text-foreground">{formatCurrency(additionalCostFinal)}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                {roundOffAdjustment !== 0 && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-muted-foreground">Round-off:</span>
-                                      <span className="font-mono font-semibold text-foreground">{roundOffAdjustment >= 0 ? '+' : ''}{formatCurrency(roundOffAdjustment)}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="h-px bg-border"></div>
-                                <div className="flex items-center justify-between text-xs">
-                                  <Button type="button" variant="link" className="h-auto p-0 text-primary text-xs">
-                                    + Add Discount
-                                  </Button>
-                                  <span className="font-mono font-semibold text-foreground">- {formatCurrency(0)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs text-muted-foreground font-medium">Final Invoice Amount:</span>
-                                      <span className="font-mono font-bold text-base text-primary">{formatCurrency(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment)}</span>
-                                    </div>
+                                  <div className="px-1 pt-2">
                                     <Button
                                       type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs px-2.5 gap-1.5"
-                                      onClick={handleRoundOff}
+                                      variant="link"
+                                      className="h-auto p-0 text-primary disabled:cursor-not-allowed disabled:opacity-45"
+                                      disabled={!additionalCostBasicRate && !additionalCostFinal}
+                                      onClick={() => setShowAdditionalCharge(true)}
                                     >
-                                      Round Off
+                                      + Add Another Charge
                                     </Button>
                                   </div>
                                 </div>
-                                <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
+                                )}
+                              </div>
+                              
+                              <div className="erp-total-panel">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Total Quantity:</span>
+                                      <span className="font-mono font-semibold text-foreground">{formatMT(totalInvoiceQty)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Items Total:</span>
+                                      <span className="font-mono font-semibold text-foreground">{formatCurrency(totalInvoiceAmount)}</span>
+                                    </div>
+                                  </div>
+                                  {(additionalCostBasicRate > 0 || additionalCostFinal > 0) && (
+                                    <div className="flex items-center justify-between text-xs">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">Additional Cost:</span>
+                                        <span className="font-mono font-semibold text-foreground">{formatCurrency(additionalCostFinal)}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {roundOffAdjustment !== 0 && (
+                                    <div className="flex items-center justify-between text-xs">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">Round-off:</span>
+                                        <span className="font-mono font-semibold text-foreground">{roundOffAdjustment >= 0 ? '+' : ''}{formatCurrency(roundOffAdjustment)}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="h-px bg-border"></div>
+                                  <div className="flex items-center justify-between text-xs">
+                                    <Button type="button" variant="link" className="h-auto p-0 text-primary text-xs">
+                                      + Add Discount
+                                    </Button>
+                                    <span className="font-mono font-semibold text-foreground">- {formatCurrency(0)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground font-medium">Final Invoice Amount:</span>
+                                        <span className="font-mono font-bold text-base text-primary">{formatCurrency(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment)}</span>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs px-2.5 gap-1.5"
+                                        onClick={handleRoundOff}
+                                      >
+                                        Round Off
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
+                                </div>
                               </div>
                             </div>
-
-                            
                           </div>
                         </div>
                       </div>

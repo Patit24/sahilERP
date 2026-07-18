@@ -948,7 +948,6 @@ interface StyledInvoiceOptions {
   additionalCostRemarks?: string
   roundOffAdjustment?: number
   paidAmount?: number
-  signatureDataUrl?: string
   filePrefix: string
   footerLabel?: string
   advancePayment?: {
@@ -975,17 +974,6 @@ function drawInvoiceTextBlock(doc: jsPDF, label: string, value: string, x: numbe
   doc.text(value || '-', x, y + 13, { maxWidth })
 }
 
-function addInvoiceSignature(doc: jsPDF, signatureDataUrl: string | undefined, x: number, y: number) {
-  if (!signatureDataUrl) return false
-
-  try {
-    const imageType = signatureDataUrl.includes('image/jpeg') || signatureDataUrl.includes('image/jpg') ? 'JPEG' : 'PNG'
-    doc.addImage(signatureDataUrl, imageType, x, y, 38, 16, undefined, 'FAST')
-    return true
-  } catch {
-    return false
-  }
-}
 
 function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
   const doc = new jsPDF('portrait', 'mm', 'a4')
@@ -1106,7 +1094,6 @@ function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
   doc.text('AMOUNT DUE', totalsX + 34, summaryY + 55, { align: 'right' })
   doc.text(formatAmountForPDF(amountDue).replace('Rs.', ''), totalsX + 62, summaryY + 55, { align: 'right' })
 
-  const signatureAdded = addInvoiceSignature(doc, options.signatureDataUrl, margin + 12, leftY + 38)
   if (!signatureAdded) {
     doc.setFont('times', 'italic')
     doc.setFontSize(21)
@@ -1148,7 +1135,6 @@ export function exportPurchaseInvoicePDF(
     businessName: string
     state?: string
     phone?: string
-    signatureDataUrl?: string
     paidAmount?: number
     advancePayment?: {
       paymentDate: string
@@ -1178,7 +1164,6 @@ export function exportPurchaseInvoicePDF(
     additionalCostRemarks: invoice.additionalCostRemarks,
     roundOffAdjustment: invoice.roundOffAdjustment,
     paidAmount: options.paidAmount,
-    signatureDataUrl: options.signatureDataUrl || invoice.signatureDataUrl,
     filePrefix: 'Purchase_Invoice',
     advancePayment: options.advancePayment
   })
@@ -1192,7 +1177,6 @@ export function exportSalesInvoicePDF(
     businessName: string
     state?: string
     phone?: string
-    signatureDataUrl?: string
     paidAmount?: number
   }
 ) {
@@ -1214,7 +1198,6 @@ export function exportSalesInvoicePDF(
     additionalCostRemarks: invoice.additionalCostRemarks,
     roundOffAdjustment: invoice.roundOffAdjustment,
     paidAmount: options.paidAmount,
-    signatureDataUrl: options.signatureDataUrl || invoice.signatureDataUrl,
     filePrefix: 'Sales_Invoice'
   })
 }
