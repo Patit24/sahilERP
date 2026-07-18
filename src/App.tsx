@@ -728,6 +728,27 @@ function App() {
       return
     }
 
+    if (lastSavedDataRef.current && currentDataStr !== lastSavedDataRef.current) {
+      try {
+        const last = JSON.parse(lastSavedDataRef.current)
+        const curr = JSON.parse(currentDataStr)
+        const diffs: Record<string, { lastLen?: number, currLen?: number, lastVal?: any, currVal?: any }> = {}
+        for (const k of Object.keys(curr)) {
+          const lVal = JSON.stringify(last[k])
+          const cVal = JSON.stringify(curr[k])
+          if (lVal !== cVal) {
+            diffs[k] = {
+              lastLen: Array.isArray(last[k]) ? last[k].length : undefined,
+              currLen: Array.isArray(curr[k]) ? curr[k].length : undefined,
+              lastVal: last[k],
+              currVal: curr[k]
+            }
+          }
+        }
+        console.warn('⚠️ Difference detected between local state and last saved/loaded data:', diffs)
+      } catch (e) {}
+    }
+
     if (canUseRemoteStorage() && remoteRevisionRef.current[partitionKey] == null && !hasTenantRecords(tenantData)) {
       return
     }
