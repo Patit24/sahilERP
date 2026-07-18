@@ -80,6 +80,25 @@ export function canUseRemoteStorage(): boolean {
   return isRemoteStorageEnabled && isFirebaseConfigured && Boolean(db)
 }
 
+function stripUndefined(val: any): any {
+  if (val === null || val === undefined) {
+    return null
+  }
+  if (Array.isArray(val)) {
+    return val.map(stripUndefined)
+  }
+  if (typeof val === 'object') {
+    const res: Record<string, any> = {}
+    for (const k of Object.keys(val)) {
+      if (val[k] !== undefined) {
+        res[k] = stripUndefined(val[k])
+      }
+    }
+    return res
+  }
+  return val
+}
+
 function withTimeout<T>(promise: Promise<T>, ms = 20000): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = window.setTimeout(
@@ -181,7 +200,7 @@ export async function saveRemoteTenantData(
 
         const now = new Date().toISOString()
         tx.set(ref, {
-          payload,
+          payload: stripUndefined(payload),
           revision: savedRevision,
           updatedAt: now,
           deviceId
