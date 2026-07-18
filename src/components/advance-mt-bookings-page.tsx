@@ -14,7 +14,6 @@ import { toast } from 'sonner'
 import { CalendarCheck, LockKey, Scales, ShieldCheck, Warning } from '@phosphor-icons/react'
 import { Supplier } from '@/lib/types'
 import { formatCurrency } from '@/lib/calculations'
-import { supabase } from '@/lib/supabase-client'
 
 type AdvanceBookingBalance = {
   company_id: string
@@ -54,6 +53,12 @@ interface AdvanceMTBookingsPageProps {
   activeCompanyId: string
   currentFY: string
   isLocked?: boolean
+  advanceBookingPickups: any[]
+  setAdvanceBookingPickups: React.Dispatch<React.SetStateAction<any[]>>
+  discountLedgerEntries: any[]
+  setDiscountLedgerEntries: React.Dispatch<React.SetStateAction<any[]>>
+  payments: any[]
+  fixedSchemes: any[]
 }
 
 const toNumber = (value: unknown) => Number(value || 0)
@@ -62,10 +67,14 @@ export default function AdvanceMTBookingsPage({
   suppliers,
   activeCompanyId,
   currentFY,
-  isLocked = false
+  isLocked = false,
+  advanceBookingPickups = [],
+  setAdvanceBookingPickups,
+  discountLedgerEntries = [],
+  setDiscountLedgerEntries,
+  payments = [],
+  fixedSchemes = []
 }: AdvanceMTBookingsPageProps) {
-  const [balances, setBalances] = useState<AdvanceBookingBalance[]>([])
-  const [ledger, setLedger] = useState<DiscountLedgerEntry[]>([])
   const [selectedPaymentId, setSelectedPaymentId] = useState('')
   const [pickupDate, setPickupDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [quantityMT, setQuantityMT] = useState('')
@@ -75,6 +84,45 @@ export default function AdvanceMTBookingsPage({
   const [setupError, setSetupError] = useState('')
 
   const supplierMap = useMemo(() => new Map(suppliers.map((supplier) => [supplier.id, supplier.name])), [suppliers])
+
+  const balances = useMemo(() => {
+    const bookingPayments = payments.filter((p) => {
+      const amt = toNumber(p.booking_mt || p.raw_data?.bookingMT)
+      return amt > 0 && p.company_id === activeCompanyId && p.fy === currentFY
+    })
+    
+    return bookingPayments.map((p) => {
+      const p_id = p.id
+      const booking_mt = toNumber(p.booking_mt || p.raw_data?.bookingMT)
+      
+      const picked_up_mt = advanceBookingPickups
+        .filter((pickup) => pickup.payment_id === p_id && pickup.company_id === activeCompanyId)
+        .reduce((sum, pickup) => sum + toNumber(pickup.quantity_mt), 0)
+        
+      const pending_mt = Math.max(booking_mt - picked_up_mt, 0)
+      const supplier = suppliers.find((s) => s.id === p.supplier_id)
+      
+      return {
+        company_id: activeCompanyId,
+        payment_id: p_id,
+        supplier_id: p.supplier_id,
+        supplier_name: supplier ? supplier.name : 'Unknown Supplier',
+        payment_date: p.payment_date,
+        fy: p.fy,
+        amount: p.amount,
+        booking_mt,
+        picked_up_mt,
+        pending_mt
+      }
+    })
+  }, [payments, advanceBookingPickups, suppliers, activeCompanyId, currentFY])
+
+  const ledger = useMemo(() => {
+    return [...discountLedgerEntries]
+      .filter((entry) => entry.company_id === activeCompanyId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }, [discountLedgerEntries, activeCompanyId])
+
   const selectedBalance = balances.find((balance) => balance.payment_id === selectedPaymentId)
   const totalBooked = balances.reduce((sum, balance) => sum + toNumber(balance.booking_mt), 0)
   const totalPicked = balances.reduce((sum, balance) => sum + toNumber(balance.picked_up_mt), 0)
@@ -82,39 +130,7 @@ export default function AdvanceMTBookingsPage({
   const totalDiscount = ledger.reduce((sum, entry) => sum + toNumber(entry.discount_amount), 0)
 
   const loadServerData = async () => {
-    if (!supabase) {
-      setSetupError('Supabase is not configured. Add the environment variables and restart the app.')
-      return
-    }
-
-    setLoading(true)
-    setSetupError('')
-
-    const [balancesResult, ledgerResult] = await Promise.all([
-      supabase
-        .from('advance_booking_balances')
-        .select('*')
-        .eq('company_id', activeCompanyId)
-        .eq('fy', currentFY)
-        .order('payment_date', { ascending: false }),
-      supabase
-        .from('discount_ledger_entries')
-        .select('*')
-        .eq('company_id', activeCompanyId)
-        .order('created_at', { ascending: false })
-        .limit(100)
-    ])
-
-    setLoading(false)
-
-    if (balancesResult.error || ledgerResult.error) {
-      const message = balancesResult.error?.message || ledgerResult.error?.message || 'Unable to load advance booking data.'
-      setSetupError(`${message}. Run supabase-advance-booking.sql in Supabase SQL Editor.`)
-      return
-    }
-
-    setBalances((balancesResult.data || []) as AdvanceBookingBalance[])
-    setLedger((ledgerResult.data || []) as DiscountLedgerEntry[])
+    // Client-side Firestore model is self-hydrated, no-op
   }
 
   useEffect(() => {
@@ -129,36 +145,106 @@ export default function AdvanceMTBookingsPage({
       return
     }
 
-    if (!supabase) {
-      toast.error('Supabase is not configured')
-      return
-    }
-
     const qty = Number(quantityMT)
     if (!selectedPaymentId || !pickupDate || !Number.isFinite(qty) || qty <= 0) {
       toast.error('Select an advance and enter pickup quantity')
       return
     }
 
-    setSaving(true)
-    const { error } = await supabase.rpc('record_advance_pickup', {
-      p_company_id: activeCompanyId,
-      p_payment_id: selectedPaymentId,
-      p_pickup_date: pickupDate,
-      p_quantity_mt: qty,
-      p_notes: notes.trim() || null
-    })
-    setSaving(false)
-
-    if (error) {
-      toast.error(error.message)
+    const currentBalance = balances.find((b) => b.payment_id === selectedPaymentId)
+    if (!currentBalance) {
+      toast.error('Selected advance booking not found')
       return
     }
 
-    toast.success('Pickup recorded and discount ledger generated')
-    setQuantityMT('')
-    setNotes('')
-    await loadServerData()
+    if (qty > currentBalance.pending_mt) {
+      toast.error(`Pickup quantity ${qty.toFixed(3)} MT exceeds pending balance ${currentBalance.pending_mt.toFixed(3)} MT`)
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      const getSchemeRate = (dateStr: string) => {
+        const activeSchemes = fixedSchemes.filter((scheme) => {
+          return scheme.supplier_id === currentBalance.supplier_id &&
+            dateStr >= scheme.from_date &&
+            dateStr <= scheme.to_date &&
+            (scheme.raw_data?.applyInMTBooking !== false)
+        })
+        
+        const totalRate = activeSchemes.reduce((sum, s) => sum + toNumber(s.rate_per_mt), 0)
+        const names = activeSchemes.map((s) => s.scheme_name).sort().join(' + ') || null
+        
+        return { totalRate, names }
+      }
+
+      const paymentScheme = getSchemeRate(currentBalance.payment_date)
+      const pickupScheme = getSchemeRate(pickupDate)
+
+      let appliedSource = 'none'
+      let appliedName: string | null = null
+      let appliedRate = 0
+
+      if (paymentScheme.totalRate > 0 || pickupScheme.totalRate > 0) {
+        if (paymentScheme.totalRate >= pickupScheme.totalRate) {
+          appliedSource = 'payment'
+          appliedName = paymentScheme.names
+          appliedRate = paymentScheme.totalRate
+        } else {
+          appliedSource = 'pickup'
+          appliedName = pickupScheme.names
+          appliedRate = pickupScheme.totalRate
+        }
+      }
+
+      const discountAmount = Math.round(qty * appliedRate * 100) / 100
+      const pickupId = `pickup-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+      const ledgerId = `ledger-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+      const newPickup = {
+        company_id: activeCompanyId,
+        id: pickupId,
+        payment_id: selectedPaymentId,
+        supplier_id: currentBalance.supplier_id,
+        pickup_date: pickupDate,
+        quantity_mt: qty,
+        notes: notes.trim() || null,
+        created_at: new Date().toISOString()
+      }
+
+      const newLedgerEntry = {
+        company_id: activeCompanyId,
+        id: ledgerId,
+        source_type: 'advance_pickup',
+        source_id: pickupId,
+        payment_id: selectedPaymentId,
+        supplier_id: currentBalance.supplier_id,
+        payment_date: currentBalance.payment_date,
+        pickup_date: pickupDate,
+        quantity_mt: qty,
+        payment_scheme_name: paymentScheme.names,
+        payment_scheme_rate: paymentScheme.totalRate,
+        pickup_scheme_name: pickupScheme.names,
+        pickup_scheme_rate: pickupScheme.totalRate,
+        applied_scheme_source: appliedSource,
+        applied_scheme_name: appliedName,
+        applied_rate_per_mt: appliedRate,
+        discount_amount: discountAmount,
+        created_at: new Date().toISOString()
+      }
+
+      setAdvanceBookingPickups((prev) => [newPickup, ...prev])
+      setDiscountLedgerEntries((prev) => [newLedgerEntry, ...prev])
+
+      toast.success('Pickup recorded and discount ledger generated')
+      setQuantityMT('')
+      setNotes('')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to record pickup')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

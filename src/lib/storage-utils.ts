@@ -28,6 +28,8 @@ export interface TenantData {
   expenseEntries: any[]
   fixedSchemes: any[]
   mtBookings: any[]
+  advanceBookingPickups?: any[]
+  discountLedgerEntries?: any[]
 }
 
 const METADATA_KEY = 'app_metadata'
@@ -71,7 +73,9 @@ export function getTenantData(companyId: string, fy: string): TenantData {
       expenseTypes: [],
       expenseEntries: [],
       fixedSchemes: [],
-      mtBookings: []
+      mtBookings: [],
+      advanceBookingPickups: [],
+      discountLedgerEntries: []
     }
     localStorage.setItem(key, JSON.stringify(emptyData))
     return emptyData

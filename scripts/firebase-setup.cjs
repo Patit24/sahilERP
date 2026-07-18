@@ -6,26 +6,22 @@ const config = JSON.parse(fs.readFileSync(
 ))
 const token = config.tokens.access_token
 
-const uid = 'qObDRlXufkUQOVt8fyfBOSM3djJ3'
 const project = 'sahil-erp-40f7d'
-const now = new Date().toISOString()
+const companyId = 'sk_traders'
+const tenantKey = 'data_sk_traders_FY2026-27'
 
 const body = JSON.stringify({
   fields: {
-    email: { stringValue: 'admin@sktraders.com' },
-    displayName: { stringValue: 'Master Admin' },
-    role: { stringValue: 'master_admin' },
-    isActive: { booleanValue: true },
-    companyId: { stringValue: 'sk_traders' },
-    permissions: { mapValue: { fields: {} } },
-    createdAt: { stringValue: now },
-    updatedAt: { stringValue: now }
+    payload: { mapValue: { fields: { test: { booleanValue: true } } } },
+    revision: { integerValue: 1 },
+    updatedAt: { stringValue: new Date().toISOString() },
+    deviceId: { stringValue: 'diagnostic-rest-test' }
   }
 })
 
 const options = {
   hostname: 'firestore.googleapis.com',
-  path: `/v1/projects/${project}/databases/(default)/documents/users/${uid}`,
+  path: `/v1/projects/${project}/databases/(default)/documents/tenants/${companyId}/snapshots/${tenantKey}`,
   method: 'PATCH',
   headers: {
     'Authorization': `Bearer ${token}`,
@@ -40,18 +36,17 @@ const req = https.request(options, (res) => {
   res.on('end', () => {
     const result = JSON.parse(data)
     if (result.name) {
-      console.log('✅ Firestore document created successfully!')
+      console.log('✅ REST API write to snapshot document succeeded!')
       console.log('   Path:', result.name)
     } else {
-      console.error('❌ Error:', JSON.stringify(result, null, 2))
-      process.exit(1)
+      console.error('❌ REST API write to snapshot document failed:')
+      console.error(JSON.stringify(result, null, 2))
     }
   })
 })
 
 req.on('error', (err) => {
   console.error('❌ Request failed:', err.message)
-  process.exit(1)
 })
 
 req.write(body)

@@ -231,7 +231,9 @@ const tenantDataCollectionKeys: Array<keyof TenantData> = [
   'expenseTypes',
   'expenseEntries',
   'fixedSchemes',
-  'mtBookings'
+  'mtBookings',
+  'advanceBookingPickups',
+  'discountLedgerEntries'
 ]
 
 function hasTenantRecords(data: TenantData): boolean {
@@ -422,6 +424,8 @@ function App() {
   const [expenseEntries, setExpenseEntries] = useState<ExpenseEntry[]>([])
   const [fixedSchemes, setFixedSchemes] = useState<FixedScheme[]>([])
   const [mtBookings, setMTBookings] = useState<MTBooking[]>([])
+  const [advanceBookingPickups, setAdvanceBookingPickups] = useState<any[]>([])
+  const [discountLedgerEntries, setDiscountLedgerEntries] = useState<any[]>([])
   
   const [isLocked, setIsLocked] = useState(false)
   const [gstPercentage, setGstPercentage] = useState(18)
@@ -604,6 +608,8 @@ function App() {
     setExpenseEntries([])
     setFixedSchemes([])
     setMTBookings([])
+    setAdvanceBookingPickups([])
+    setDiscountLedgerEntries([])
 
     const partitionKey = tenantKey
     const companyId = metadata.activeCompanyId
@@ -624,6 +630,8 @@ function App() {
       setExpenseEntries(parsedData.expenseEntries || [])
       setFixedSchemes(parsedData.fixedSchemes || [])
       setMTBookings(parsedData.mtBookings || [])
+      setAdvanceBookingPickups(parsedData.advanceBookingPickups || [])
+      setDiscountLedgerEntries(parsedData.discountLedgerEntries || [])
     }
 
     if (storedData) {
@@ -692,7 +700,9 @@ function App() {
       expenseTypes,
       expenseEntries,
       fixedSchemes,
-      mtBookings
+      mtBookings,
+      advanceBookingPickups,
+      discountLedgerEntries
     }
 
     if (canUseRemoteStorage() && remoteRevisionRef.current[partitionKey] == null && !hasTenantRecords(tenantData)) {
@@ -706,44 +716,50 @@ function App() {
       remoteRevisionRef.current[partitionKey] ?? null
     )
     if (canUseRemoteStorage()) {
-      const saveRemote = async () => {
-        const snapshot = await saveRemoteTenantData(
-          metadata.activeCompanyId,
-          partitionKey,
-          tenantData,
-          remoteRevisionRef.current[partitionKey] ?? null
-        )
-        if (snapshot) {
-          remoteRevisionRef.current[partitionKey] = snapshot.revision
-          writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
-        }
-      }
-
-      saveRemote()
-        .catch(async (error) => {
-          if (error instanceof RemoteSnapshotConflictError) {
-            toast.error('Remote data changed. Reloading latest company data.')
-            const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
-            if (latest) {
-              remoteRevisionRef.current[partitionKey] = latest.revision
-              writeTenantCache(metadata.activeCompanyId, partitionKey, latest.payload, latest.revision)
-              setSuppliers(latest.payload.suppliers || [])
-              setCustomers(latest.payload.customers || [])
-              setItems(latest.payload.items || [])
-              setInvoices(latest.payload.invoices || [])
-              setPayments(latest.payload.payments || [])
-              setReceivedDiscounts(latest.payload.receivedDiscounts || [])
-              setSalesInvoices(latest.payload.salesInvoices || [])
-              setCustomerPayments(latest.payload.customerPayments || [])
-              setExpenseTypes(latest.payload.expenseTypes || [])
-              setExpenseEntries(latest.payload.expenseEntries || [])
-              setFixedSchemes(latest.payload.fixedSchemes || [])
-              setMTBookings(latest.payload.mtBookings || [])
-            }
-            return
+      const timerId = setTimeout(() => {
+        const saveRemote = async () => {
+          const snapshot = await saveRemoteTenantData(
+            metadata.activeCompanyId,
+            partitionKey,
+            tenantData,
+            remoteRevisionRef.current[partitionKey] ?? null
+          )
+          if (snapshot) {
+            remoteRevisionRef.current[partitionKey] = snapshot.revision
+            writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
           }
-          toast.error(error instanceof Error ? error.message : 'Remote save failed')
-        })
+        }
+
+        saveRemote()
+          .catch(async (error) => {
+            if (error instanceof RemoteSnapshotConflictError) {
+              toast.error('Remote data changed. Reloading latest company data.')
+              const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
+              if (latest) {
+                remoteRevisionRef.current[partitionKey] = latest.revision
+                writeTenantCache(metadata.activeCompanyId, partitionKey, latest.payload, latest.revision)
+                setSuppliers(latest.payload.suppliers || [])
+                setCustomers(latest.payload.customers || [])
+                setItems(latest.payload.items || [])
+                setInvoices(latest.payload.invoices || [])
+                setPayments(latest.payload.payments || [])
+                setReceivedDiscounts(latest.payload.receivedDiscounts || [])
+                setSalesInvoices(latest.payload.salesInvoices || [])
+                setCustomerPayments(latest.payload.customerPayments || [])
+                setExpenseTypes(latest.payload.expenseTypes || [])
+                setExpenseEntries(latest.payload.expenseEntries || [])
+                setFixedSchemes(latest.payload.fixedSchemes || [])
+                setMTBookings(latest.payload.mtBookings || [])
+                setAdvanceBookingPickups(latest.payload.advanceBookingPickups || [])
+                setDiscountLedgerEntries(latest.payload.discountLedgerEntries || [])
+              }
+              return
+            }
+            toast.error(error instanceof Error ? error.message : 'Remote save failed')
+          })
+      }, 1500)
+
+      return () => clearTimeout(timerId)
     }
     appendAuditLog('tenant_data_saved', {
       suppliers: suppliers.length,
@@ -768,6 +784,8 @@ function App() {
     expenseEntries,
     fixedSchemes,
     mtBookings,
+    advanceBookingPickups,
+    discountLedgerEntries,
     tenantKey,
     tenantHydrated,
     useServerAuth,
@@ -792,6 +810,8 @@ function App() {
       setExpenseEntries(remoteSnapshot.payload.expenseEntries || [])
       setFixedSchemes(remoteSnapshot.payload.fixedSchemes || [])
       setMTBookings(remoteSnapshot.payload.mtBookings || [])
+      setAdvanceBookingPickups(remoteSnapshot.payload.advanceBookingPickups || [])
+      setDiscountLedgerEntries(remoteSnapshot.payload.discountLedgerEntries || [])
       appendAuditLog('remote_tenant_realtime_update', undefined, tenantKey)
     }) || undefined
   }, [metadata.activeCompanyId, tenantHydrated, tenantKey, useServerAuth, canSyncRemoteTenant])
@@ -1564,6 +1584,12 @@ function App() {
               activeCompanyId={metadata.activeCompanyId}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('advance-mt-bookings')}
+              advanceBookingPickups={advanceBookingPickups}
+              setAdvanceBookingPickups={setAdvanceBookingPickups}
+              discountLedgerEntries={discountLedgerEntries}
+              setDiscountLedgerEntries={setDiscountLedgerEntries}
+              payments={safePayments}
+              fixedSchemes={safeFixedSchemes}
             />
           )
         case 'sales-invoices':
