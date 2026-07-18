@@ -36,6 +36,8 @@ interface SalesInvoicesPageProps {
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
 
+export type AdditionalCharge = { id: string; remarks: string; basicRate: number; taxMode: 'none' | 'gst'; gstRate: number; finalAmt: number }
+
 export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, customers, setCustomers, customerPayments, setCustomerPayments, items, setItems, currentFY, isLocked = false }: SalesInvoicesPageProps) {
   const [open, setOpen] = useState(false)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
@@ -45,10 +47,49 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
-  const [additionalCostBasicRate, setAdditionalCostBasicRate] = useState<number>(0)
-  const [additionalCostFinal, setAdditionalCostFinal] = useState<number>(0)
-  const [additionalCostTaxMode, setAdditionalCostTaxMode] = useState<'none' | 'gst'>('none')
-  const [additionalCostGstRate, setAdditionalCostGstRate] = useState<number>(18)
+  const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([])
+
+  // We keep these derived values for compatibility with existing calculations
+  const additionalCostFinal = additionalCharges.reduce((sum, charge) => sum + (charge.finalAmt || 0), 0)
+
+  const addAnotherCharge = () => {
+    setAdditionalCharges(prev => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        remarks: '',
+        basicRate: 0,
+        taxMode: 'none',
+        gstRate: 18,
+        finalAmt: 0
+      }
+    ])
+  }
+
+  const handleUpdateCharge = (id: string, field: keyof AdditionalCharge, value: string | number) => {
+    setAdditionalCharges(prev => prev.map(charge => {
+      if (charge.id !== id) return charge
+
+      const updated = { ...charge, [field]: value }
+      
+      // Recalculate finalAmt if necessary
+      if (field === 'basicRate' || field === 'taxMode' || field === 'gstRate') {
+        const basic = Number(updated.basicRate) || 0
+        if (updated.taxMode === 'gst') {
+          const gst = Number(updated.gstRate) || 18
+          updated.finalAmt = parseFloat((basic * (1 + gst / 100)).toFixed(2))
+        } else {
+          updated.finalAmt = basic
+        }
+      }
+
+      return updated
+    }))
+  }
+
+  const removeCharge = (id: string) => {
+    setAdditionalCharges(prev => prev.filter(c => c.id !== id))
+  }
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [amountReceived, setAmountReceived] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
@@ -210,35 +251,6 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setInvoiceItems(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handleAdditionalCostBasicRateChange = (value: string) => {
-    const basicRate = parseFloat(value) || 0
-    setAdditionalCostBasicRate(basicRate)
-    const finalCost = additionalCostTaxMode === 'gst'
-      ? parseFloat((basicRate * (1 + additionalCostGstRate / 100)).toFixed(2))
-      : basicRate
-    setAdditionalCostFinal(finalCost)
-  }
-
-  const handleAdditionalCostTaxModeChange = (value: 'none' | 'gst') => {
-    setAdditionalCostTaxMode(value)
-    const finalCost = value === 'gst'
-      ? parseFloat((additionalCostBasicRate * (1 + additionalCostGstRate / 100)).toFixed(2))
-      : additionalCostBasicRate
-    setAdditionalCostFinal(finalCost)
-  }
-
-  const handleAdditionalCostGstRateChange = (value: string) => {
-    const rate = parseFloat(value) || 0
-    setAdditionalCostGstRate(rate)
-    if (additionalCostTaxMode === 'gst') {
-      setAdditionalCostFinal(parseFloat((additionalCostBasicRate * (1 + rate / 100)).toFixed(2)))
-    }
-  }
-
-  const handleAdditionalCostFinalChange = (value: string) => {
-    setAdditionalCostFinal(parseFloat(value) || 0)
-  }
-
   const handleRoundOff = () => {
     const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
     const currentTotal = totalAmt + additionalCostFinal
@@ -246,25 +258,6 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     const adjustment = parseFloat((roundedTotal - currentTotal).toFixed(2))
     setRoundOffAdjustment(adjustment)
     toast.success(`Round-off adjustment: ${adjustment >= 0 ? '+' : ''}${formatCurrency(adjustment)}`)
-  }
-
-  const handleSignatureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload a signature image')
-      event.target.value = ''
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      setSignatureDataUrl(typeof reader.result === 'string' ? reader.result : '')
-      toast.success('Signature added to invoice')
-    }
-    reader.onerror = () => toast.error('Could not read signature image')
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -376,20 +369,15 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setEditingInvoice(null)
     setCustomerPickerOpen(false)
     setCustomerSearch('')
-    setAdditionalCostBasicRate(0)
-    setAdditionalCostFinal(0)
     setRoundOffAdjustment(0)
     setAmountReceived('')
     setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
-    setSignatureDataUrl('')
     setShowAdditionalCharge(false)
     setShowInvoiceNotes(false)
     setInvoiceNotes('')
     setShowInvoiceTerms(false)
     setInvoiceTerms('')
-    setAdditionalCostTaxMode('none')
-    setAdditionalCostGstRate(gstPercentage)
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -406,15 +394,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setSelectedPickerItemId('')
       setPickerQuantities({})
       setInvoiceItems([])
-      setAdditionalCostBasicRate(0)
-      setAdditionalCostFinal(0)
-      setAdditionalCostTaxMode('none')
-      setAdditionalCostGstRate(gstPercentage)
       setRoundOffAdjustment(0)
       setAmountReceived('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
-      setSignatureDataUrl('')
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
@@ -436,15 +419,10 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
       setPickerQuantities({})
-      setAdditionalCostBasicRate(0)
-      setAdditionalCostFinal(0)
-      setAdditionalCostTaxMode('none')
-      setAdditionalCostGstRate(gstPercentage)
       setRoundOffAdjustment(0)
       setAmountReceived('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
-      setSignatureDataUrl('')
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')

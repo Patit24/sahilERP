@@ -1094,7 +1094,7 @@ function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
   doc.text('AMOUNT DUE', totalsX + 34, summaryY + 55, { align: 'right' })
   doc.text(formatAmountForPDF(amountDue).replace('Rs.', ''), totalsX + 62, summaryY + 55, { align: 'right' })
 
-  if (!signatureAdded) {
+  if (true) {
     doc.setFont('times', 'italic')
     doc.setFontSize(21)
     doc.setTextColor(15, 15, 15)

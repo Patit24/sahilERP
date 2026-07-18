@@ -282,25 +282,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     toast.success(`Round-off adjustment: ${adjustment >= 0 ? '+' : ''}${formatCurrency(adjustment)}`)
   }
 
-  const handleSignatureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload a signature image')
-      event.target.value = ''
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      setSignatureDataUrl(typeof reader.result === 'string' ? reader.result : '')
-      toast.success('Signature added to invoice')
-    }
-    reader.onerror = () => toast.error('Could not read signature image')
-    reader.readAsDataURL(file)
-  }
-
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
@@ -431,14 +412,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setAmountPaid('')
     setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
-    setSignatureDataUrl('')
     setShowAdditionalCharge(false)
     setShowInvoiceNotes(false)
     setInvoiceNotes('')
     setShowInvoiceTerms(false)
     setInvoiceTerms('')
-    setAdditionalCostTaxMode('none')
-    setAdditionalCostGstRate(gstPercentage)
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -455,15 +433,10 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setSelectedPickerItemId('')
       setPickerQuantities({})
       setInvoiceItems([])
-      setAdditionalCostBasicRate(0)
-      setAdditionalCostFinal(0)
-      setAdditionalCostTaxMode('none')
-      setAdditionalCostGstRate(gstPercentage)
       setRoundOffAdjustment(0)
       setAmountPaid('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
-      setSignatureDataUrl('')
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
@@ -490,15 +463,10 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setSelectedItemCategory('all')
       setSelectedPickerItemId('')
       setPickerQuantities({})
-      setAdditionalCostBasicRate(0)
-      setAdditionalCostFinal(0)
-      setAdditionalCostTaxMode('none')
-      setAdditionalCostGstRate(gstPercentage)
       setRoundOffAdjustment(0)
       setAmountPaid('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
-      setSignatureDataUrl('')
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
