@@ -151,13 +151,13 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     basicRate > 0 ? parseFloat((basicRate * (1 + getInvoiceItemGstRate(itemId) / 100)).toFixed(2)) : 0
   )
 
-  const updatePickerQuantity = (itemId: string, nextQuantity: number) => {
+  const updatePickerQuantity = (itemId: string, nextQuantity: number | null) => {
     setPickerQuantities((prev) => {
-      const quantity = Math.max(0, Number.isFinite(nextQuantity) ? nextQuantity : 0)
       const updated = { ...prev }
-      if (quantity <= 0) {
+      if (nextQuantity === null) {
         delete updated[itemId]
       } else {
+        const quantity = Math.max(0, Number.isFinite(nextQuantity) ? nextQuantity : 0)
         updated[itemId] = quantity
       }
       return updated
@@ -1295,11 +1295,12 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         </TableRow>
                       ) : (
                         filteredPickerItems.map(item => {
-                          const pickerQuantity = pickerQuantities[item.id] || 0
+                          const pickerQuantity = pickerQuantities[item.id] !== undefined ? pickerQuantities[item.id] : 0
+                          const isSelected = pickerQuantities[item.id] !== undefined
                           return (
                             <TableRow
                               key={item.id}
-                              className={pickerQuantity > 0 ? 'erp-item-picker-row is-selected bg-primary/10' : 'erp-item-picker-row'}
+                              className={isSelected ? 'erp-item-picker-row is-selected bg-primary/10' : 'erp-item-picker-row'}
                             >
                               <TableCell className="font-medium">{item.name}</TableCell>
                               <TableCell>{item.itemCode || '-'}</TableCell>
@@ -1307,14 +1308,14 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                               <TableCell className="text-right font-mono">{item.salesPrice ? formatCurrency(item.salesPrice) : '-'}</TableCell>
                               <TableCell className="text-right font-mono">{item.purchasePrice ? formatCurrency(item.purchasePrice) : '-'}</TableCell>
                               <TableCell className="text-right">
-                                {pickerQuantity > 0 ? (
+                                {isSelected ? (
                                   <div className="erp-picker-stepper">
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="icon"
                                       className="h-7 w-7"
-                                      onClick={() => updatePickerQuantity(item.id, pickerQuantity - 1)}
+                                      onClick={() => updatePickerQuantity(item.id, pickerQuantity <= 1 ? null : pickerQuantity - 1)}
                                     >
                                       -
                                     </Button>
@@ -1323,7 +1324,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                                       min="0"
                                       step="0.001"
                                       value={pickerQuantity}
-                                      onChange={(event) => updatePickerQuantity(item.id, parseFloat(event.target.value) || 0)}
+                                      onChange={(event) => updatePickerQuantity(item.id, event.target.value === '' ? 0 : parseFloat(event.target.value))}
                                       className="h-7 w-14 px-1 text-center font-mono"
                                     />
                                     <Button

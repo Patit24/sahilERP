@@ -61,7 +61,7 @@
 }
 
 .erp-reference-item-table {
-  min-width: 1180px;
+  min-width: 1250px;
   width: 100%;
 }
 
@@ -3427,8 +3427,8 @@
 }
 
 .erp-invoice-page-shell .erp-reference-item-table {
-  width: max(100%, 1180px) !important;
-  min-width: 1180px !important;
+  width: max(100%, 1250px) !important;
+  min-width: 1250px !important;
 }
 
 .erp-invoice-page-shell .erp-reference-item-head {
