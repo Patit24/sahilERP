@@ -236,6 +236,47 @@ const tenantDataCollectionKeys: Array<keyof TenantData> = [
   'discountLedgerEntries'
 ]
 
+function isPrimitive(val: any) {
+  return val === null || val === undefined || typeof val !== 'object';
+}
+
+function areObjectsSemanticallyEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (isPrimitive(a) || isPrimitive(b)) {
+    const normalize = (v: any) => (v === null || v === undefined) ? '' : String(v);
+    return normalize(a) === normalize(b);
+  }
+  
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    const hasIds = a.length > 0 && a[0] && typeof a[0] === 'object' && 'id' in a[0];
+    if (hasIds) {
+      const bMap = new Map(b.map((item: any) => [item ? item.id : '', item]));
+      for (const itemA of a) {
+        if (!itemA) continue;
+        const itemB = bMap.get(itemA.id);
+        if (!itemB) return false;
+        if (!areObjectsSemanticallyEqual(itemA, itemB)) return false;
+      }
+      return true;
+    } else {
+      for (let i = 0; i < a.length; i++) {
+        if (!areObjectsSemanticallyEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+  }
+
+  const keysA = Object.keys(a).filter(k => a[k] !== undefined && a[k] !== null);
+  const keysB = Object.keys(b).filter(k => b[k] !== undefined && b[k] !== null);
+  if (keysA.length !== keysB.length) return false;
+
+  for (const k of keysA) {
+    if (!areObjectsSemanticallyEqual(a[k], b[k])) return false;
+  }
+  return true;
+}
+
 function hasTenantRecords(data: TenantData): boolean {
   return tenantDataCollectionKeys.some((key) => Array.isArray(data[key]) && data[key].length > 0)
 }
@@ -723,29 +764,12 @@ function App() {
       discountLedgerEntries
     }
 
-    const currentDataStr = JSON.stringify(tenantData)
-    if (lastSavedDataRef.current && currentDataStr === lastSavedDataRef.current) {
-      return
-    }
-
-    if (lastSavedDataRef.current && currentDataStr !== lastSavedDataRef.current) {
+    if (lastSavedDataRef.current) {
       try {
         const last = JSON.parse(lastSavedDataRef.current)
-        const curr = JSON.parse(currentDataStr)
-        const diffs: Record<string, { lastLen?: number, currLen?: number, lastVal?: any, currVal?: any }> = {}
-        for (const k of Object.keys(curr)) {
-          const lVal = JSON.stringify(last[k])
-          const cVal = JSON.stringify(curr[k])
-          if (lVal !== cVal) {
-            diffs[k] = {
-              lastLen: Array.isArray(last[k]) ? last[k].length : undefined,
-              currLen: Array.isArray(curr[k]) ? curr[k].length : undefined,
-              lastVal: last[k],
-              currVal: curr[k]
-            }
-          }
+        if (areObjectsSemanticallyEqual(tenantData, last)) {
+          return
         }
-        console.warn('⚠️ Difference detected between local state and last saved/loaded data:', diffs)
       } catch (e) {}
     }
 
