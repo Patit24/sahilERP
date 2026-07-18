@@ -838,21 +838,38 @@ function App() {
     if (useServerAuth && !canSyncRemoteTenant) return
     return subscribeTenantData(metadata.activeCompanyId, tenantKey, (remoteSnapshot) => {
       remoteRevisionRef.current[tenantKey] = remoteSnapshot.revision
-      writeTenantCache(metadata.activeCompanyId, tenantKey, remoteSnapshot.payload, remoteSnapshot.revision)
-      setSuppliers(remoteSnapshot.payload.suppliers || [])
-      setCustomers(remoteSnapshot.payload.customers || [])
-      setItems(remoteSnapshot.payload.items || [])
-      setInvoices(remoteSnapshot.payload.invoices || [])
-      setPayments(remoteSnapshot.payload.payments || [])
-      setReceivedDiscounts(remoteSnapshot.payload.receivedDiscounts || [])
-      setSalesInvoices(remoteSnapshot.payload.salesInvoices || [])
-      setCustomerPayments(remoteSnapshot.payload.customerPayments || [])
-      setExpenseTypes(remoteSnapshot.payload.expenseTypes || [])
-      setExpenseEntries(remoteSnapshot.payload.expenseEntries || [])
-      setFixedSchemes(remoteSnapshot.payload.fixedSchemes || [])
-      setMTBookings(remoteSnapshot.payload.mtBookings || [])
-      setAdvanceBookingPickups(remoteSnapshot.payload.advanceBookingPickups || [])
-      setDiscountLedgerEntries(remoteSnapshot.payload.discountLedgerEntries || [])
+      const normalizedData: TenantData = {
+        suppliers: remoteSnapshot.payload.suppliers || [],
+        customers: remoteSnapshot.payload.customers || [],
+        items: remoteSnapshot.payload.items || [],
+        invoices: remoteSnapshot.payload.invoices || [],
+        payments: remoteSnapshot.payload.payments || [],
+        receivedDiscounts: remoteSnapshot.payload.receivedDiscounts || [],
+        salesInvoices: remoteSnapshot.payload.salesInvoices || [],
+        customerPayments: remoteSnapshot.payload.customerPayments || [],
+        expenseTypes: remoteSnapshot.payload.expenseTypes || [],
+        expenseEntries: remoteSnapshot.payload.expenseEntries || [],
+        fixedSchemes: remoteSnapshot.payload.fixedSchemes || [],
+        mtBookings: remoteSnapshot.payload.mtBookings || [],
+        advanceBookingPickups: remoteSnapshot.payload.advanceBookingPickups || [],
+        discountLedgerEntries: remoteSnapshot.payload.discountLedgerEntries || []
+      }
+      lastSavedDataRef.current = JSON.stringify(normalizedData)
+      writeTenantCache(metadata.activeCompanyId, tenantKey, normalizedData, remoteSnapshot.revision)
+      setSuppliers(normalizedData.suppliers)
+      setCustomers(normalizedData.customers)
+      setItems(normalizedData.items)
+      setInvoices(normalizedData.invoices)
+      setPayments(normalizedData.payments)
+      setReceivedDiscounts(normalizedData.receivedDiscounts)
+      setSalesInvoices(normalizedData.salesInvoices)
+      setCustomerPayments(normalizedData.customerPayments)
+      setExpenseTypes(normalizedData.expenseTypes)
+      setExpenseEntries(normalizedData.expenseEntries)
+      setFixedSchemes(normalizedData.fixedSchemes)
+      setMTBookings(normalizedData.mtBookings)
+      setAdvanceBookingPickups(normalizedData.advanceBookingPickups)
+      setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
       appendAuditLog('remote_tenant_realtime_update', undefined, tenantKey)
     }) || undefined
   }, [metadata.activeCompanyId, tenantHydrated, tenantKey, useServerAuth, canSyncRemoteTenant])
