@@ -205,7 +205,8 @@ export async function saveRemoteTenantData(
     }
     console.error('Firestore save failed:', error)
     markRemoteUnavailable()
-    throw new RemoteStorageUnavailableError()
+    const errMsg = error instanceof Error ? error.message : 'Unknown Firestore save error'
+    throw new RemoteStorageUnavailableError(`Firebase is temporarily unavailable: ${errMsg}`)
   }
 }
 
