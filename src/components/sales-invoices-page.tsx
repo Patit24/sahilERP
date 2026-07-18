@@ -320,9 +320,14 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 
     const totalQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
     const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
-    const additionalCostBasicRate = parseFloat(formData.get('additionalCostBasicRate') as string) || 0
-    const additionalCost = parseFloat(formData.get('additionalCost') as string) || 0
-    const additionalCostRemarks = (formData.get('additionalCostRemarks') as string) || ''
+    // Re-calculate from state directly instead of formData to support multiple
+    const aggregatedBasicRate = additionalCharges.reduce((sum, c) => sum + (c.basicRate || 0), 0)
+    const aggregatedFinal = additionalCharges.reduce((sum, c) => sum + (c.finalAmt || 0), 0)
+    const aggregatedRemarks = additionalCharges.map(c => c.remarks).filter(Boolean).join(', ')
+
+    const additionalCostBasicRate = aggregatedBasicRate
+    const additionalCost = aggregatedFinal
+    const additionalCostRemarks = aggregatedRemarks
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
     const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
     const rawAmountReceived = parseFloat(formData.get('amountReceived') as string) || 0
@@ -460,11 +465,20 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setCustomerPickerOpen(false)
     setCustomerSearch('')
     setInvoiceItems(invoice.items || [])
-    setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
-    setAdditionalCostFinal(invoice.additionalCost || 0)
-    setAdditionalCostTaxMode(invoice.additionalCostBasicRate && invoice.additionalCost && invoice.additionalCost > invoice.additionalCostBasicRate ? 'gst' : 'none')
-    setAdditionalCostGstRate(gstPercentage)
-    setShowAdditionalCharge(Boolean(invoice.additionalCost || invoice.additionalCostBasicRate || invoice.additionalCostRemarks))
+    const hasCost = Boolean(invoice.additionalCost || invoice.additionalCostBasicRate || invoice.additionalCostRemarks);
+    setShowAdditionalCharge(hasCost);
+    if (hasCost) {
+      setAdditionalCharges([{
+        id: Math.random().toString(36).substring(7),
+        remarks: invoice.additionalCostRemarks || '',
+        basicRate: invoice.additionalCostBasicRate || 0,
+        taxMode: invoice.additionalCostBasicRate && invoice.additionalCost && invoice.additionalCost > invoice.additionalCostBasicRate ? 'gst' : 'none',
+        gstRate: gstPercentage,
+        finalAmt: invoice.additionalCost || 0
+      }]);
+    } else {
+      setAdditionalCharges([]);
+    }
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     const linkedPayment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     setAmountReceived(linkedPayment ? String(linkedPayment.amount) : '')

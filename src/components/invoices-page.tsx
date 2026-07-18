@@ -48,10 +48,11 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
-  const [additionalCostBasicRate, setAdditionalCostBasicRate] = useState<number>(0)
-  const [additionalCostFinal, setAdditionalCostFinal] = useState<number>(0)
-  const [additionalCostTaxMode, setAdditionalCostTaxMode] = useState<'none' | 'gst'>('none')
-  const [additionalCostGstRate, setAdditionalCostGstRate] = useState<number>(gstPercentage)
+  type AdditionalCharge = { id: string; remarks: string; basicRate: number; taxMode: 'none' | 'gst'; gstRate: number; finalAmt: number };
+  const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([])
+  
+  const additionalCostBasicRate = additionalCharges.reduce((sum, c) => sum + (c.basicRate || 0), 0)
+  const additionalCostFinal = additionalCharges.reduce((sum, c) => sum + (c.finalAmt || 0), 0)
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [amountPaid, setAmountPaid] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
@@ -235,34 +236,41 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setInvoiceItems(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handleAdditionalCostBasicRateChange = (value: string) => {
-    const basicRate = parseFloat(value) || 0
-    setAdditionalCostBasicRate(basicRate)
-    const finalCost = additionalCostTaxMode === 'gst'
-      ? parseFloat((basicRate * (1 + additionalCostGstRate / 100)).toFixed(2))
-      : basicRate
-    setAdditionalCostFinal(finalCost)
+  const handleUpdateCharge = (id: string, field: keyof AdditionalCharge, value: any) => {
+    setAdditionalCharges(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const updated = { ...c, [field]: value };
+      
+      if (field === 'basicRate' || field === 'taxMode' || field === 'gstRate') {
+        const rate = field === 'basicRate' ? parseFloat(value) || 0 : updated.basicRate;
+        const mode = field === 'taxMode' ? value : updated.taxMode;
+        const gRate = field === 'gstRate' ? parseFloat(value) || 0 : updated.gstRate;
+        
+        updated.finalAmt = mode === 'gst' ? parseFloat((rate * (1 + gRate / 100)).toFixed(2)) : rate;
+        if (field === 'basicRate') updated.basicRate = rate;
+        if (field === 'gstRate') updated.gstRate = gRate;
+      }
+      return updated;
+    }));
   }
 
-  const handleAdditionalCostTaxModeChange = (value: 'none' | 'gst') => {
-    setAdditionalCostTaxMode(value)
-    const finalCost = value === 'gst'
-      ? parseFloat((additionalCostBasicRate * (1 + additionalCostGstRate / 100)).toFixed(2))
-      : additionalCostBasicRate
-    setAdditionalCostFinal(finalCost)
+  const addAnotherCharge = () => {
+    setAdditionalCharges(prev => [...prev, {
+      id: Math.random().toString(36).substring(7),
+      remarks: '',
+      basicRate: 0,
+      taxMode: 'none',
+      gstRate: gstPercentage,
+      finalAmt: 0
+    }]);
   }
 
-  const handleAdditionalCostGstRateChange = (value: string) => {
-    const rate = parseFloat(value) || 0
-    setAdditionalCostGstRate(rate)
-    if (additionalCostTaxMode === 'gst') {
-      setAdditionalCostFinal(parseFloat((additionalCostBasicRate * (1 + rate / 100)).toFixed(2)))
-    }
-  }
-
-  const handleAdditionalCostFinalChange = (value: string) => {
-    const finalCost = parseFloat(value) || 0
-    setAdditionalCostFinal(finalCost)
+  const removeCharge = (id: string) => {
+    setAdditionalCharges(prev => {
+      const next = prev.filter(c => c.id !== id);
+      if (next.length === 0) setShowAdditionalCharge(false);
+      return next;
+    });
   }
 
   const handleRoundOff = () => {
@@ -362,9 +370,14 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
 
     const totalQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
     const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
-    const additionalCostBasicRate = parseFloat(formData.get('additionalCostBasicRate') as string) || 0
-    const additionalCost = parseFloat(formData.get('additionalCost') as string) || 0
-    const additionalCostRemarks = (formData.get('additionalCostRemarks') as string) || ''
+    // Re-calculate from state directly instead of formData to support multiple
+    const aggregatedBasicRate = additionalCharges.reduce((sum, c) => sum + (c.basicRate || 0), 0)
+    const aggregatedFinal = additionalCharges.reduce((sum, c) => sum + (c.finalAmt || 0), 0)
+    const aggregatedRemarks = additionalCharges.map(c => c.remarks).filter(Boolean).join(', ')
+
+    const additionalCostBasicRate = aggregatedBasicRate
+    const additionalCost = aggregatedFinal
+    const additionalCostRemarks = aggregatedRemarks
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
     const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
     const rawAmountPaid = parseFloat(formData.get('amountPaid') as string) || 0
@@ -506,11 +519,20 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setSupplierPickerOpen(false)
     setSupplierSearch('')
     setInvoiceItems(invoice.items || [])
-    setAdditionalCostBasicRate(invoice.additionalCostBasicRate || 0)
-    setAdditionalCostFinal(invoice.additionalCost || 0)
-    setAdditionalCostTaxMode(invoice.additionalCostBasicRate && invoice.additionalCost && invoice.additionalCost > invoice.additionalCostBasicRate ? 'gst' : 'none')
-    setAdditionalCostGstRate(gstPercentage)
-    setShowAdditionalCharge(Boolean(invoice.additionalCost || invoice.additionalCostBasicRate || invoice.additionalCostRemarks))
+    const hasCost = Boolean(invoice.additionalCost || invoice.additionalCostBasicRate || invoice.additionalCostRemarks);
+    setShowAdditionalCharge(hasCost);
+    if (hasCost) {
+      setAdditionalCharges([{
+        id: Math.random().toString(36).substring(7),
+        remarks: invoice.additionalCostRemarks || '',
+        basicRate: invoice.additionalCostBasicRate || 0,
+        taxMode: invoice.additionalCostBasicRate && invoice.additionalCost && invoice.additionalCost > invoice.additionalCostBasicRate ? 'gst' : 'none',
+        gstRate: gstPercentage,
+        finalAmt: invoice.additionalCost || 0
+      }]);
+    } else {
+      setAdditionalCharges([]);
+    }
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     const linkedPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     setAmountPaid(linkedPayment ? String(linkedPayment.amount) : '')
@@ -1008,67 +1030,69 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                           </div>
 
                           {showAdditionalCharge && (
-                          <div className="erp-additional-charge-panel">
-                            <div className="erp-additional-charge-row">
-                              <Input
-                                id="additionalCostRemarks"
-                                name="additionalCostRemarks"
-                                type="text"
-                                defaultValue={editingInvoice?.additionalCostRemarks || ''}
-                                placeholder="Enter charge (ex. Transport Charge)"
-                                className="h-10 bg-muted/70 text-sm"
-                              />
-                              <div className="erp-money-input">
-                                <span>₹</span>
+                          <div className="erp-additional-charge-panel space-y-2">
+                            {additionalCharges.map((charge) => (
+                              <div key={charge.id} className="erp-additional-charge-row">
                                 <Input
-                                  id="additionalCostBasicRate"
-                                  name="additionalCostBasicRate"
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={additionalCostBasicRate || ''}
-                                  onChange={(e) => handleAdditionalCostBasicRateChange(e.target.value)}
-                                  placeholder="0"
-                                  className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
+                                  type="text"
+                                  value={charge.remarks}
+                                  onChange={(e) => handleUpdateCharge(charge.id, 'remarks', e.target.value)}
+                                  placeholder="Enter charge (ex. Transport Charge)"
+                                  className="h-10 bg-muted/70 text-sm"
                                 />
+                                <div className="erp-money-input">
+                                  <span>₹</span>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={charge.basicRate || ''}
+                                    onChange={(e) => handleUpdateCharge(charge.id, 'basicRate', e.target.value)}
+                                    placeholder="0"
+                                    className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
+                                  />
+                                </div>
+                                <Select value={charge.taxMode} onValueChange={(value) => handleUpdateCharge(charge.id, 'taxMode', value)}>
+                                  <SelectTrigger className="h-10 bg-background">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">No Tax Applicable</SelectItem>
+                                    <SelectItem value="gst">GST Applicable</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {charge.taxMode === 'gst' && (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={charge.gstRate || ''}
+                                    onChange={(e) => handleUpdateCharge(charge.id, 'gstRate', e.target.value)}
+                                    placeholder="GST %"
+                                    className="h-10 w-28 bg-background text-right font-mono"
+                                  />
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-10 w-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
+                                  onClick={() => removeCharge(charge.id)}
+                                >
+                                  <X size={18} weight="bold" />
+                                </Button>
                               </div>
-                              <Select value={additionalCostTaxMode} onValueChange={(value) => handleAdditionalCostTaxModeChange(value as 'none' | 'gst')}>
-                                <SelectTrigger className="h-10 bg-background">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">No Tax Applicable</SelectItem>
-                                  <SelectItem value="gst">GST Applicable</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              {additionalCostTaxMode === 'gst' && (
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={additionalCostGstRate || ''}
-                                  onChange={(e) => handleAdditionalCostGstRateChange(e.target.value)}
-                                  placeholder="GST %"
-                                  className="h-10 w-28 bg-background text-right font-mono"
-                                />
-                              )}
+                            ))}
+                            <div className="px-1 pt-2">
                               <Button
                                 type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-10 w-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => {
-                                  setShowAdditionalCharge(false)
-                                  setAdditionalCostBasicRate(0)
-                                  setAdditionalCostFinal(0)
-                                  setAdditionalCostTaxMode('none')
-                                }}
+                                variant="link"
+                                className="h-auto p-0 text-primary"
+                                onClick={addAnotherCharge}
                               >
-                                <X size={18} weight="bold" />
+                                + Add Another Charge
                               </Button>
-                              <input type="hidden" id="additionalCost" name="additionalCost" value={additionalCostFinal || ''} />
                             </div>
-
                           </div>
                           )}
                         </div>

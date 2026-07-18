@@ -1619,7 +1619,7 @@
 
 .erp-invoice-page-body .erp-invoice-reference-footer {
   display: grid !important;
-  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr) minmax(340px, 1.2fr) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) !important;
   gap: clamp(1.15rem, 1.8vw, 1.8rem) !important;
   margin-top: 1.6rem !important;
   overflow: visible !important;
@@ -1895,7 +1895,7 @@
 
   @media (max-width: 1360px) {
     .erp-invoice-page-body .erp-invoice-reference-footer {
-      grid-template-columns: 1fr !important;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     }
 
     .erp-invoice-page-body .erp-reference-notes-panel {
