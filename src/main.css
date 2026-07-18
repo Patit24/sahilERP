@@ -3581,7 +3581,8 @@
   display: flex !important;
   flex-direction: column !important;
   height: calc(100vh - 4.5rem) !important;
-  overflow: hidden !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   padding: 0.5rem 1rem !important;
 }
 
@@ -3589,9 +3590,9 @@
 .erp-invoice-page-shell #sales-invoice-items {
   display: flex !important;
   flex-direction: column !important;
-  flex: 1 1 0% !important;
-  min-height: 0 !important;
-  overflow: hidden !important; /* Contain the scrollable table */
+  flex: 1 1 auto !important;
+  min-height: min-content !important;
+  overflow: visible !important;
 }
 
 .erp-invoice-page-body > .erp-form-panel,
