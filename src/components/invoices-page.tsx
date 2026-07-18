@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple } from '@phosphor-icons/react'
+import { ArrowLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple , FileText, Wallet } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -894,268 +894,277 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                   </div>
 
                   <div className="erp-invoice-reference-footer">
-                    <div className="erp-footer-col">
-                      <div className="erp-reference-notes-panel">
-                        {!showInvoiceNotes ? (
-                          <button type="button" className="erp-note-action" onClick={() => setShowInvoiceNotes(true)}>
-                            + Add Notes
-                          </button>
-                        ) : (
-                          <div className="erp-inline-editor">
-                            <div className="erp-inline-editor-header">
-                              <span>Notes</span>
-                              <button type="button" onClick={() => { setShowInvoiceNotes(false); setInvoiceNotes('') }} aria-label="Remove notes">
-                                <X size={16} weight="bold" />
-                              </button>
-                            </div>
-                            <Textarea value={invoiceNotes} onChange={(event) => setInvoiceNotes(event.target.value)} placeholder="Enter invoice notes" />
+                    {/* Column 1: Invoice Information */}
+                    <div className="erp-footer-col erp-footer-col-left">
+                      <div className="erp-footer-section">
+                        <div className="erp-footer-section-header">
+                          <FileText size={20} weight="fill" />
+                          <div>
+                            <h3>Invoice Information</h3>
+                            <p>Add notes and terms related to this purchase.</p>
                           </div>
-                        )}
-                        {!showInvoiceTerms ? (
-                          <button
-                            type="button"
-                            className="erp-note-action"
-                            onClick={() => {
-                              setShowInvoiceTerms(true)
-                              setInvoiceTerms((current) => current || DEFAULT_INVOICE_TERMS)
-                            }}
-                          >
-                            + Add Terms and Conditions
-                          </button>
-                        ) : (
-                          <div className="erp-inline-editor">
-                            <div className="erp-inline-editor-header">
-                              <span>Terms and Conditions</span>
-                              <button type="button" onClick={() => { setShowInvoiceTerms(false); setInvoiceTerms('') }} aria-label="Remove terms and conditions">
-                                <X size={16} weight="bold" />
-                              </button>
+                        </div>
+                        <div className="erp-footer-section-content">
+                          {/* Invoice Notes */}
+                          <div className="erp-inner-card">
+                            <div className="erp-inner-card-header">
+                              <h4><FileText size={16} weight="bold" /> Invoice Notes</h4>
+                              {!showInvoiceNotes && (
+                                <button type="button" className="erp-inner-card-action" onClick={() => setShowInvoiceNotes(true)}>
+                                  <Plus size={14} weight="bold" /> Add Notes
+                                </button>
+                              )}
                             </div>
-                            <Textarea value={invoiceTerms} onChange={(event) => setInvoiceTerms(event.target.value)} />
-                          </div>
-                        )}
-                      </div>
-                      
-
-                    </div>
-
-                    <div className="erp-footer-col">
-                      <div className="erp-payment-settlement-panel">
-                        <input type="hidden" name="amountPaid" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountPaid} />
-                        <input type="hidden" name="paymentMode" value={paymentMode} />
-
-                        <div className="erp-payment-settlement-grid flex flex-col gap-3">
-                          <div className="space-y-3">
-                            <div className="erp-payment-header-row">
-                              <div>
-                                <h3 className="text-sm font-semibold text-foreground">Payment Settlement</h3>
-                                <p className="text-xs text-muted-foreground">Record amount paid while saving this purchase invoice.</p>
-                              </div>
-                              <label className="erp-paid-toggle mt-2">
-                                <Checkbox
-                                  checked={markAsFullyPaid}
-                                  onCheckedChange={(checked) => setMarkAsFullyPaid(Boolean(checked))}
+                            {showInvoiceNotes && (
+                              <div className="erp-inner-card-body">
+                                <Textarea 
+                                  value={invoiceNotes} 
+                                  onChange={(event) => setInvoiceNotes(event.target.value)} 
+                                  placeholder="Enter notes here..." 
                                 />
-                                Mark as fully paid
-                              </label>
-                            </div>
-
-                            <div className="erp-payment-fields-grid flex flex-col gap-2">
-                              <div className="erp-payment-field">
-                                <Label htmlFor="purchaseAmountPaid">Amount Paid</Label>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                  <Input
-                                    id="purchaseAmountPaid"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max={finalInvoiceAmountPreview || undefined}
-                                    value={markAsFullyPaid ? finalInvoiceAmountPreview || '' : amountPaid}
-                                    onChange={(event) => setAmountPaid(event.target.value)}
-                                    disabled={markAsFullyPaid}
-                                    placeholder="0.00"
-                                    className="erp-payment-amount-input pl-8 font-mono text-right"
-                                  />
-                                </div>
+                                <span className="erp-char-count">{invoiceNotes.length} / 500</span>
+                                <button type="button" className="absolute top-2 right-2 text-muted-foreground hover:text-destructive" onClick={() => { setShowInvoiceNotes(false); setInvoiceNotes('') }}>
+                                  <X size={16} weight="bold" />
+                                </button>
                               </div>
-
-                              <div className="erp-payment-field">
-                                <Label>Mode</Label>
-                                <Select value={paymentMode} onValueChange={setPaymentMode}>
-                                  <SelectTrigger className="h-11">
-                                    <SelectValue placeholder="Cash" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Cash">Cash</SelectItem>
-                                    <SelectItem value="Bank">Bank</SelectItem>
-                                    <SelectItem value="UPI">UPI</SelectItem>
-                                    <SelectItem value="Cheque">Cheque</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                            )}
                           </div>
 
-                          <div className="erp-payment-summary-card">
-                            <div className="flex items-center justify-between border-b border-border/70 py-2 text-sm">
-                              <span className="text-muted-foreground">Total Amount</span>
-                              <span className="font-mono font-semibold">{formatCurrency(finalInvoiceAmountPreview)}</span>
+                          {/* Terms & Conditions */}
+                          <div className="erp-inner-card">
+                            <div className="erp-inner-card-header">
+                              <h4><Receipt size={16} weight="bold" /> Terms & Conditions</h4>
+                              {!showInvoiceTerms && (
+                                <button type="button" className="erp-inner-card-action" onClick={() => { setShowInvoiceTerms(true); setInvoiceTerms((current) => current || DEFAULT_INVOICE_TERMS) }}>
+                                  <Plus size={14} weight="bold" /> Add Terms
+                                </button>
+                              )}
                             </div>
-                            <div className="flex items-center justify-between border-b border-border/70 py-2 text-sm">
-                              <span className="text-muted-foreground">Amount Paid</span>
-                              <span className="font-mono font-semibold text-primary">{formatCurrency(paidAmountPreview)}</span>
-                            </div>
-                            <div className="flex items-center justify-between py-2 text-sm">
-                              <span className="font-semibold text-emerald-600">Balance Amount</span>
-                              <span className="font-mono font-bold text-emerald-600">{formatCurrency(balanceAmountPreview)}</span>
-                            </div>
+                            {showInvoiceTerms && (
+                              <div className="erp-inner-card-body">
+                                <Textarea 
+                                  value={invoiceTerms} 
+                                  onChange={(event) => setInvoiceTerms(event.target.value)} 
+                                  placeholder="Enter terms and conditions..."
+                                />
+                                <span className="erp-char-count">{invoiceTerms.length} / 1000</span>
+                                <button type="button" className="absolute top-2 right-2 text-muted-foreground hover:text-destructive" onClick={() => { setShowInvoiceTerms(false); setInvoiceTerms('') }}>
+                                  <X size={16} weight="bold" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="erp-footer-col">
-                      <div className="erp-reference-totals-panel">
-                        <div className="space-y-2">
-                          <div className="erp-summary-link-row">
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="h-auto p-0 text-primary"
-                              onClick={() => setShowAdditionalCharge(true)}
-                            >
-                              + Add Additional Charges
-                            </Button>
-                            <span className="font-mono text-sm">{formatCurrency(additionalCostFinal)}</span>
+                    {/* Column 2: Payment Settlement */}
+                    <div className="erp-footer-col erp-footer-col-middle">
+                      <div className="erp-footer-section">
+                        <div className="erp-footer-section-header">
+                          <Wallet size={20} weight="fill" />
+                          <div>
+                            <h3>Payment Settlement</h3>
+                            <p>Record the amount paid while saving this purchase invoice.</p>
                           </div>
+                        </div>
+                        <div className="erp-footer-section-content">
+                          <input type="hidden" name="amountPaid" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountPaid} />
+                          <input type="hidden" name="paymentMode" value={paymentMode} />
+                          
+                          <label className="erp-paid-checkbox cursor-pointer">
+                            <Checkbox
+                              checked={markAsFullyPaid}
+                              onCheckedChange={(checked) => setMarkAsFullyPaid(Boolean(checked))}
+                              className="mr-2"
+                            />
+                            Mark invoice as fully paid
+                            <Info size={16} className="ml-1 text-muted-foreground" weight="bold" />
+                          </label>
 
-                          {showAdditionalCharge && (
-                          <div className="erp-additional-charge-panel space-y-2">
-                            {additionalCharges.map((charge) => (
-                              <div key={charge.id} className="erp-additional-charge-row">
+                          <div className="erp-payment-fields-row">
+                            <div className="erp-payment-field">
+                              <label>Amount Paid</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">₹</span>
                                 <Input
-                                  type="text"
-                                  value={charge.remarks}
-                                  onChange={(e) => handleUpdateCharge(charge.id, 'remarks', e.target.value)}
-                                  placeholder="Enter charge (ex. Transport Charge)"
-                                  className="h-10 bg-muted/70 text-sm"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  max={finalInvoiceAmountPreview || undefined}
+                                  value={markAsFullyPaid ? finalInvoiceAmountPreview || '' : amountPaid}
+                                  onChange={(event) => setAmountPaid(event.target.value)}
+                                  disabled={markAsFullyPaid}
+                                  placeholder="0.00"
+                                  className="pl-8 font-mono text-right"
                                 />
-                                <div className="erp-money-input">
-                                  <span>₹</span>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={charge.basicRate || ''}
-                                    onChange={(e) => handleUpdateCharge(charge.id, 'basicRate', e.target.value)}
-                                    placeholder="0"
-                                    className="h-10 border-0 bg-transparent text-right font-mono shadow-none focus-visible:ring-0"
-                                  />
-                                </div>
-                                <Select value={charge.taxMode} onValueChange={(value) => handleUpdateCharge(charge.id, 'taxMode', value)}>
-                                  <SelectTrigger className="h-10 bg-background">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">No Tax Applicable</SelectItem>
-                                    <SelectItem value="gst">GST Applicable</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {charge.taxMode === 'gst' && (
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={charge.gstRate || ''}
-                                    onChange={(e) => handleUpdateCharge(charge.id, 'gstRate', e.target.value)}
-                                    placeholder="GST %"
-                                    className="h-10 w-28 bg-background text-right font-mono"
-                                  />
-                                )}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-10 w-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
-                                  onClick={() => removeCharge(charge.id)}
-                                >
-                                  <X size={18} weight="bold" />
-                                </Button>
                               </div>
-                            ))}
-                            <div className="px-1 pt-2">
-                              <Button
-                                type="button"
-                                variant="link"
-                                className="h-auto p-0 text-primary"
-                                onClick={addAnotherCharge}
-                              >
-                                + Add Another Charge
-                              </Button>
+                            </div>
+                            <div className="erp-payment-field">
+                              <label>Payment Mode</label>
+                              <Select value={paymentMode} onValueChange={setPaymentMode}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Cash" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Cash">Cash</SelectItem>
+                                  <SelectItem value="Bank">Bank</SelectItem>
+                                  <SelectItem value="UPI">UPI</SelectItem>
+                                  <SelectItem value="Cheque">Cheque</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
-                          )}
-                        </div>
-                        
-                        <div className="erp-total-panel">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Total Quantity:</span>
-                                <span className="font-mono font-semibold text-foreground">{formatMT(totalInvoiceQty)}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Items Total:</span>
-                                <span className="font-mono font-semibold text-foreground">{formatCurrency(totalInvoiceAmount)}</span>
-                              </div>
+
+                          <div className="erp-payment-summary-box">
+                            <div className="erp-payment-summary-row">
+                              <span>Total Payable</span>
+                              <span className="value">₹{finalInvoiceAmountPreview.toFixed(2)}</span>
                             </div>
-                            {(additionalCostBasicRate > 0 || additionalCostFinal > 0) && (
-                              <>
-                                <div className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Additional Cost:</span>
-                                    <span className="font-mono font-semibold text-foreground">{formatCurrency(additionalCostFinal)}</span>
+                            <div className="erp-payment-summary-row">
+                              <span>Amount Paid</span>
+                              <span className="value text-blue-600">₹{paidAmountPreview.toFixed(2)}</span>
+                            </div>
+                            <div className="erp-payment-summary-row divider"></div>
+                            <div className="erp-payment-summary-row balance">
+                              <span>Balance Due</span>
+                              <span className="value">₹{balanceAmountPreview.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          <div className="erp-alert-box-info">
+                            <Info size={18} weight="fill" />
+                            <div>If you mark as fully paid, the Amount Paid will be set equal to Total Payable.</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 3: Additional Charges & Summary */}
+                    <div className="erp-footer-col erp-footer-col-right">
+                      <div className="erp-footer-section">
+                        <div className="erp-footer-section-header w-full justify-between items-center mb-1">
+                          <div className="flex items-center gap-2">
+                            <div className="icon-container flex items-center justify-center text-blue-500 bg-blue-50 p-1 rounded">
+                              <Receipt size={18} weight="bold" />
+                            </div>
+                            <h3 className="m-0 text-base">Additional Charges</h3>
+                          </div>
+                          <div className="text-sm font-semibold">
+                            Total Charges: <span className="font-mono text-blue-600 ml-1">₹{additionalCostFinal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="erp-footer-section-content">
+                          {additionalCharges.length === 0 ? (
+                            <button type="button" className="erp-add-charge-btn" onClick={addAnotherCharge}>
+                              <Plus size={16} weight="bold" /> Add Additional Charge
+                            </button>
+                          ) : (
+                            <div className="flex flex-col gap-3">
+                              {additionalCharges.map((charge) => (
+                                <div key={charge.id} className="erp-charge-dashed-card">
+                                  <Input
+                                    type="text"
+                                    value={charge.remarks}
+                                    onChange={(e) => handleUpdateCharge(charge.id, 'remarks', e.target.value)}
+                                    placeholder="e.g. Transport Charge"
+                                    className="bg-muted/50 border-muted"
+                                  />
+                                  <div className="erp-charge-row-inputs">
+                                    <div className="relative flex-1">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">₹</span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={charge.basicRate || ''}
+                                        onChange={(e) => handleUpdateCharge(charge.id, 'basicRate', e.target.value)}
+                                        placeholder="0.00"
+                                        className="pl-7 font-mono text-right"
+                                      />
+                                    </div>
+                                    <Select value={charge.taxMode} onValueChange={(value) => handleUpdateCharge(charge.id, 'taxMode', value)}>
+                                      <SelectTrigger className="w-[140px]">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">No Tax Applicable</SelectItem>
+                                        <SelectItem value="gst">GST Applicable</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    {charge.taxMode === 'gst' && (
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={charge.gstRate || ''}
+                                        onChange={(e) => handleUpdateCharge(charge.id, 'gstRate', e.target.value)}
+                                        placeholder="GST %"
+                                        className="w-20 font-mono text-right"
+                                      />
+                                    )}
+                                    <button type="button" onClick={() => removeCharge(charge.id)} className="flex items-center justify-center shrink-0">
+                                      <Trash size={16} />
+                                    </button>
                                   </div>
                                 </div>
-                              </>
-                            )}
-                            {roundOffAdjustment !== 0 && (
-                              <div className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground">Round-off:</span>
-                                  <span className="font-mono font-semibold text-foreground">{roundOffAdjustment >= 0 ? '+' : ''}{formatCurrency(roundOffAdjustment)}</span>
-                                </div>
-                              </div>
-                            )}
-                            <div className="h-px bg-border"></div>
-                            <div className="flex items-center justify-between text-xs">
-                              <Button type="button" variant="link" className="h-auto p-0 text-primary text-xs">
-                                + Add Discount
-                              </Button>
-                              <span className="font-mono font-semibold text-foreground">- {formatCurrency(0)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground font-medium">Final Invoice Amount:</span>
-                                  <span className="font-mono font-bold text-base text-primary">{formatCurrency(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment)}</span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs px-2.5 gap-1.5"
-                                  onClick={handleRoundOff}
-                                >
-                                  Round Off
-                                </Button>
+                              ))}
+                              <div className="pt-1 px-1">
+                                <button type="button" className="erp-text-link" onClick={addAnotherCharge}>
+                                  <Plus size={14} weight="bold" /> Add Another Charge
+                                </button>
                               </div>
                             </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="erp-footer-section flex-1">
+                        <div className="erp-footer-section-header items-center mb-1">
+                          <FileText size={20} weight="fill" />
+                          <h3 className="m-0 text-base">Invoice Summary</h3>
+                        </div>
+                        <div className="erp-footer-section-content justify-end">
+                          <div className="erp-invoice-summary-list">
+                            <div className="erp-summary-item">
+                              <span>Total Quantity</span>
+                              <span className="value">{formatMT(totalInvoiceQty)} MT</span>
+                            </div>
+                            <div className="erp-summary-divider"></div>
+                            <div className="erp-summary-item">
+                              <span>Items Subtotal</span>
+                              <span className="value">₹{totalInvoiceAmount.toFixed(2)}</span>
+                            </div>
+                            <div className="erp-summary-divider"></div>
+                            <div className="erp-summary-item">
+                              <span>Additional Charges</span>
+                              <span className="value">₹{additionalCostFinal.toFixed(2)}</span>
+                            </div>
+                            <div className="erp-summary-divider"></div>
+                            <div className="erp-summary-item">
+                              <span>Tax Amount</span>
+                              <span className="value">₹0.00</span>
+                            </div>
+                            <div className="erp-summary-divider"></div>
+                            <div className="erp-summary-item discount">
+                              <span>Discount / Adjustment</span>
+                              <span className="value">- ₹{Math.abs(roundOffAdjustment).toFixed(2)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="erp-final-amount-block mt-auto">
+                            <span className="label">Final Invoice Amount</span>
+                            <span className="amount">₹{(totalInvoiceAmount + additionalCostFinal + roundOffAdjustment).toFixed(2)}</span>
                             <input type="hidden" name="roundOffAdjustment" value={roundOffAdjustment} />
                           </div>
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="erp-global-footer-alert">
+                    <Info size={18} weight="fill" />
+                    Values are updated automatically based on your entries.
                   </div>
                 </div>
               </div>
