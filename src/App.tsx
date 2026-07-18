@@ -469,6 +469,7 @@ function App() {
   const [isHoveringsidebar, setIsHoveringsidebar] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   const remoteRevisionRef = useRef<Record<string, number | null>>({})
+  const lastSavedDataRef = useRef<string>('')
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const [addBusinessDialogOpen, setAddBusinessDialogOpen] = useState(false)
   const [editBusinessDialogOpen, setEditBusinessDialogOpen] = useState(false)
@@ -618,20 +619,37 @@ function App() {
 
     const applyTenantData = (parsedData: Partial<TenantData>) => {
       if (cancelled) return
-      setSuppliers(parsedData.suppliers || [])
-      setCustomers(parsedData.customers || [])
-      setItems(parsedData.items || [])
-      setInvoices(parsedData.invoices || [])
-      setPayments(parsedData.payments || [])
-      setReceivedDiscounts(parsedData.receivedDiscounts || [])
-      setSalesInvoices(parsedData.salesInvoices || [])
-      setCustomerPayments(parsedData.customerPayments || [])
-      setExpenseTypes(parsedData.expenseTypes || [])
-      setExpenseEntries(parsedData.expenseEntries || [])
-      setFixedSchemes(parsedData.fixedSchemes || [])
-      setMTBookings(parsedData.mtBookings || [])
-      setAdvanceBookingPickups(parsedData.advanceBookingPickups || [])
-      setDiscountLedgerEntries(parsedData.discountLedgerEntries || [])
+      const normalizedData: TenantData = {
+        suppliers: parsedData.suppliers || [],
+        customers: parsedData.customers || [],
+        items: parsedData.items || [],
+        invoices: parsedData.invoices || [],
+        payments: parsedData.payments || [],
+        receivedDiscounts: parsedData.receivedDiscounts || [],
+        salesInvoices: parsedData.salesInvoices || [],
+        customerPayments: parsedData.customerPayments || [],
+        expenseTypes: parsedData.expenseTypes || [],
+        expenseEntries: parsedData.expenseEntries || [],
+        fixedSchemes: parsedData.fixedSchemes || [],
+        mtBookings: parsedData.mtBookings || [],
+        advanceBookingPickups: parsedData.advanceBookingPickups || [],
+        discountLedgerEntries: parsedData.discountLedgerEntries || []
+      }
+      lastSavedDataRef.current = JSON.stringify(normalizedData)
+      setSuppliers(normalizedData.suppliers)
+      setCustomers(normalizedData.customers)
+      setItems(normalizedData.items)
+      setInvoices(normalizedData.invoices)
+      setPayments(normalizedData.payments)
+      setReceivedDiscounts(normalizedData.receivedDiscounts)
+      setSalesInvoices(normalizedData.salesInvoices)
+      setCustomerPayments(normalizedData.customerPayments)
+      setExpenseTypes(normalizedData.expenseTypes)
+      setExpenseEntries(normalizedData.expenseEntries)
+      setFixedSchemes(normalizedData.fixedSchemes)
+      setMTBookings(normalizedData.mtBookings)
+      setAdvanceBookingPickups(normalizedData.advanceBookingPickups)
+      setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
     }
 
     if (storedData) {
@@ -705,6 +723,11 @@ function App() {
       discountLedgerEntries
     }
 
+    const currentDataStr = JSON.stringify(tenantData)
+    if (lastSavedDataRef.current && currentDataStr === lastSavedDataRef.current) {
+      return
+    }
+
     if (canUseRemoteStorage() && remoteRevisionRef.current[partitionKey] == null && !hasTenantRecords(tenantData)) {
       return
     }
@@ -726,6 +749,7 @@ function App() {
           )
           if (snapshot) {
             remoteRevisionRef.current[partitionKey] = snapshot.revision
+            lastSavedDataRef.current = JSON.stringify(tenantData)
             writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
           }
         }
@@ -737,21 +761,38 @@ function App() {
               const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
               if (latest) {
                 remoteRevisionRef.current[partitionKey] = latest.revision
-                writeTenantCache(metadata.activeCompanyId, partitionKey, latest.payload, latest.revision)
-                setSuppliers(latest.payload.suppliers || [])
-                setCustomers(latest.payload.customers || [])
-                setItems(latest.payload.items || [])
-                setInvoices(latest.payload.invoices || [])
-                setPayments(latest.payload.payments || [])
-                setReceivedDiscounts(latest.payload.receivedDiscounts || [])
-                setSalesInvoices(latest.payload.salesInvoices || [])
-                setCustomerPayments(latest.payload.customerPayments || [])
-                setExpenseTypes(latest.payload.expenseTypes || [])
-                setExpenseEntries(latest.payload.expenseEntries || [])
-                setFixedSchemes(latest.payload.fixedSchemes || [])
-                setMTBookings(latest.payload.mtBookings || [])
-                setAdvanceBookingPickups(latest.payload.advanceBookingPickups || [])
-                setDiscountLedgerEntries(latest.payload.discountLedgerEntries || [])
+                const normalizedData: TenantData = {
+                  suppliers: latest.payload.suppliers || [],
+                  customers: latest.payload.customers || [],
+                  items: latest.payload.items || [],
+                  invoices: latest.payload.invoices || [],
+                  payments: latest.payload.payments || [],
+                  receivedDiscounts: latest.payload.receivedDiscounts || [],
+                  salesInvoices: latest.payload.salesInvoices || [],
+                  customerPayments: latest.payload.customerPayments || [],
+                  expenseTypes: latest.payload.expenseTypes || [],
+                  expenseEntries: latest.payload.expenseEntries || [],
+                  fixedSchemes: latest.payload.fixedSchemes || [],
+                  mtBookings: latest.payload.mtBookings || [],
+                  advanceBookingPickups: latest.payload.advanceBookingPickups || [],
+                  discountLedgerEntries: latest.payload.discountLedgerEntries || []
+                }
+                lastSavedDataRef.current = JSON.stringify(normalizedData)
+                writeTenantCache(metadata.activeCompanyId, partitionKey, normalizedData, latest.revision)
+                setSuppliers(normalizedData.suppliers)
+                setCustomers(normalizedData.customers)
+                setItems(normalizedData.items)
+                setInvoices(normalizedData.invoices)
+                setPayments(normalizedData.payments)
+                setReceivedDiscounts(normalizedData.receivedDiscounts)
+                setSalesInvoices(normalizedData.salesInvoices)
+                setCustomerPayments(normalizedData.customerPayments)
+                setExpenseTypes(normalizedData.expenseTypes)
+                setExpenseEntries(normalizedData.expenseEntries)
+                setFixedSchemes(normalizedData.fixedSchemes)
+                setMTBookings(normalizedData.mtBookings)
+                setAdvanceBookingPickups(normalizedData.advanceBookingPickups)
+                setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
               }
               return
             }
@@ -950,7 +991,9 @@ function App() {
         expenseTypes: [],
         expenseEntries: [],
         fixedSchemes: [],
-        mtBookings: []
+        mtBookings: [],
+        advanceBookingPickups: [],
+        discountLedgerEntries: []
       }
       writeTenantCache(metadata.activeCompanyId, partitionKey, emptyTenantData, remoteRevisionRef.current[partitionKey] ?? null)
       localStorage.removeItem(cashBankKey)

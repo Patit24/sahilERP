@@ -28,8 +28,8 @@ export interface TenantData {
   expenseEntries: any[]
   fixedSchemes: any[]
   mtBookings: any[]
-  advanceBookingPickups?: any[]
-  discountLedgerEntries?: any[]
+  advanceBookingPickups: any[]
+  discountLedgerEntries: any[]
 }
 
 const METADATA_KEY = 'app_metadata'
