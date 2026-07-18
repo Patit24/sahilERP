@@ -3621,3 +3621,33 @@
   box-shadow: none !important;
   border: 1px solid rgba(0, 0, 0, 0.04) !important;
 }
+
+/* Decrease Party Add Box Height & Apple Redesign */
+.erp-invoice-page-body > .erp-form-panel > .erp-responsive-grid > .erp-party-picker-field {
+  min-height: auto !important;
+  padding: 0 !important;
+}
+
+.erp-party-add-box {
+  min-height: 3.5rem !important;
+  width: 100% !important;
+  border: 1px dashed rgba(0, 0, 0, 0.15) !important;
+  background: rgba(250, 250, 250, 0.6) !important;
+  color: #333 !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  border-radius: 0.75rem !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.erp-party-add-box:hover,
+.erp-party-add-box:focus-visible {
+  border-color: rgba(0, 0, 0, 0.3) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #000 !important;
+}
+
+/* Guarantee Invoice Items Table is Always Visible */
+.erp-invoice-page-shell .erp-reference-table-wrap {
+  min-height: 120px !important;
+}
