@@ -1638,12 +1638,10 @@
 .erp-invoice-page-body .erp-reference-totals-panel {
   min-width: 0 !important;
   width: 100% !important;
-  border: var(--neo-hairline) !important;
-  border-radius: 1.45rem !important;
-  background:
-    linear-gradient(145deg, rgba(247, 250, 255, 0.54), rgba(226, 233, 244, 0.68)),
-    #e9ecf3 !important;
-  box-shadow: var(--neo-shadow-sm) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 1rem !important;
+  background: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
 }
 
   .erp-invoice-page-body .erp-reference-notes-panel {
@@ -1656,12 +1654,19 @@
   .erp-invoice-page-body .erp-reference-notes-panel [data-slot="button"] {
     width: 100% !important;
     min-height: 3.25rem !important;
-    justify-content: flex-start !important;
-    border-radius: 0.9rem !important;
+    justify-content: center !important;
+    border-radius: 0.5rem !important;
     padding: 0 1rem !important;
-    background: rgba(239, 243, 250, 0.86) !important;
-    color: #254d67 !important;
-    box-shadow: var(--neo-shadow-xs) !important;
+    background: transparent !important;
+    border: 1px dashed #cbd5e1 !important;
+    color: #64748b !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease;
+  }
+  .erp-invoice-page-body .erp-reference-notes-panel [data-slot="button"]:hover {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
   }
 
   .erp-invoice-page-body .erp-reference-totals-panel {
@@ -1673,10 +1678,13 @@
   .erp-invoice-page-body .erp-summary-link-row {
     min-height: 4.2rem !important;
     padding: 0.75rem 0.95rem !important;
-    border: 0 !important;
-    border-radius: 1rem !important;
-    background: rgba(239, 243, 250, 0.88) !important;
-    box-shadow: var(--neo-shadow-xs) !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 0.75rem !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .erp-invoice-page-body .erp-summary-link-row [data-slot="button"] {
@@ -1687,24 +1695,33 @@
 
   .erp-invoice-page-body .erp-additional-charge-panel {
     margin-top: 0.85rem !important;
-    border-radius: 1.1rem !important;
+    border-radius: 0.75rem !important;
     padding: 1rem !important;
-    background: rgba(255, 255, 255, 0.34) !important;
-    box-shadow: var(--neo-shadow-inset) !important;
+    background: #f8fafc !important;
+    border: 1px dashed #cbd5e1 !important;
+    box-shadow: none !important;
   }
 
   .erp-invoice-page-body .erp-additional-charge-row {
-    grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.45fr) minmax(170px, 0.55fr) minmax(96px, auto) 2.75rem !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
     gap: 0.75rem !important;
+  }
+  .erp-invoice-page-body .erp-additional-charge-row > :first-child {
+    flex: 1 1 100% !important;
+  }
+  .erp-invoice-page-body .erp-additional-charge-row > :not(:first-child) {
+    flex: 1 1 100px !important;
+  }
+  .erp-invoice-page-body .erp-additional-charge-row > button {
+    flex: 0 0 2.5rem !important;
   }
 
   .erp-invoice-page-body .erp-reference-totals-panel .erp-total-panel {
-    border: var(--neo-hairline) !important;
-    border-radius: 1.3rem !important;
-    background:
-      linear-gradient(145deg, rgba(37, 99, 235, 0.04), rgba(20, 184, 166, 0.05)),
-      #e9ecf3 !important;
-    box-shadow: var(--neo-shadow-sm) !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 0.75rem !important;
+    background: #f1f5f9 !important;
+    box-shadow: none !important;
     padding: 1.15rem 1.25rem !important;
   }
 
@@ -1723,12 +1740,10 @@
   .erp-invoice-page-body .erp-signature-panel {
     display: block !important;
     min-width: 0 !important;
-    border: var(--neo-hairline) !important;
-    border-radius: 1.35rem !important;
-    background:
-      linear-gradient(145deg, rgba(247, 250, 255, 0.48), rgba(224, 231, 242, 0.72)),
-      #e9ecf3 !important;
-    box-shadow: var(--neo-shadow-sm) !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 1rem !important;
+    background: #f8fafc !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
     padding: 1.25rem !important;
   }
 
@@ -1925,8 +1940,19 @@
     .erp-payment-fields-grid,
     .erp-signature-grid,
     .erp-invoice-page-body .erp-additional-charge-row {
-      grid-template-columns: 1fr !important;
-    }
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+  }
+  .erp-invoice-page-body .erp-additional-charge-row > :first-child {
+    flex: 1 1 100% !important;
+  }
+  .erp-invoice-page-body .erp-additional-charge-row > :not(:first-child) {
+    flex: 1 1 100px !important;
+  }
+  .erp-invoice-page-body .erp-additional-charge-row > button {
+    flex: 0 0 2.5rem !important;
+  }
 
     .erp-payment-header-row {
       flex-direction: column !important;
