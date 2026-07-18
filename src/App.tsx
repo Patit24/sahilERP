@@ -732,6 +732,8 @@ function App() {
       return
     }
     
+    console.log('💾 Scheduling remote save. itemsCount:', items.length, 'expectedRevision:', remoteRevisionRef.current[partitionKey])
+
     writeTenantCache(
       metadata.activeCompanyId,
       partitionKey,
@@ -741,6 +743,7 @@ function App() {
     if (canUseRemoteStorage()) {
       const timerId = setTimeout(() => {
         const saveRemote = async () => {
+          console.log('💾 Running saveRemote to Firestore. itemsCount:', items.length, 'expectedRevision:', remoteRevisionRef.current[partitionKey])
           const snapshot = await saveRemoteTenantData(
             metadata.activeCompanyId,
             partitionKey,
@@ -748,6 +751,7 @@ function App() {
             remoteRevisionRef.current[partitionKey] ?? null
           )
           if (snapshot) {
+            console.log('💾 saveRemote SUCCESS. New revision:', snapshot.revision, 'New itemsCount:', snapshot.payload.items?.length || 0)
             remoteRevisionRef.current[partitionKey] = snapshot.revision
             lastSavedDataRef.current = JSON.stringify(tenantData)
             writeTenantCache(metadata.activeCompanyId, partitionKey, snapshot.payload, snapshot.revision)
@@ -756,10 +760,12 @@ function App() {
 
         saveRemote()
           .catch(async (error) => {
+            console.error('❌ saveRemote FAILED:', error)
             if (error instanceof RemoteSnapshotConflictError) {
               toast.error('Remote data changed. Reloading latest company data.')
               const latest = await loadRemoteTenantData(metadata.activeCompanyId, partitionKey)
               if (latest) {
+                console.log('💾 Reloaded snapshot after conflict. Revision:', latest.revision, 'itemsCount:', latest.payload.items?.length || 0)
                 remoteRevisionRef.current[partitionKey] = latest.revision
                 const normalizedData: TenantData = {
                   suppliers: latest.payload.suppliers || [],
@@ -837,6 +843,12 @@ function App() {
     if (!tenantHydrated || !canUseRemoteStorage()) return
     if (useServerAuth && !canSyncRemoteTenant) return
     return subscribeTenantData(metadata.activeCompanyId, tenantKey, (remoteSnapshot) => {
+      console.log('📡 Realtime subscription received update:', {
+        revision: remoteSnapshot.revision,
+        deviceId: remoteSnapshot.device_id,
+        localDeviceId: localStorage.getItem('app_device_id'),
+        itemsCount: remoteSnapshot.payload.items?.length || 0
+      })
       remoteRevisionRef.current[tenantKey] = remoteSnapshot.revision
       const normalizedData: TenantData = {
         suppliers: remoteSnapshot.payload.suppliers || [],
