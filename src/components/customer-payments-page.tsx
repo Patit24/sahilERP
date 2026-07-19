@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { CustomerPayment, Customer, SalesInvoice } from '@/lib/types'
-import { Counter } from '@/lib/cash-bank-types'
+import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -28,9 +28,12 @@ interface CustomerPaymentsPageProps {
   isLocked?: boolean
   activeCompanyId: string
   activeFY: string
+  counters: Counter[]
+  transactions: CashBankTransaction[]
+  onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
 }
 
-export default function CustomerPaymentsPage({ customerPayments, setCustomerPayments, customers, salesInvoices, currentFY, isLocked = false, activeCompanyId, activeFY }: CustomerPaymentsPageProps) {
+export default function CustomerPaymentsPage({ customerPayments, setCustomerPayments, customers, salesInvoices, currentFY, isLocked = false, activeCompanyId, activeFY, counters, transactions, onUpdateCashBank }: CustomerPaymentsPageProps) {
   const [open, setOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<CustomerPayment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -39,21 +42,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
   const [selectedCustomerInForm, setSelectedCustomerInForm] = useState<string>('')
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false)
-  const [counters, setCounters] = useState<Counter[]>([])
   const [selectedCounterId, setSelectedCounterId] = useState<string>('')
-  
-  useEffect(() => {
-    const storageKey = `cashbank_${activeCompanyId}_${activeFY}`
-    const storedData = localStorage.getItem(storageKey)
-    if (storedData) {
-      try {
-        const parsedData = JSON.parse(storedData)
-        setCounters(parsedData.counters || [])
-      } catch (error) {
-        console.error('Failed to load cash & bank counters:', error)
-      }
-    }
-  }, [activeCompanyId, activeFY])
 
   const fyPayments = customerPayments.filter(p => p.fy === currentFY)
   const fyMonths = getFYMonths(currentFY)
@@ -125,76 +114,91 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
     }
 
     const paymentAmount = parseFloat(formData.get('amount') as string)
+    const customerId = formData.get('customerId') as string
+    const customerName = getCustomerName(customerId)
+
+    const notes = formData.get('notes') as string || undefined
 
     if (editingPayment) {
       const updatedPayment: CustomerPayment = {
         ...editingPayment,
-        customerId: formData.get('customerId') as string,
-        paymentDate: formData.get('paymentDate') as string,
+        customerId,
+        paymentDate,
         amount: paymentAmount,
-        notes: formData.get('notes') as string || undefined,
+        notes,
         counterId: counterId,
         counterName: selectedCounter.name
       }
       setCustomerPayments((prev) => prev.map(p => p.id === editingPayment.id ? updatedPayment : p))
       
-      const oldCounter = counters.find(c => c.id === editingPayment.counterId)
-      if (oldCounter && oldCounter.id !== counterId) {
-        const storageKey = `cashbank_${activeCompanyId}_${activeFY}`
-        const storedData = localStorage.getItem(storageKey)
-        if (storedData) {
-          const parsedData = JSON.parse(storedData)
-          const updatedCounters = (parsedData.counters || []).map((c: Counter) => {
-            if (c.id === oldCounter.id) {
-              return { ...c, currentBalance: c.currentBalance - editingPayment.amount }
-            }
-            if (c.id === counterId) {
-              return { ...c, currentBalance: c.currentBalance + paymentAmount }
-            }
-            return c
-          })
-          localStorage.setItem(storageKey, JSON.stringify({ ...parsedData, counters: updatedCounters }))
-        }
-      } else if (oldCounter && oldCounter.id === counterId && editingPayment.amount !== paymentAmount) {
-        const storageKey = `cashbank_${activeCompanyId}_${activeFY}`
-        const storedData = localStorage.getItem(storageKey)
-        if (storedData) {
-          const parsedData = JSON.parse(storedData)
-          const updatedCounters = (parsedData.counters || []).map((c: Counter) => {
-            if (c.id === counterId) {
-              return { ...c, currentBalance: c.currentBalance - editingPayment.amount + paymentAmount }
-            }
-            return c
-          })
-          localStorage.setItem(storageKey, JSON.stringify({ ...parsedData, counters: updatedCounters }))
-        }
+      let newCounters = [...counters]
+      let newTransactions = [...transactions]
+      
+      const oldCounterId = editingPayment.counterId
+      if (oldCounterId) {
+        newCounters = newCounters.map(c => 
+          c.id === oldCounterId ? { ...c, currentBalance: c.currentBalance - editingPayment.amount } : c
+        )
       }
+      newCounters = newCounters.map(c => 
+        c.id === counterId ? { ...c, currentBalance: c.currentBalance + paymentAmount } : c
+      )
+      
+      const txnId = `txn-cp-${editingPayment.id}`
+      const existingTxn = newTransactions.find(t => t.id === txnId)
+      if (existingTxn) {
+        newTransactions = newTransactions.map(t => 
+          t.id === txnId ? {
+            ...t,
+            date: paymentDate,
+            counterId,
+            counterName: selectedCounter.name,
+            amount: paymentAmount,
+            narration: `Customer Payment Edited: ${customerName} ${notes ? `(${notes})` : ''}`.trim()
+          } : t
+        )
+      } else {
+        newTransactions.push({
+          id: txnId,
+          date: paymentDate,
+          counterId,
+          counterName: selectedCounter.name,
+          type: 'In',
+          amount: paymentAmount,
+          narration: `Customer Payment: ${customerName} ${notes ? `(${notes})` : ''}`.trim()
+        })
+      }
+      onUpdateCashBank(newCounters, newTransactions)
+
     } else {
+      const paymentId = `customer-payment-${Date.now()}`
       const payment: CustomerPayment = {
-        id: `customer-payment-${Date.now()}`,
-        customerId: formData.get('customerId') as string,
-        paymentDate: formData.get('paymentDate') as string,
+        id: paymentId,
+        customerId,
+        paymentDate,
         amount: paymentAmount,
-        notes: formData.get('notes') as string || undefined,
+        notes,
         counterId: counterId,
         counterName: selectedCounter.name,
         fy: currentFY
       }
       setCustomerPayments((prev) => [...prev, payment])
       
-      const storageKey = `cashbank_${activeCompanyId}_${activeFY}`
-      const storedData = localStorage.getItem(storageKey)
-      if (storedData) {
-        const parsedData = JSON.parse(storedData)
-        const updatedCounters = (parsedData.counters || []).map((c: Counter) => {
-          if (c.id === counterId) {
-            return { ...c, currentBalance: c.currentBalance + paymentAmount }
-          }
-          return c
-        })
-        localStorage.setItem(storageKey, JSON.stringify({ ...parsedData, counters: updatedCounters }))
-        setCounters(updatedCounters)
-      }
+      const newCounters = counters.map(c => 
+        c.id === counterId ? { ...c, currentBalance: c.currentBalance + paymentAmount } : c
+      )
+      
+      const newTransactions = [...transactions, {
+        id: `txn-cp-${paymentId}`,
+        date: paymentDate,
+        counterId,
+        counterName: selectedCounter.name,
+        type: 'In',
+        amount: paymentAmount,
+        narration: `Customer Payment: ${customerName} ${notes ? `(${notes})` : ''}`.trim()
+      } as CashBankTransaction]
+      
+      onUpdateCashBank(newCounters, newTransactions)
     }
 
     setOpen(false)
@@ -229,6 +233,16 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   const confirmDelete = () => {
     if (paymentToDelete) {
       setCustomerPayments((prev) => prev.filter((p) => p.id !== paymentToDelete.id))
+      
+      let newCounters = counters
+      if (paymentToDelete.counterId) {
+        newCounters = newCounters.map(c => 
+          c.id === paymentToDelete.counterId ? { ...c, currentBalance: c.currentBalance - paymentToDelete.amount } : c
+        )
+      }
+      const newTransactions = transactions.filter(t => t.id !== `txn-cp-${paymentToDelete.id}`)
+      onUpdateCashBank(newCounters, newTransactions)
+      
       toast.success('Customer payment deleted successfully')
       setDeleteDialogOpen(false)
       setPaymentToDelete(null)

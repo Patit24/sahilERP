@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { FixedScheme, Item, MTBooking, Payment, PurchaseInvoice, Supplier } from '@/lib/types'
+import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -27,9 +28,12 @@ interface PaymentsPageProps {
   fixedSchemes: FixedScheme[]
   currentFY: string
   isLocked?: boolean
+  counters: Counter[]
+  transactions: CashBankTransaction[]
+  onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
 }
 
-export default function PaymentsPage({ payments, setPayments, setMTBookings, invoices, items, suppliers, fixedSchemes, currentFY, isLocked = false }: PaymentsPageProps) {
+export default function PaymentsPage({ payments, setPayments, setMTBookings, invoices, items, suppliers, fixedSchemes, currentFY, isLocked = false, counters, transactions, onUpdateCashBank }: PaymentsPageProps) {
   const [open, setOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -39,6 +43,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [doNotApplyCD, setDoNotApplyCD] = useState(false)
   const [advanceBookingEnabled, setAdvanceBookingEnabled] = useState(false)
   const [formSupplierId, setFormSupplierId] = useState('')
+  const [selectedCounterId, setSelectedCounterId] = useState('')
   const [paymentAmount, setPaymentAmount] = useState('')
   const [bookingMTInput, setBookingMTInput] = useState('')
   const [bookingMarketRateInput, setBookingMarketRateInput] = useState('')
@@ -207,11 +212,23 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
     const paymentDate = formData.get('paymentDate') as string
     const supplierId = formSupplierId || (formData.get('supplierId') as string)
     const amount = parseFloat(paymentAmount || (formData.get('amount') as string))
+    const counterId = formData.get('counterId') as string
     const bookingMT = Math.max(0, parseFloat(bookingMTInput || (formData.get('bookingMT') as string)) || 0)
     const bookingMarketRate = Math.max(0, parseFloat(bookingMarketRateInput || (formData.get('bookingMarketRate') as string)) || 0)
 
     if (!supplierId) {
       toast.error('Select a supplier')
+      return
+    }
+    
+    if (!counterId) {
+      toast.error('Select a payment account (Counter)')
+      return
+    }
+    
+    const selectedCounter = counters.find(c => c.id === counterId)
+    if (!selectedCounter) {
+      toast.error('Invalid counter selected')
       return
     }
 
@@ -252,6 +269,8 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
         bookingMarketRate: advanceBookingEnabled ? bookingMarketRate : undefined,
         mtBookingId: advanceBookingEnabled ? (editingPayment.mtBookingId || `payment-mt-booking-${editingPayment.id}`) : undefined,
         doNotApplyCD: doNotApplyCD,
+        counterId: counterId,
+        counterName: selectedCounter.name
       }
       setPayments((prev) => prev.map(p => p.id === editingPayment.id ? updatedPayment : p))
       if (!advanceBookingEnabled && editingPayment.mtBookingId) {
@@ -259,6 +278,47 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       } else {
         upsertPaymentMTBooking(updatedPayment)
       }
+      
+      let newCounters = [...counters]
+      let newTransactions = [...transactions]
+      
+      const oldCounterId = editingPayment.counterId
+      if (oldCounterId) {
+        newCounters = newCounters.map(c => 
+          c.id === oldCounterId ? { ...c, currentBalance: c.currentBalance + editingPayment.amount } : c
+        )
+      }
+      newCounters = newCounters.map(c => 
+        c.id === counterId ? { ...c, currentBalance: c.currentBalance - amount } : c
+      )
+      
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name || 'Unknown'
+      const txnId = `txn-sp-${editingPayment.id}`
+      const existingTxn = newTransactions.find(t => t.id === txnId)
+      if (existingTxn) {
+        newTransactions = newTransactions.map(t => 
+          t.id === txnId ? {
+            ...t,
+            date: paymentDate,
+            counterId,
+            counterName: selectedCounter.name,
+            amount: amount,
+            narration: `Supplier Payment Edited: ${supplierName}`.trim()
+          } : t
+        )
+      } else {
+        newTransactions.push({
+          id: txnId,
+          date: paymentDate,
+          counterId,
+          counterName: selectedCounter.name,
+          type: 'Out',
+          amount: amount,
+          narration: `Supplier Payment: ${supplierName}`.trim()
+        })
+      }
+      onUpdateCashBank(newCounters, newTransactions)
+
     } else {
       const paymentId = `payment-${Date.now()}`
       const payment: Payment = {
@@ -271,11 +331,30 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
         bookingMarketRate: advanceBookingEnabled ? bookingMarketRate : undefined,
         mtBookingId: advanceBookingEnabled ? `payment-mt-booking-${paymentId}` : undefined,
         doNotApplyCD: doNotApplyCD,
+        counterId: counterId,
+        counterName: selectedCounter.name,
         fy: currentFY,
         createdAt: Date.now()
       }
       setPayments((prev) => [...prev, payment])
       upsertPaymentMTBooking(payment)
+      
+      const newCounters = counters.map(c => 
+        c.id === counterId ? { ...c, currentBalance: c.currentBalance - amount } : c
+      )
+      
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name || 'Unknown'
+      const newTransactions = [...transactions, {
+        id: `txn-sp-${paymentId}`,
+        date: paymentDate,
+        counterId,
+        counterName: selectedCounter.name,
+        type: 'Out',
+        amount: amount,
+        narration: `Supplier Payment: ${supplierName}`.trim()
+      } as CashBankTransaction]
+      
+      onUpdateCashBank(newCounters, newTransactions)
     }
 
     setOpen(false)
@@ -298,6 +377,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
     setDoNotApplyCD(payment.doNotApplyCD || false)
     setAdvanceBookingEnabled(payment.isAdvance || Boolean(payment.bookingMT))
     setFormSupplierId(payment.supplierId)
+    setSelectedCounterId(payment.counterId || '')
     setPaymentAmount(String(payment.amount || ''))
     setBookingMTInput(payment.bookingMT ? String(payment.bookingMT) : '')
     setBookingMarketRateInput(payment.bookingMarketRate ? String(payment.bookingMarketRate) : '')
@@ -321,6 +401,16 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       if (paymentToDelete.mtBookingId) {
         setMTBookings((prev) => prev.filter((booking) => booking.id !== paymentToDelete.mtBookingId))
       }
+      
+      let newCounters = counters
+      if (paymentToDelete.counterId) {
+        newCounters = newCounters.map(c => 
+          c.id === paymentToDelete.counterId ? { ...c, currentBalance: c.currentBalance + paymentToDelete.amount } : c
+        )
+      }
+      const newTransactions = transactions.filter(t => t.id !== `txn-sp-${paymentToDelete.id}`)
+      onUpdateCashBank(newCounters, newTransactions)
+      
       toast.success('Payment deleted successfully')
       setDeleteDialogOpen(false)
       setPaymentToDelete(null)
@@ -338,6 +428,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
     setDoNotApplyCD(false)
     setAdvanceBookingEnabled(false)
     setFormSupplierId('')
+    setSelectedCounterId('')
     setPaymentAmount('')
     setBookingMTInput('')
     setBookingMarketRateInput('')
@@ -350,6 +441,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       setEditingPayment(null)
       setAdvanceBookingEnabled(false)
       setFormSupplierId('')
+      setSelectedCounterId('')
       setPaymentAmount('')
       setBookingMTInput('')
       setBookingMarketRateInput('')
@@ -440,6 +532,22 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                   required 
                 />
                 <p className="text-xs text-muted-foreground">Must be within {currentFY}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="counterId">Payment Account</Label>
+                <Select name="counterId" value={selectedCounterId} onValueChange={setSelectedCounterId} required>
+                  <SelectTrigger id="counterId">
+                    <SelectValue placeholder="Select Cash/Bank account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {counters.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} ({c.type}) - Bal: ₹{c.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

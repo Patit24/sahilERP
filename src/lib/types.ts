@@ -167,6 +167,8 @@ export interface Payment {
   bookingMarketRate?: number
   mtBookingId?: string
   doNotApplyCD?: boolean
+  counterId?: string
+  counterName?: string
   fy: string
   createdAt?: number
   advanceCDSnapshot?: number
@@ -310,6 +312,8 @@ export interface ExpenseEntry {
   linkedInvoiceId?: string
   originalInvoiceNumber?: string
   paymentMode?: string
+  counterId?: string
+  counterName?: string
   expenseWithGst?: boolean
   notes?: string
   fy: string

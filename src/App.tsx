@@ -1739,6 +1739,12 @@ function App() {
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('invoices')}
               gstPercentage={safeGstPercentage}
+              counters={cashBankCounters}
+              transactions={cashBankTransactions}
+              onUpdateCashBank={(c, t) => {
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
+              }}
             />
           )
         case 'payments':
@@ -1753,6 +1759,12 @@ function App() {
               fixedSchemes={safeFixedSchemes}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('payments')}
+              counters={cashBankCounters}
+              transactions={cashBankTransactions}
+              onUpdateCashBank={(c, t) => {
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
+              }}
             />
           )
         case 'advance-mt-bookings':
@@ -1783,6 +1795,12 @@ function App() {
               setItems={setItems}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('sales-invoices')}
+              counters={cashBankCounters}
+              transactions={cashBankTransactions}
+              onUpdateCashBank={(c, t) => {
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
+              }}
             />
           )
         case 'customer-payments':
@@ -1796,6 +1814,12 @@ function App() {
               isLocked={isViewReadOnly('customer-payments')}
               activeCompanyId={metadata.activeCompanyId}
               activeFY={safeCurrentFY}
+              counters={cashBankCounters}
+              transactions={cashBankTransactions}
+              onUpdateCashBank={(c, t) => {
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
+              }}
             />
           )
         case 'fixed-schemes':
@@ -1882,6 +1906,12 @@ function App() {
               invoices={safeInvoices}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('expense-entries')}
+              counters={cashBankCounters}
+              transactions={cashBankTransactions}
+              onUpdateCashBank={(c, t) => {
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
+              }}
             />
           )
         case 'inventory':

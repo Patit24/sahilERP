@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { ExpenseEntry, ExpenseType, Supplier, PurchaseInvoice } from '@/lib/types'
+import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Plus, Trash, CurrencyInr, LinkSimple, TrendDown, PencilSimple, FunnelSimple, CaretUpDown, Check, Warning } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
@@ -28,6 +29,9 @@ interface ExpenseEntriesPageProps {
   invoices: PurchaseInvoice[]
   currentFY: string
   isLocked?: boolean
+  counters: Counter[]
+  transactions: CashBankTransaction[]
+  onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
 }
 
 export default function ExpenseEntriesPage({
@@ -37,7 +41,10 @@ export default function ExpenseEntriesPage({
   suppliers,
   invoices,
   currentFY,
-  isLocked = false
+  isLocked = false,
+  counters,
+  transactions,
+  onUpdateCashBank
 }: ExpenseEntriesPageProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<ExpenseEntry | null>(null)
@@ -50,7 +57,7 @@ export default function ExpenseEntriesPage({
   const [linkedInvoiceId, setLinkedInvoiceId] = useState<string>('')
   const [notes, setNotes] = useState('')
   const [originalInvoiceNumber, setOriginalInvoiceNumber] = useState('')
-  const [paymentMode, setPaymentMode] = useState('')
+  const [selectedCounterId, setSelectedCounterId] = useState('')
   const [expenseWithGst, setExpenseWithGst] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
@@ -69,7 +76,7 @@ export default function ExpenseEntriesPage({
     setLinkedInvoiceId('')
     setNotes('')
     setOriginalInvoiceNumber('')
-    setPaymentMode('')
+    setSelectedCounterId('')
     setExpenseWithGst(false)
     setEditingExpense(null)
   }
@@ -89,7 +96,7 @@ export default function ExpenseEntriesPage({
     setLinkedInvoiceId(expense.linkedInvoiceId || '')
     setNotes(expense.notes || '')
     setOriginalInvoiceNumber(expense.originalInvoiceNumber || '')
-    setPaymentMode(expense.paymentMode || '')
+    setSelectedCounterId(expense.counterId || '')
     setExpenseWithGst(Boolean(expense.expenseWithGst))
     setIsAddDialogOpen(true)
   }
@@ -124,6 +131,16 @@ export default function ExpenseEntriesPage({
       toast.error('Please select an invoice')
       return
     }
+    
+    if (!selectedCounterId) {
+      toast.error('Please select a payment account (Counter)')
+      return
+    }
+    const selectedCounter = counters.find(c => c.id === selectedCounterId)
+    if (!selectedCounter) {
+      toast.error('Invalid counter selected')
+      return
+    }
 
     const selectedInvoice = linkedInvoiceId ? invoices.find(inv => inv.id === linkedInvoiceId) : null
     const finalSupplierId = selectedInvoice ? selectedInvoice.supplierId : (supplierId || undefined)
@@ -137,27 +154,87 @@ export default function ExpenseEntriesPage({
         amount: parseFloat(amount),
         linkedInvoiceId: linkType === 'invoice' && linkedInvoiceId ? linkedInvoiceId : undefined,
         originalInvoiceNumber: originalInvoiceNumber.trim() || undefined,
-        paymentMode: paymentMode || undefined,
+        counterId: selectedCounterId,
+        counterName: selectedCounter.name,
         expenseWithGst,
         notes: notes.trim() || undefined,
       }
       setExpenseEntries((prev) => prev.map(e => e.id === editingExpense.id ? updatedExpense : e))
+      
+      let newCounters = [...counters]
+      let newTransactions = [...transactions]
+      
+      if (editingExpense.counterId) {
+        newCounters = newCounters.map(c => 
+          c.id === editingExpense.counterId ? { ...c, currentBalance: c.currentBalance + editingExpense.amount } : c
+        )
+      }
+      newCounters = newCounters.map(c => 
+        c.id === selectedCounterId ? { ...c, currentBalance: c.currentBalance - parseFloat(amount) } : c
+      )
+      
+      const txnId = `txn-exp-${editingExpense.id}`
+      const existingTxn = newTransactions.find(t => t.id === txnId)
+      if (existingTxn) {
+        newTransactions = newTransactions.map(t => 
+          t.id === txnId ? {
+            ...t,
+            date: expenseDate,
+            counterId: selectedCounterId,
+            counterName: selectedCounter.name,
+            amount: parseFloat(amount),
+            narration: `Expense Edited: ${selectedExpenseType?.name || 'Unknown'}`.trim()
+          } : t
+        )
+      } else {
+        newTransactions.push({
+          id: txnId,
+          date: expenseDate,
+          counterId: selectedCounterId,
+          counterName: selectedCounter.name,
+          type: 'Out',
+          amount: parseFloat(amount),
+          narration: `Expense: ${selectedExpenseType?.name || 'Unknown'}`.trim()
+        })
+      }
+      
+      onUpdateCashBank(newCounters, newTransactions)
+      
       toast.success('Expense entry updated successfully')
     } else {
+      const expId = `exp-${Date.now()}`
       const newExpense: ExpenseEntry = {
-        id: `exp-${Date.now()}`,
+        id: expId,
         supplierId: finalSupplierId,
         expenseTypeId,
         expenseDate,
         amount: parseFloat(amount),
         linkedInvoiceId: linkType === 'invoice' && linkedInvoiceId ? linkedInvoiceId : undefined,
         originalInvoiceNumber: originalInvoiceNumber.trim() || undefined,
-        paymentMode: paymentMode || undefined,
+        counterId: selectedCounterId,
+        counterName: selectedCounter.name,
         expenseWithGst,
         notes: notes.trim() || undefined,
         fy: currentFY
       }
       setExpenseEntries((prev) => [...prev, newExpense])
+      
+      const newCounters = counters.map(c => 
+        c.id === selectedCounterId ? { ...c, currentBalance: c.currentBalance - parseFloat(amount) } : c
+      )
+      
+      const newTransactions = [...transactions, {
+        id: `txn-exp-${expId}`,
+        date: expenseDate,
+        counterId: selectedCounterId,
+        counterName: selectedCounter.name,
+        type: 'Out',
+        amount: parseFloat(amount),
+        narration: `Expense: ${selectedExpenseType?.name || 'Unknown'}`.trim()
+      } as CashBankTransaction]
+      
+      onUpdateCashBank(newCounters, newTransactions)
+      
       toast.success('Expense entry added successfully')
     }
     
@@ -179,6 +256,16 @@ export default function ExpenseEntriesPage({
   const confirmDelete = () => {
     if (expenseToDelete) {
       setExpenseEntries((prev) => prev.filter(e => e.id !== expenseToDelete.id))
+      
+      let newCounters = counters
+      if (expenseToDelete.counterId) {
+        newCounters = newCounters.map(c => 
+          c.id === expenseToDelete.counterId ? { ...c, currentBalance: c.currentBalance + expenseToDelete.amount } : c
+        )
+      }
+      const newTransactions = transactions.filter(t => t.id !== `txn-exp-${expenseToDelete.id}`)
+      onUpdateCashBank(newCounters, newTransactions)
+      
       toast.success('Expense entry deleted successfully')
       setDeleteDialogOpen(false)
       setExpenseToDelete(null)
@@ -424,6 +511,22 @@ export default function ExpenseEntriesPage({
                   />
                   <p className="text-xs text-muted-foreground">Must be within {currentFY}</p>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="counterId">Payment Account</Label>
+                  <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required>
+                    <SelectTrigger id="counterId">
+                      <SelectValue placeholder="Select Cash/Bank account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {counters.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.type}) - Bal: ₹{c.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

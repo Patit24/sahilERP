@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment } from '@/lib/types'
+import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -32,11 +33,14 @@ interface InvoicesPageProps {
   currentFY: string
   isLocked?: boolean
   gstPercentage?: number
+  counters: Counter[]
+  transactions: CashBankTransaction[]
+  onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
 }
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
 
-export default function InvoicesPage({ invoices, setInvoices, suppliers, setSuppliers, payments, setPayments, items, setItems, currentFY, isLocked = false, gstPercentage = 18 }: InvoicesPageProps) {
+export default function InvoicesPage({ invoices, setInvoices, suppliers, setSuppliers, payments, setPayments, items, setItems, currentFY, isLocked = false, gstPercentage = 18, counters, transactions, onUpdateCashBank }: InvoicesPageProps) {
   const [open, setOpen] = useState(false)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [editingInvoice, setEditingInvoice] = useState<PurchaseInvoice | null>(null)
@@ -55,7 +59,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const additionalCostFinal = additionalCharges.reduce((sum, c) => sum + (c.finalAmt || 0), 0)
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [amountPaid, setAmountPaid] = useState('')
-  const [paymentMode, setPaymentMode] = useState('Cash')
+  const [selectedCounterId, setSelectedCounterId] = useState('')
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
     const [selectedSupplierId, setSelectedSupplierId] = useState('')
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false)
@@ -99,12 +103,13 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
 
   const getInvoicePaymentId = (invoiceId: string) => `purchase-invoice-payment-${invoiceId}`
 
-  const syncInvoicePayment = (invoiceId: string, supplierId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, mode: string) => {
+  const syncInvoicePayment = (invoiceId: string, supplierId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, counterId: string) => {
     const paidAmount = Math.max(0, rawAmount || 0)
+    const paymentId = getInvoicePaymentId(invoiceId)
+    const selectedCounter = counters.find(c => c.id === counterId)
+    const oldPayment = payments.find(p => p.id === paymentId)
 
     setPayments((prev) => {
-      const paymentId = getInvoicePaymentId(invoiceId)
-
       if (paidAmount <= 0) {
         return prev.filter((payment) => payment.id !== paymentId)
       }
@@ -114,7 +119,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         supplierId,
         paymentDate: invoiceDate,
         amount: paidAmount,
-        paymentMode: mode || 'Cash',
+        counterId: counterId,
+        counterName: selectedCounter?.name || 'Unknown',
         isAdvance: false,
         doNotApplyCD: false,
         fy: currentFY,
@@ -134,6 +140,50 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           : candidate
       ))
     })
+
+    let newCounters = [...counters]
+    let newTransactions = [...transactions]
+    const txnId = `txn-sp-${paymentId}`
+    
+    if (paidAmount <= 0) {
+      if (oldPayment?.counterId) {
+        newCounters = newCounters.map(c => c.id === oldPayment.counterId ? { ...c, currentBalance: c.currentBalance + oldPayment.amount } : c)
+      }
+      newTransactions = newTransactions.filter(t => t.id !== txnId)
+    } else {
+      if (oldPayment?.counterId) {
+        newCounters = newCounters.map(c => c.id === oldPayment.counterId ? { ...c, currentBalance: c.currentBalance + oldPayment.amount } : c)
+      }
+      if (counterId) {
+        newCounters = newCounters.map(c => c.id === counterId ? { ...c, currentBalance: c.currentBalance - paidAmount } : c)
+      }
+      
+      const supplierName = suppliers.find(s => s.id === supplierId)?.name || 'Unknown'
+      
+      const existingTxn = newTransactions.find(t => t.id === txnId)
+      if (existingTxn) {
+        newTransactions = newTransactions.map(t => t.id === txnId ? {
+          ...t,
+          date: invoiceDate,
+          counterId: counterId,
+          counterName: selectedCounter?.name || 'Unknown',
+          amount: paidAmount,
+          narration: `Supplier Payment for Invoice ${invoiceNo}: ${supplierName}`.trim()
+        } : t)
+      } else {
+        newTransactions.push({
+          id: txnId,
+          date: invoiceDate,
+          counterId: counterId,
+          counterName: selectedCounter?.name || 'Unknown',
+          type: 'Out',
+          amount: paidAmount,
+          narration: `Supplier Payment for Invoice ${invoiceNo}: ${supplierName}`.trim()
+        })
+      }
+    }
+    
+    onUpdateCashBank(newCounters, newTransactions)
 
     if (paidAmount > 0) {
       toast.success(`Payment linked to invoice ${invoiceNo}`)
@@ -397,9 +447,14 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     const additionalCostRemarks = aggregatedRemarks
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
     const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
-    const rawAmountPaid = parseFloat(formData.get('amountPaid') as string) || 0
-    const paymentAmount = Math.min(Math.max(rawAmountPaid, 0), finalInvoiceAmount)
-    const selectedPaymentMode = (formData.get('paymentMode') as string) || 'Cash'
+    const amountValue = amountPaid || formData.get('amountPaid') as string
+    const finalAmountPaid = Math.max(0, parseFloat(amountValue) || 0)
+    const counterId = formData.get('counterId') as string
+    
+    if (finalAmountPaid > 0 && !counterId) {
+      toast.error('Please select a payment account')
+      return
+    }
 
     if (editingInvoice) {
       const updated: PurchaseInvoice = {
@@ -416,7 +471,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         roundOffAdjustment: roundOffAdjustment || undefined,
               }
       setInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updated : inv))
-      syncInvoicePayment(editingInvoice.id, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode)
+      syncInvoicePayment(editingInvoice.id, supplierId, invoiceNo, invoiceDate, finalAmountPaid, counterId)
       toast.success('Invoice updated successfully')
     } else {
       const invoiceId = `invoice-${Date.now()}`
@@ -436,7 +491,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         createdAt: Date.now()
       }
       setInvoices((prev) => [...prev, invoice])
-      syncInvoicePayment(invoiceId, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode)
+      syncInvoicePayment(invoiceId, supplierId, formData.get('invoiceNo') as string, formData.get('invoiceDate') as string, finalAmountPaid, counterId)
       toast.success('Invoice added successfully')
     }
 
@@ -540,7 +595,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     const linkedPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     setAmountPaid(linkedPayment ? String(linkedPayment.amount) : '')
-    setPaymentMode(linkedPayment?.paymentMode || 'Cash')
+    setSelectedCounterId(linkedPayment?.counterId || '')
     setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
         setShowInvoiceNotes(false)
     setInvoiceNotes('')
@@ -968,8 +1023,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         </div>
                         <div className="erp-footer-section-content">
                           <input type="hidden" name="amountPaid" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountPaid} />
-                          <input type="hidden" name="paymentMode" value={paymentMode} />
-                          
+                          {amountPaid && parseFloat(amountPaid) > 0 && (
+                            <input type="hidden" name="counterId" value={selectedCounterId} />
+                          )}
                           <label className="erp-paid-checkbox cursor-pointer">
                             <Checkbox
                               checked={markAsFullyPaid}
@@ -998,17 +1054,18 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                                 />
                               </div>
                             </div>
-                            <div className="erp-payment-field">
-                              <label>Payment Mode</label>
-                              <Select value={paymentMode} onValueChange={setPaymentMode}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Cash" />
+                            <div className="space-y-2">
+                              <Label className="text-xs">Payment Account</Label>
+                              <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required={parseFloat(amountPaid) > 0}>
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select Cash/Bank account" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="Cash">Cash</SelectItem>
-                                  <SelectItem value="Bank">Bank</SelectItem>
-                                  <SelectItem value="UPI">UPI</SelectItem>
-                                  <SelectItem value="Cheque">Cheque</SelectItem>
+                                  {counters.map(c => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                      {c.name} ({c.type}) - Bal: ₹{c.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>

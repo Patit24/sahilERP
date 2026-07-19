@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { SalesInvoice, Customer, Item, InvoiceItem, CustomerPayment } from '@/lib/types'
+import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -32,13 +33,16 @@ interface SalesInvoicesPageProps {
   setItems: (updater: (prev: Item[]) => Item[]) => void
   currentFY: string
   isLocked?: boolean
+  counters: Counter[]
+  transactions: CashBankTransaction[]
+  onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
 }
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
 
 export type AdditionalCharge = { id: string; remarks: string; basicRate: number; taxMode: 'none' | 'gst'; gstRate: number; finalAmt: number }
 
-export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, customers, setCustomers, customerPayments, setCustomerPayments, items, setItems, currentFY, isLocked = false }: SalesInvoicesPageProps) {
+export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, customers, setCustomers, customerPayments, setCustomerPayments, items, setItems, currentFY, isLocked = false, counters, transactions, onUpdateCashBank }: SalesInvoicesPageProps) {
   const [open, setOpen] = useState(false)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [editingInvoice, setEditingInvoice] = useState<SalesInvoice | null>(null)
@@ -92,7 +96,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   }
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [amountReceived, setAmountReceived] = useState('')
-  const [paymentMode, setPaymentMode] = useState('Cash')
+  const [selectedCounterId, setSelectedCounterId] = useState('')
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
     const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
@@ -139,12 +143,13 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 
   const getInvoicePaymentId = (invoiceId: string) => `sales-invoice-payment-${invoiceId}`
 
-  const syncInvoicePayment = (invoiceId: string, customerId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, mode: string) => {
+  const syncInvoicePayment = (invoiceId: string, customerId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, counterId: string) => {
     const receivedAmount = Math.max(0, rawAmount || 0)
+    const paymentId = getInvoicePaymentId(invoiceId)
+    const selectedCounter = counters.find(c => c.id === counterId)
+    const oldPayment = customerPayments.find(p => p.id === paymentId)
 
     setCustomerPayments((prev) => {
-      const paymentId = getInvoicePaymentId(invoiceId)
-
       if (receivedAmount <= 0) {
         return prev.filter((payment) => payment.id !== paymentId)
       }
@@ -155,8 +160,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         paymentDate: invoiceDate,
         amount: receivedAmount,
         notes: `Auto-created from sales invoice ${invoiceNo}`,
-        counterId: mode.toLowerCase().replace(/\s+/g, '-'),
-        counterName: mode || 'Cash',
+        counterId: counterId,
+        counterName: selectedCounter?.name || 'Unknown',
         fy: currentFY
       }
 
@@ -165,6 +170,50 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
 
       return prev.map((candidate) => candidate.id === paymentId ? { ...candidate, ...payment } : candidate)
     })
+
+    let newCounters = [...counters]
+    let newTransactions = [...transactions]
+    const txnId = `txn-cp-${paymentId}`
+    
+    if (receivedAmount <= 0) {
+      if (oldPayment?.counterId) {
+        newCounters = newCounters.map(c => c.id === oldPayment.counterId ? { ...c, currentBalance: c.currentBalance - oldPayment.amount } : c)
+      }
+      newTransactions = newTransactions.filter(t => t.id !== txnId)
+    } else {
+      if (oldPayment?.counterId) {
+        newCounters = newCounters.map(c => c.id === oldPayment.counterId ? { ...c, currentBalance: c.currentBalance - oldPayment.amount } : c)
+      }
+      if (counterId) {
+        newCounters = newCounters.map(c => c.id === counterId ? { ...c, currentBalance: c.currentBalance + receivedAmount } : c)
+      }
+      
+      const customerName = customers.find(c => c.id === customerId)?.name || 'Unknown'
+      
+      const existingTxn = newTransactions.find(t => t.id === txnId)
+      if (existingTxn) {
+        newTransactions = newTransactions.map(t => t.id === txnId ? {
+          ...t,
+          date: invoiceDate,
+          counterId: counterId,
+          counterName: selectedCounter?.name || 'Unknown',
+          amount: receivedAmount,
+          narration: `Customer Payment for Invoice ${invoiceNo}: ${customerName}`.trim()
+        } : t)
+      } else {
+        newTransactions.push({
+          id: txnId,
+          date: invoiceDate,
+          counterId: counterId,
+          counterName: selectedCounter?.name || 'Unknown',
+          type: 'In',
+          amount: receivedAmount,
+          narration: `Customer Payment for Invoice ${invoiceNo}: ${customerName}`.trim()
+        })
+      }
+    }
+    
+    onUpdateCashBank(newCounters, newTransactions)
 
     if (receivedAmount > 0) {
       toast.success(`Receipt linked to invoice ${invoiceNo}`)
@@ -358,9 +407,14 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     const additionalCostRemarks = aggregatedRemarks
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
     const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
-    const rawAmountReceived = parseFloat(formData.get('amountReceived') as string) || 0
-    const receivedAmount = Math.min(Math.max(rawAmountReceived, 0), finalInvoiceAmount)
-    const selectedPaymentMode = (formData.get('paymentMode') as string) || 'Cash'
+    const amountValue = amountReceived || formData.get('amountReceived') as string
+    const finalAmountReceived = Math.max(0, parseFloat(amountValue) || 0)
+    const counterId = formData.get('counterId') as string
+    
+    if (finalAmountReceived > 0 && !counterId) {
+      toast.error('Please select a payment account')
+      return
+    }
     const invoiceNo = formData.get('invoiceNo') as string
 
     if (editingInvoice) {
@@ -378,7 +432,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         roundOffAdjustment: roundOffAdjustment || undefined,
               }
       setSalesInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updatedInvoice : inv))
-      syncInvoicePayment(editingInvoice.id, customerId, invoiceNo, invoiceDate, receivedAmount, selectedPaymentMode)
+      syncInvoicePayment(editingInvoice.id, customerId, invoiceNo, invoiceDate, finalAmountReceived, counterId)
     } else {
       const invoiceId = `sales-invoice-${Date.now()}`
       const invoice: SalesInvoice = {
@@ -396,7 +450,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                 fy: currentFY
       }
       setSalesInvoices((prev) => [...prev, invoice])
-      syncInvoicePayment(invoiceId, customerId, invoiceNo, invoiceDate, receivedAmount, selectedPaymentMode)
+      syncInvoicePayment(invoiceId, customerId, formData.get('invoiceNo') as string, formData.get('invoiceDate') as string, finalAmountReceived, counterId)
     }
 
     setOpen(false)
@@ -495,7 +549,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setRoundOffAdjustment(invoice.roundOffAdjustment || 0)
     const linkedPayment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     setAmountReceived(linkedPayment ? String(linkedPayment.amount) : '')
-    setPaymentMode(linkedPayment?.counterName || 'Cash')
+    setSelectedCounterId(linkedPayment?.counterId || '')
     setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
         setShowInvoiceNotes(false)
     setInvoiceNotes('')
@@ -978,8 +1032,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               </div>
                               <div className="erp-footer-section-content">
                                 <input type="hidden" name="amountReceived" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountReceived} />
-                                <input type="hidden" name="paymentMode" value={paymentMode} />
-                                
+                                {amountReceived && parseFloat(amountReceived) > 0 && (
+                                <input type="hidden" name="counterId" value={selectedCounterId} />
+                              )}  
                                 <label className="erp-paid-checkbox cursor-pointer">
                                   <Checkbox
                                     checked={markAsFullyPaid}
@@ -1091,7 +1146,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                               className="pl-7 font-mono text-right"
                                             />
                                           </div>
-                                          <Select value={charge.taxMode} onValueChange={(value) => handleUpdateCharge(charge.id, 'taxMode', value)}>
+                                          <Select value={charge.taxMode} onValueChange={(value: any) => handleUpdateCharge(charge.id, 'taxMode', value)}>
                                             <SelectTrigger className="w-[140px]">
                                               <SelectValue />
                                             </SelectTrigger>
