@@ -597,13 +597,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Purchase Invoices</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Record all purchase transactions for {currentFY}
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         {!open && (
           <Button onClick={handleAdd} size="sm">
             <Plus className="mr-1.5" size={16} />
