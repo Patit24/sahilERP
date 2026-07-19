@@ -1063,6 +1063,21 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       />
                                     </div>
                                   </div>
+                                  <div className="erp-payment-field">
+                                    <label>Payment Account</label>
+                                    <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required={parseFloat(amountReceived) > 0 || markAsFullyPaid}>
+                                      <SelectTrigger className="h-10 text-sm">
+                                        <SelectValue placeholder="Select Cash/Bank account" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {counters.map(c => (
+                                          <SelectItem key={c.id} value={c.id}>
+                                            {c.name} ({c.type}) - Bal: ₹{c.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                 </div>
 
 

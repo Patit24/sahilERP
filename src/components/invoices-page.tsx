@@ -1054,10 +1054,10 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                                 />
                               </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs">Payment Account</Label>
-                              <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required={parseFloat(amountPaid) > 0}>
-                                <SelectTrigger className="h-8 text-sm">
+                            <div className="erp-payment-field">
+                              <label>Payment Account</label>
+                              <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required={parseFloat(amountPaid) > 0 || markAsFullyPaid}>
+                                <SelectTrigger className="h-10 text-sm">
                                   <SelectValue placeholder="Select Cash/Bank account" />
                                 </SelectTrigger>
                                 <SelectContent>
