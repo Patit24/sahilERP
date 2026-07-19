@@ -157,6 +157,15 @@ export function AppDialogs({
       saveBusinessToCloud(businessId, newBusinessMeta, details)
     }
     handleAddBusiness()
+    setBusinessPhone('')
+    setBusinessEmail('')
+    setBillingAddress('')
+    setBusinessCity('')
+    setBusinessPincode('')
+    setBusinessType('')
+    setIndustryType('')
+    setPanNumber('')
+    setWebsite('')
   }
 
   return (
@@ -533,7 +542,28 @@ export function AppDialogs({
             <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSettingsSave}>
+            <Button onClick={() => {
+              const details = {
+                phone: businessPhone.trim(),
+                email: businessEmail.trim(),
+                billingAddress: billingAddress.trim(),
+                state: businessState,
+                city: businessCity.trim(),
+                pincode: businessPincode.trim(),
+                businessType,
+                industryType,
+                registrationType,
+                gstRegistered,
+                panNumber: panNumber.trim(),
+                website: website.trim()
+              }
+              localStorage.setItem(`business_details_${metadata.activeCompanyId}`, JSON.stringify(details))
+              const businessMeta = metadata.businesses.find(b => b.id === metadata.activeCompanyId)
+              if (businessMeta) {
+                saveBusinessToCloud(metadata.activeCompanyId, businessMeta, details)
+              }
+              handleSettingsSave()
+            }}>
               Save Changes
             </Button>
           </DialogFooter>

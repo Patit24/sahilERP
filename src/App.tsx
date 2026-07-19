@@ -218,7 +218,7 @@ import CashBankCountersMasterWrapper from '@/components/pages/CashBankCountersMa
 import CashBankVoucherEntryWrapper from '@/components/pages/CashBankVoucherEntryWrapper'
 import CashBankBookReportWrapper from '@/components/pages/CashBankBookReportWrapper'
 import UserManagementPage, { PermissionOption } from '@/components/user-management-page'
-import { loadBusinessesFromCloud } from '@/lib/business-sync'
+import { loadBusinessesFromCloud, saveBusinessToCloud, deleteBusinessFromCloud } from '@/lib/business-sync'
 
 const tenantDataCollectionKeys: Array<keyof TenantData> = [
   'suppliers',
@@ -1270,6 +1270,7 @@ function App() {
     
     setMetadata(updatedMetadata)
     localStorage.setItem('app_metadata', JSON.stringify(updatedMetadata))
+    saveBusinessToCloud(businessId, newBusiness, {})
     appendAuditLog('business_created', { businessId, businessName: newBusiness.name })
     void appendServerAuditLog(businessId, `data_${businessId}_${newBusinessStartFY}`, 'business_created', { businessId, businessName: newBusiness.name })
     
@@ -1338,6 +1339,7 @@ function App() {
     dataKeysToDelete.forEach(key => localStorage.removeItem(key))
     const cashBankKeysToDelete = allKeys.filter(key => key.startsWith(`cashbank_${metadata.activeCompanyId}_`))
     cashBankKeysToDelete.forEach(key => localStorage.removeItem(key))
+    localStorage.removeItem(`business_details_${metadata.activeCompanyId}`)
     
     const remainingBusinesses = metadata.businesses.filter(b => b.id !== metadata.activeCompanyId)
     const newActive = remainingBusinesses[0]
@@ -1351,6 +1353,7 @@ function App() {
     
     setMetadata(updatedMetadata)
     localStorage.setItem('app_metadata', JSON.stringify(updatedMetadata))
+    deleteBusinessFromCloud(businessToDelete?.id || metadata.activeCompanyId)
     appendAuditLog('business_deleted', {
       businessId: businessToDelete?.id,
       businessName: businessToDelete?.name,

@@ -1,5 +1,5 @@
 import { db, isRemoteStorageEnabled, isFirebaseConfigured } from './firebase-client'
-import { doc, getDocs, setDoc, collection } from 'firebase/firestore'
+import { doc, getDocs, setDoc, deleteDoc, collection } from 'firebase/firestore'
 import { BusinessMetadata } from './storage-utils'
 
 export interface BusinessDetails {
@@ -43,5 +43,14 @@ export async function loadBusinessesFromCloud(): Promise<BusinessCloudData[]> {
   } catch (e) {
     console.error('Failed to load businesses from cloud:', e);
     return [];
+  }
+}
+
+export async function deleteBusinessFromCloud(businessId: string) {
+  if (!isRemoteStorageEnabled || !isFirebaseConfigured || !db) return;
+  try {
+    await deleteDoc(doc(db, 'businesses', businessId));
+  } catch (e) {
+    console.error('Failed to delete business from cloud:', e);
   }
 }
