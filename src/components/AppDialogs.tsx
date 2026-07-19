@@ -39,6 +39,7 @@ import {
 } from '@phosphor-icons/react'
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
 import { BusinessMetadata } from '@/lib/storage-utils'
+import { saveBusinessToCloud } from '@/lib/business-sync'
 
 interface DataCounts {
   suppliers: number
@@ -132,7 +133,7 @@ export function AppDialogs({
   const handleCreateBusinessWithDetails = () => {
     const businessId = newBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, '_')
     if (newBusinessName.trim()) {
-      localStorage.setItem(`business_details_${businessId}`, JSON.stringify({
+      const details = {
         phone: businessPhone.trim(),
         email: businessEmail.trim(),
         billingAddress: billingAddress.trim(),
@@ -145,7 +146,15 @@ export function AppDialogs({
         gstRegistered,
         panNumber: panNumber.trim(),
         website: website.trim()
-      }))
+      }
+      localStorage.setItem(`business_details_${businessId}`, JSON.stringify(details))
+      
+      const newBusinessMeta = {
+        id: businessId,
+        name: newBusinessName.trim(),
+        startFY: newBusinessStartFY
+      }
+      saveBusinessToCloud(businessId, newBusinessMeta, details)
     }
     handleAddBusiness()
   }

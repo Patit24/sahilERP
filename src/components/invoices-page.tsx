@@ -57,7 +57,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [amountPaid, setAmountPaid] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
   const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
-  const [doNotApplyCD, setDoNotApplyCD] = useState(false)
     const [selectedSupplierId, setSelectedSupplierId] = useState('')
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false)
   const [supplierSearch, setSupplierSearch] = useState('')
@@ -100,7 +99,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
 
   const getInvoicePaymentId = (invoiceId: string) => `purchase-invoice-payment-${invoiceId}`
 
-  const syncInvoicePayment = (invoiceId: string, supplierId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, mode: string, doNotApplyCDFlag: boolean) => {
+  const syncInvoicePayment = (invoiceId: string, supplierId: string, invoiceNo: string, invoiceDate: string, rawAmount: number, mode: string) => {
     const paidAmount = Math.max(0, rawAmount || 0)
 
     setPayments((prev) => {
@@ -117,7 +116,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         amount: paidAmount,
         paymentMode: mode || 'Cash',
         isAdvance: false,
-        doNotApplyCD: doNotApplyCDFlag,
+        doNotApplyCD: false,
         fy: currentFY,
         createdAt: Date.now()
       }
@@ -381,7 +380,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         roundOffAdjustment: roundOffAdjustment || undefined,
               }
       setInvoices((prev) => prev.map(inv => inv.id === editingInvoice.id ? updated : inv))
-      syncInvoicePayment(editingInvoice.id, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode, doNotApplyCD)
+      syncInvoicePayment(editingInvoice.id, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode)
       toast.success('Invoice updated successfully')
     } else {
       const invoiceId = `invoice-${Date.now()}`
@@ -401,7 +400,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         createdAt: Date.now()
       }
       setInvoices((prev) => [...prev, invoice])
-      syncInvoicePayment(invoiceId, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode, doNotApplyCD)
+      syncInvoicePayment(invoiceId, supplierId, invoiceNo, invoiceDate, paymentAmount, selectedPaymentMode)
       toast.success('Invoice added successfully')
     }
 
@@ -413,8 +412,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setAmountPaid('')
     setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
-    setDoNotApplyCD(false)
-      setDoNotApplyCD(false)
     setShowAdditionalCharge(false)
     setShowInvoiceNotes(false)
     setInvoiceNotes('')
@@ -440,8 +437,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setAmountPaid('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
-    setDoNotApplyCD(false)
-      setDoNotApplyCD(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
@@ -472,8 +467,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setAmountPaid('')
       setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
-    setDoNotApplyCD(false)
-      setDoNotApplyCD(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
@@ -957,15 +950,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                             <Info size={16} className="ml-1 text-muted-foreground" weight="bold" />
                           </label>
 
-                          <label className="erp-paid-checkbox cursor-pointer">
-                            <Checkbox
-                              checked={doNotApplyCD}
-                              onCheckedChange={(checked) => setDoNotApplyCD(Boolean(checked))}
-                              className="mr-2"
-                            />
-                            Do not apply Cash Discount (CD)
-                          </label>
-                          
                           <div className="erp-payment-fields-row">
                             <div className="erp-payment-field">
                               <label>Amount Paid</label>

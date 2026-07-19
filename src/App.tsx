@@ -218,6 +218,7 @@ import CashBankCountersMasterWrapper from '@/components/pages/CashBankCountersMa
 import CashBankVoucherEntryWrapper from '@/components/pages/CashBankVoucherEntryWrapper'
 import CashBankBookReportWrapper from '@/components/pages/CashBankBookReportWrapper'
 import UserManagementPage, { PermissionOption } from '@/components/user-management-page'
+import { loadBusinessesFromCloud } from '@/lib/business-sync'
 
 const tenantDataCollectionKeys: Array<keyof TenantData> = [
   'suppliers',
@@ -569,6 +570,42 @@ function App() {
   }, [currentUser, isMasterAdmin])
   const canEditView = useCallback((viewId: string) => permissionLevelFor(viewId) === 'edit', [permissionLevelFor])
   const isViewReadOnly = useCallback((viewId: string) => safeIsLocked || !canEditView(viewId), [canEditView, safeIsLocked])
+
+
+  // Sync businesses from cloud
+  useEffect(() => {
+    let cancelled = false;
+    const syncBusinesses = async () => {
+      const cloudBusinesses = await loadBusinessesFromCloud();
+      if (cancelled || !cloudBusinesses.length) return;
+      
+      setMetadata(prev => {
+        const mergedBusinesses = [...prev.businesses];
+        let changed = false;
+        
+        for (const cb of cloudBusinesses) {
+          // Sync details to localStorage
+          if (cb.details) {
+            localStorage.setItem(`business_details_${cb.metadata.id}`, JSON.stringify(cb.details));
+          }
+          
+          if (!mergedBusinesses.find(b => b.id === cb.metadata.id)) {
+            mergedBusinesses.push(cb.metadata);
+            changed = true;
+          }
+        }
+        
+        if (changed) {
+          const nextMeta = { ...prev, businesses: mergedBusinesses };
+          localStorage.setItem('app_metadata', JSON.stringify(nextMeta));
+          return nextMeta;
+        }
+        return prev;
+      });
+    };
+    syncBusinesses();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!useServerAuth) return
