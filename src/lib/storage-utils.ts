@@ -30,6 +30,8 @@ export interface TenantData {
   mtBookings: any[]
   advanceBookingPickups: any[]
   discountLedgerEntries: any[]
+  cashBankCounters: any[]
+  cashBankTransactions: any[]
 }
 
 const METADATA_KEY = 'app_metadata'
@@ -75,13 +77,36 @@ export function getTenantData(companyId: string, fy: string): TenantData {
       fixedSchemes: [],
       mtBookings: [],
       advanceBookingPickups: [],
-      discountLedgerEntries: []
+      discountLedgerEntries: [],
+      cashBankCounters: [],
+      cashBankTransactions: []
     }
     localStorage.setItem(key, JSON.stringify(emptyData))
     return emptyData
   }
   
-  return JSON.parse(stored)
+  const parsedData: TenantData = JSON.parse(stored)
+  
+  // Migration logic: Pull legacy Cash & Bank data if it's not already in TenantData
+  const legacyCashBankKey = `cashbank_${companyId}_${fy}`
+  const legacyCashBank = localStorage.getItem(legacyCashBankKey)
+  if (legacyCashBank && (!parsedData.cashBankCounters || parsedData.cashBankCounters.length === 0)) {
+    try {
+      const cbData = JSON.parse(legacyCashBank)
+      parsedData.cashBankCounters = cbData.counters || []
+      parsedData.cashBankTransactions = cbData.transactions || []
+      // Save migrated data immediately to update the local TenantData cache
+      localStorage.setItem(key, JSON.stringify(parsedData))
+    } catch (e) {
+      console.error('Failed to parse legacy cashbank data for migration:', e)
+    }
+  }
+  
+  // Ensure fields exist for backward compatibility with older snapshots
+  parsedData.cashBankCounters = parsedData.cashBankCounters || []
+  parsedData.cashBankTransactions = parsedData.cashBankTransactions || []
+  
+  return parsedData
 }
 
 export function saveTenantData(companyId: string, fy: string, data: TenantData): void {

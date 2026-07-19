@@ -214,9 +214,9 @@ import CDAtRiskReportPage from '@/components/cd-at-risk-report-page'
 import MasterDashboardPage from '@/components/master-dashboard-page'
 import PurchaseInvoiceDetailsPage from '@/components/purchase-invoice-details-page'
 import PaymentDetailsPage from '@/components/payment-details-page'
-import CashBankCountersMasterWrapper from '@/components/pages/CashBankCountersMasterWrapper'
-import CashBankVoucherEntryWrapper from '@/components/pages/CashBankVoucherEntryWrapper'
-import CashBankBookReportWrapper from '@/components/pages/CashBankBookReportWrapper'
+import CashBankCountersMaster from '@/components/cash-bank-counters-master'
+import CashBankVoucherEntry from '@/components/cash-bank-voucher-entry'
+import CashBankBookReport from '@/components/cash-bank-book-report'
 import UserManagementPage, { PermissionOption } from '@/components/user-management-page'
 import { loadBusinessesFromCloud, saveBusinessToCloud, deleteBusinessFromCloud } from '@/lib/business-sync'
 
@@ -468,6 +468,9 @@ function App() {
   const [mtBookings, setMTBookings] = useState<MTBooking[]>([])
   const [advanceBookingPickups, setAdvanceBookingPickups] = useState<any[]>([])
   const [discountLedgerEntries, setDiscountLedgerEntries] = useState<any[]>([])
+  const [cashBankCounters, setCashBankCounters] = useState<any[]>([])
+  const [cashBankTransactions, setCashBankTransactions] = useState<any[]>([])
+
   
   const [isLocked, setIsLocked] = useState(false)
   const [gstPercentage, setGstPercentage] = useState(18)
@@ -713,7 +716,9 @@ function App() {
         fixedSchemes: parsedData.fixedSchemes || [],
         mtBookings: parsedData.mtBookings || [],
         advanceBookingPickups: parsedData.advanceBookingPickups || [],
-        discountLedgerEntries: parsedData.discountLedgerEntries || []
+        discountLedgerEntries: parsedData.discountLedgerEntries || [],
+        cashBankCounters: parsedData.cashBankCounters || [],
+        cashBankTransactions: parsedData.cashBankTransactions || []
       }
       lastSavedDataRef.current = JSON.stringify(normalizedData)
       setSuppliers(normalizedData.suppliers)
@@ -730,6 +735,8 @@ function App() {
       setMTBookings(normalizedData.mtBookings)
       setAdvanceBookingPickups(normalizedData.advanceBookingPickups)
       setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
+      setCashBankCounters(normalizedData.cashBankCounters)
+      setCashBankTransactions(normalizedData.cashBankTransactions)
     }
 
     if (storedData) {
@@ -800,7 +807,9 @@ function App() {
       fixedSchemes,
       mtBookings,
       advanceBookingPickups,
-      discountLedgerEntries
+      discountLedgerEntries,
+      cashBankCounters,
+      cashBankTransactions
     }
 
     if (lastSavedDataRef.current) {
@@ -865,7 +874,9 @@ function App() {
                   fixedSchemes: latest.payload.fixedSchemes || [],
                   mtBookings: latest.payload.mtBookings || [],
                   advanceBookingPickups: latest.payload.advanceBookingPickups || [],
-                  discountLedgerEntries: latest.payload.discountLedgerEntries || []
+                  discountLedgerEntries: latest.payload.discountLedgerEntries || [],
+                  cashBankCounters: latest.payload.cashBankCounters || [],
+                  cashBankTransactions: latest.payload.cashBankTransactions || []
                 }
                 lastSavedDataRef.current = JSON.stringify(normalizedData)
                 writeTenantCache(metadata.activeCompanyId, partitionKey, normalizedData, latest.revision)
@@ -883,6 +894,8 @@ function App() {
                 setMTBookings(normalizedData.mtBookings)
                 setAdvanceBookingPickups(normalizedData.advanceBookingPickups)
                 setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
+                setCashBankCounters(normalizedData.cashBankCounters)
+                setCashBankTransactions(normalizedData.cashBankTransactions)
               }
               return
             }
@@ -917,6 +930,8 @@ function App() {
     mtBookings,
     advanceBookingPickups,
     discountLedgerEntries,
+    cashBankCounters,
+    cashBankTransactions,
     tenantKey,
     tenantHydrated,
     useServerAuth,
@@ -948,7 +963,9 @@ function App() {
         fixedSchemes: remoteSnapshot.payload.fixedSchemes || [],
         mtBookings: remoteSnapshot.payload.mtBookings || [],
         advanceBookingPickups: remoteSnapshot.payload.advanceBookingPickups || [],
-        discountLedgerEntries: remoteSnapshot.payload.discountLedgerEntries || []
+        discountLedgerEntries: remoteSnapshot.payload.discountLedgerEntries || [],
+        cashBankCounters: remoteSnapshot.payload.cashBankCounters || [],
+        cashBankTransactions: remoteSnapshot.payload.cashBankTransactions || []
       }
       lastSavedDataRef.current = JSON.stringify(normalizedData)
       writeTenantCache(metadata.activeCompanyId, tenantKey, normalizedData, remoteSnapshot.revision)
@@ -966,6 +983,8 @@ function App() {
       setMTBookings(normalizedData.mtBookings)
       setAdvanceBookingPickups(normalizedData.advanceBookingPickups)
       setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
+      setCashBankCounters(normalizedData.cashBankCounters)
+      setCashBankTransactions(normalizedData.cashBankTransactions)
       appendAuditLog('remote_tenant_realtime_update', undefined, tenantKey)
     }) || undefined
   }, [metadata.activeCompanyId, tenantHydrated, tenantKey, useServerAuth, canSyncRemoteTenant])
@@ -1911,11 +1930,32 @@ function App() {
             />
           )
         case 'cash-bank-master':
-          return <CashBankCountersMasterWrapper activeCompanyId={metadata.activeCompanyId} activeFY={safeCurrentFY} isLocked={isViewReadOnly('cash-bank-master')} />
+          return <CashBankCountersMaster 
+            counters={cashBankCounters} 
+            onUpdateCounters={setCashBankCounters} 
+            isLocked={isViewReadOnly('cash-bank-master')} 
+          />
         case 'cash-bank-voucher':
-          return <CashBankVoucherEntryWrapper activeCompanyId={metadata.activeCompanyId} activeFY={safeCurrentFY} isLocked={isViewReadOnly('cash-bank-voucher')} />
+          return <CashBankVoucherEntry 
+            counters={cashBankCounters} 
+            transactions={cashBankTransactions} 
+            onUpdateAll={(c, t) => {
+              setCashBankCounters(c)
+              setCashBankTransactions(t)
+            }}
+            isLocked={isViewReadOnly('cash-bank-voucher')} 
+          />
         case 'cash-bank-ledger':
-          return <CashBankBookReportWrapper activeCompanyId={metadata.activeCompanyId} activeFY={safeCurrentFY} isLocked={isViewReadOnly('cash-bank-ledger')} />
+          return <CashBankBookReport 
+            counters={cashBankCounters} 
+            transactions={cashBankTransactions} 
+            customerPayments={customerPayments} 
+            onUpdateAll={(c, t) => {
+              setCashBankCounters(c)
+              setCashBankTransactions(t)
+            }}
+            isLocked={isViewReadOnly('cash-bank-ledger')} 
+          />
         case 'user-management':
           return (
             <UserManagementPage
