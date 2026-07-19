@@ -1793,7 +1793,7 @@
 
 .erp-payment-fields-row {
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
+  grid-template-columns: 1fr 2fr !important;
   gap: 1rem !important;
 }
 
@@ -1807,6 +1807,7 @@
   font-size: 0.85rem !important;
   font-weight: 700 !important;
   color: #1e293b !important;
+  white-space: nowrap !important;
 }
 
 .erp-payment-summary-box {
