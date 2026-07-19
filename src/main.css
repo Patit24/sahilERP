@@ -1792,8 +1792,8 @@
 }
 
 .erp-payment-fields-row {
-  display: grid !important;
-  grid-template-columns: 1fr 2fr !important;
+  display: flex !important;
+  flex-direction: column !important;
   gap: 1rem !important;
 }
 
