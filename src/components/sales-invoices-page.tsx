@@ -251,7 +251,24 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       const item = { ...updated[index] }
       
       if (field === 'itemId') {
-        item.itemId = value as string
+        const newItemId = value as string
+        const existingIndex = prev.findIndex((r, i) => r.itemId === newItemId && i !== index)
+        
+        if (existingIndex !== -1) {
+          // Merge into existing row
+          const existing = { ...updated[existingIndex] }
+          existing.quantityMT = (existing.quantityMT || 0) + (item.quantityMT || 0)
+          existing.amount = existing.quantityMT * existing.rate
+          updated[existingIndex] = existing
+          
+          // Clear current row
+          item.itemId = ''
+          item.quantityMT = 0
+          item.rate = 0
+          item.amount = 0
+        } else {
+          item.itemId = newItemId
+        }
       } else if (field === 'quantityMT') {
         item.quantityMT = parseFloat(value as string) || 0
         item.amount = item.quantityMT * item.rate
@@ -770,7 +787,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               id="invoiceNo"
                               name="invoiceNo"
                               placeholder="SI-001"
-                              className="h-9 bg-background text-sm"
+                              className="h-8 bg-background text-xs"
                               defaultValue={editingInvoice?.invoiceNo}
                               required
                             />
@@ -782,7 +799,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                               id="invoiceDate"
                               name="invoiceDate"
                               type="date"
-                              className="h-9 bg-background text-sm"
+                              className="h-8 bg-background text-xs"
                               defaultValue={editingInvoice?.invoiceDate}
                               min={minDate}
                               max={maxDate}
@@ -1353,14 +1370,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
               onOpenChange={setShowQuickItem}
               existingItems={items}
               onSave={(item) => {
-                const rate = item.salesPrice || item.purchasePrice || 0
                 setItems((prev) => [...prev, item])
-                setInvoiceItems((prev) => {
-                  const row = { itemId: item.id, quantityMT: 0, rate, amount: 0 }
-                  const emptyIndex = prev.findIndex((existing) => !existing.itemId)
-                  if (emptyIndex === -1) return [...prev, row]
-                  return prev.map((existing, index) => index === emptyIndex ? row : existing)
-                })
                 setSelectedPickerItemId(item.id)
                 setShowQuickItem(false)
                 toast.success(`Item "${item.name}" created`)

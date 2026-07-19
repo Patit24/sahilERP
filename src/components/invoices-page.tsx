@@ -226,12 +226,30 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       const item = { ...updated[index] }
       
       if (field === 'itemId') {
-        item.itemId = value as string
-        const selectedItem = items.find((candidate) => candidate.id === item.itemId)
-        const basicRate = item.basicRate && item.basicRate > 0 ? item.basicRate : selectedItem?.purchasePrice || 0
-        item.basicRate = basicRate
-        item.rate = calculateRateWithItemGst(basicRate, item.itemId)
-        item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
+        const newItemId = value as string
+        const existingIndex = prev.findIndex((r, i) => r.itemId === newItemId && i !== index)
+        
+        if (existingIndex !== -1) {
+          // Merge into existing row
+          const existing = { ...updated[existingIndex] }
+          existing.quantityMT = (existing.quantityMT || 0) + (item.quantityMT || 0)
+          existing.amount = parseFloat((existing.quantityMT * existing.rate).toFixed(2))
+          updated[existingIndex] = existing
+          
+          // Clear current row
+          item.itemId = ''
+          item.quantityMT = 0
+          item.basicRate = 0
+          item.rate = 0
+          item.amount = 0
+        } else {
+          item.itemId = newItemId
+          const selectedItem = items.find((candidate) => candidate.id === item.itemId)
+          const basicRate = item.basicRate && item.basicRate > 0 ? item.basicRate : selectedItem?.purchasePrice || 0
+          item.basicRate = basicRate
+          item.rate = calculateRateWithItemGst(basicRate, item.itemId)
+          item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
+        }
       } else if (field === 'quantityMT') {
         item.quantityMT = parseFloat(value as string) || 0
         item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
@@ -760,7 +778,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         name="invoiceNo"
                         defaultValue={editingInvoice?.invoiceNo}
                         placeholder="INV-001"
-                        className="h-9 bg-background text-sm"
+                        className="h-8 bg-background text-xs"
                         required 
                       />
                     </div>
@@ -774,7 +792,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                         defaultValue={editingInvoice?.invoiceDate}
                         min={minDate}
                         max={maxDate}
-                        className="h-9 bg-background text-sm"
+                        className="h-8 bg-background text-xs"
                         required
                       />
                       <p className="text-[10px] text-muted-foreground">For payments, reports, ageing, and fixed scheme eligibility</p>
@@ -1343,15 +1361,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           existingItems={items}
           onSave={(item) => {
             setItems((prev) => [...prev, item])
-            const basicRate = item.purchasePrice || 0
-            const gstRate = typeof item.gstRate === 'number' && !Number.isNaN(item.gstRate) ? item.gstRate : gstPercentage
-            const rate = basicRate > 0 ? parseFloat((basicRate * (1 + gstRate / 100)).toFixed(2)) : 0
-            setInvoiceItems((prev) => {
-              const row = { itemId: item.id, quantityMT: 0, basicRate, rate, amount: 0 }
-              const emptyIndex = prev.findIndex((existing) => !existing.itemId)
-              if (emptyIndex === -1) return [...prev, row]
-              return prev.map((existing, index) => index === emptyIndex ? row : existing)
-            })
             setSelectedPickerItemId(item.id)
             setShowQuickItem(false)
             toast.success(`Item "${item.name}" created`)
