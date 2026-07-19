@@ -574,6 +574,8 @@ function App() {
 
   // Sync businesses from cloud
   useEffect(() => {
+    if (useServerAuth && !isAuthenticated) return;
+
     let cancelled = false;
     const syncBusinesses = async () => {
       const cloudBusinesses = await loadBusinessesFromCloud();
@@ -605,7 +607,7 @@ function App() {
     };
     syncBusinesses();
     return () => { cancelled = true; };
-  }, []);
+  }, [useServerAuth, isAuthenticated]);
 
   useEffect(() => {
     if (!useServerAuth) return
