@@ -1063,21 +1063,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       />
                                     </div>
                                   </div>
-                                  <div className="erp-payment-field">
-                                    <label>Payment Mode</label>
-                                    <Select value={paymentMode} onValueChange={setPaymentMode}>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Cash" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="Cash">Cash</SelectItem>
-                                        <SelectItem value="Bank">Bank</SelectItem>
-                                        <SelectItem value="UPI">UPI</SelectItem>
-                                        <SelectItem value="Cheque">Cheque</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
                                 </div>
+
 
                                 <div className="erp-payment-summary-box">
                                   <div className="erp-payment-summary-row">

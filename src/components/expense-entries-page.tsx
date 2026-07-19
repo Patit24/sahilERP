@@ -529,20 +529,7 @@ export default function ExpenseEntriesPage({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMode">Payment Mode</Label>
-                  <Select value={paymentMode} onValueChange={setPaymentMode}>
-                    <SelectTrigger id="paymentMode">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="bank">Bank / Online</SelectItem>
-                      <SelectItem value="upi">UPI</SelectItem>
-                      <SelectItem value="credit">Credit</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">Note</Label>
