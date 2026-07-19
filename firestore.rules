@@ -39,6 +39,15 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // ─── Businesses ─────────────────────────────────────────────────
+    match /businesses/{businessId} {
+      // Any authenticated user can read businesses
+      allow read: if isAuthenticated();
+      // Any authenticated user can write businesses (or just master admin if preferred)
+      allow write: if isAuthenticated();
+    }
+
+
     // ─── Audit Logs ─────────────────────────────────────────────────
     match /audit_logs/{logId} {
       // Any authenticated user can append audit logs
