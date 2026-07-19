@@ -175,15 +175,33 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     const item = items.find((candidate) => candidate.id === itemId)
     const basicRate = item?.purchasePrice || 0
     const rate = calculateRateWithItemGst(basicRate, itemId)
-    const row = {
-      itemId,
-      quantityMT,
-      basicRate,
-      rate,
-      amount: parseFloat((quantityMT * rate).toFixed(2))
-    }
 
     setInvoiceItems(prev => {
+      const existingIndex = prev.findIndex(existing => existing.itemId === itemId)
+      
+      if (existingIndex !== -1) {
+        // Item already exists, merge quantities
+        const updated = [...prev]
+        const existing = updated[existingIndex]
+        const newQuantity = (existing.quantityMT || 0) + quantityMT
+        
+        updated[existingIndex] = {
+          ...existing,
+          quantityMT: newQuantity,
+          amount: parseFloat((newQuantity * existing.rate).toFixed(2))
+        }
+        return updated
+      }
+
+      // If it doesn't exist, create a new row or fill an empty one
+      const row = {
+        itemId,
+        quantityMT,
+        basicRate,
+        rate,
+        amount: parseFloat((quantityMT * rate).toFixed(2))
+      }
+
       const emptyIndex = prev.findIndex(existing => !existing.itemId)
       if (emptyIndex === -1) return [...prev, row]
       return prev.map((existing, index) => index === emptyIndex ? row : existing)
@@ -783,7 +801,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                     <div className="erp-reference-item-table">
                       <div className="erp-reference-item-head">
                         <span>No</span>
-                        <span>Items/ Services</span>
+                        <span>Items</span>
                         <span>HSN/ SAC</span>
                         <span>Qty</span>
                         <span>Price/Item (₹)</span>
