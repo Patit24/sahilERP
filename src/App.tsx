@@ -1979,12 +1979,6 @@ function App() {
           return <CashBankBookReport 
             counters={cashBankCounters} 
             transactions={cashBankTransactions} 
-            customerPayments={customerPayments} 
-            onUpdateAll={(c, t) => {
-              setCashBankCounters(c)
-              setCashBankTransactions(t)
-            }}
-            isLocked={isViewReadOnly('cash-bank-ledger')} 
           />
         case 'user-management':
           return (

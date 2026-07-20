@@ -1,8 +1,15 @@
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -11,160 +18,67 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { 
   Wallet, 
   Coins, 
-  Bank, 
-  Pencil, 
-  Trash,
-  X,
-  Check
+  Bank,
+  Funnel,
+  X
 } from '@phosphor-icons/react'
-import { toast } from 'sonner'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
-import { CustomerPayment } from '@/lib/types'
 
 interface CashBankBookReportProps {
   counters: Counter[]
   transactions: CashBankTransaction[]
-  customerPayments: CustomerPayment[]
-  onUpdateAll: (counters: Counter[], transactions: CashBankTransaction[]) => void
-  isLocked?: boolean
 }
 
 export default function CashBankBookReport({
   counters,
   transactions,
-  customerPayments,
-  onUpdateAll,
-  isLocked = false
 }: CashBankBookReportProps) {
-  const [editingTxnId, setEditingTxnId] = useState<string | null>(null)
-  const [editAmount, setEditAmount] = useState('')
-  const [editNarration, setEditNarration] = useState('')
+  const [filterCounter, setFilterCounter] = useState<string>('all')
+  const [filterType, setFilterType] = useState<string>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const allTransactions = useMemo(() => {
-    const customerPaymentTransactions: CashBankTransaction[] = customerPayments.map(cp => ({
-      id: `customer-payment-${cp.id}`,
-      date: cp.paymentDate,
-      counterId: cp.counterId,
-      counterName: cp.counterName,
-      type: 'In' as const,
-      amount: cp.amount,
-      narration: `Customer Payment${cp.notes ? `: ${cp.notes}` : ''}`
-    }))
-
-    return [...transactions, ...customerPaymentTransactions].sort((a, b) => 
+    let filtered = [...transactions].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     )
-  }, [transactions, customerPayments])
 
-  const handleDeleteTxn = (txn: CashBankTransaction) => {
-    if (isLocked) {
-      toast.error('Data is locked. Please unlock to make changes.')
-      return
+    if (filterCounter !== 'all') {
+      filtered = filtered.filter(t => t.counterId === filterCounter || (t.type === 'Transfer' && t.toCounterId === filterCounter))
     }
 
-    const updatedCounters = counters.map(c => {
-      if (txn.type === 'Transfer') {
-        if (c.id === txn.counterId) {
-          return {
-            ...c,
-            currentBalance: c.currentBalance + txn.amount
-          }
-        }
-        if (c.id === txn.toCounterId) {
-          return {
-            ...c,
-            currentBalance: c.currentBalance - txn.amount
-          }
-        }
-      } else {
-        if (c.id === txn.counterId) {
-          return {
-            ...c,
-            currentBalance: txn.type === 'In' 
-              ? c.currentBalance - txn.amount 
-              : c.currentBalance + txn.amount
-          }
-        }
-      }
-      return c
-    })
-
-    const updatedTxns = transactions.filter(t => t.id !== txn.id)
-    onUpdateAll(updatedCounters, updatedTxns)
-    toast.success('Transaction deleted and balance recalculated')
-  }
-
-  const startEditTxn = (txn: CashBankTransaction) => {
-    if (isLocked) {
-      toast.error('Data is locked. Please unlock to make changes.')
-      return
+    if (filterType !== 'all') {
+      filtered = filtered.filter(t => t.type.toLowerCase() === filterType.toLowerCase())
     }
 
-    setEditingTxnId(txn.id)
-    setEditAmount(txn.amount.toString())
-    setEditNarration(txn.narration)
-  }
-
-  const cancelEdit = () => {
-    setEditingTxnId(null)
-    setEditAmount('')
-    setEditNarration('')
-  }
-
-  const handleSaveEditTxn = (txn: CashBankTransaction) => {
-    if (isLocked) {
-      toast.error('Data is locked. Please unlock to make changes.')
-      return
+    if (dateFrom) {
+      filtered = filtered.filter(t => new Date(t.date) >= new Date(dateFrom))
     }
 
-    const newAmt = parseFloat(editAmount)
-    
-    if (isNaN(newAmt) || newAmt <= 0) {
-      toast.error('Please enter a valid amount')
-      return
+    if (dateTo) {
+      const to = new Date(dateTo)
+      to.setHours(23, 59, 59, 999)
+      filtered = filtered.filter(t => new Date(t.date) <= to)
     }
 
-    const updatedCounters = counters.map(c => {
-      if (c.id === txn.counterId) {
-        let revertedBal = txn.type === 'In' 
-          ? c.currentBalance - txn.amount 
-          : c.currentBalance + txn.amount
-        
-        let finalBal = txn.type === 'In' 
-          ? revertedBal + newAmt 
-          : revertedBal - newAmt
-        
-        return { ...c, currentBalance: finalBal }
-      }
-      return c
-    })
+    return filtered
+  }, [transactions, filterCounter, filterType, dateFrom, dateTo])
 
-    const updatedTxns = transactions.map(t => 
-      t.id === txn.id 
-        ? { ...t, amount: newAmt, narration: editNarration.trim() } 
-        : t
-    )
-
-    onUpdateAll(updatedCounters, updatedTxns)
-    setEditingTxnId(null)
-    setEditAmount('')
-    setEditNarration('')
-    toast.success('Transaction updated and balance recalculated')
+  const clearFilters = () => {
+    setFilterCounter('all')
+    setFilterType('all')
+    setDateFrom('')
+    setDateTo('')
   }
+
+  const activeFiltersCount = 
+    (filterCounter !== 'all' ? 1 : 0) + 
+    (filterType !== 'all' ? 1 : 0) + 
+    (dateFrom ? 1 : 0) + 
+    (dateTo ? 1 : 0)
 
   const totalCash = counters
     .filter(c => c.type === 'Cash')
@@ -240,13 +154,91 @@ export default function CashBankBookReport({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-primary" weight="duotone" />
-            Transaction Book Ledger
-          </CardTitle>
-          <CardDescription>
-            Complete history of all cash and bank movements with edit/delete actions
-          </CardDescription>
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" weight="duotone" />
+                Transaction Book Ledger
+              </CardTitle>
+              <CardDescription>
+                Complete history of all cash and bank movements
+              </CardDescription>
+            </div>
+          </div>
+          
+          <div className="mt-4 p-4 bg-muted/30 border border-border rounded-lg space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Funnel className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-medium text-foreground">Filter Transactions</h4>
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {activeFiltersCount} active
+                </Badge>
+              )}
+              {activeFiltersCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearFilters}
+                  className="ml-auto h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3 mr-1" /> Clear Filters
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Counter</label>
+                <Select value={filterCounter} onValueChange={setFilterCounter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All Counters" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Counters</SelectItem>
+                    {counters.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Type</label>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="in">Cash In</SelectItem>
+                    <SelectItem value="out">Cash Out</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">From Date</label>
+                <Input 
+                  type="date" 
+                  value={dateFrom} 
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">To Date</label>
+                <Input 
+                  type="date" 
+                  value={dateTo} 
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-hidden">
@@ -258,22 +250,20 @@ export default function CashBankBookReport({
                   <TableHead className="font-semibold">Narration / Remarks</TableHead>
                   <TableHead className="text-right font-semibold">Cash In (Cr)</TableHead>
                   <TableHead className="text-right font-semibold">Cash Out (Dr)</TableHead>
-                  <TableHead className="text-center font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {allTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                      No transactions recorded yet
+                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                      No transactions recorded or found with current filters
                     </TableCell>
                   </TableRow>
                 ) : (
                   allTransactions.map((txn) => {
-                    const isCustomerPayment = txn.id.startsWith('customer-payment-')
                     return (
                       <TableRow key={txn.id} className="hover:bg-muted/30">
-                        <TableCell className="font-mono text-sm text-muted-foreground">
+                        <TableCell className="font-mono text-sm text-muted-foreground whitespace-nowrap">
                           {new Date(txn.date).toLocaleDateString('en-IN', {
                             day: '2-digit',
                             month: 'short',
@@ -284,40 +274,21 @@ export default function CashBankBookReport({
                           {txn.type === 'Transfer' ? (
                             <Badge 
                               variant="outline" 
-                              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800 font-medium"
+                              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800 font-medium whitespace-nowrap"
                             >
                               {txn.counterName} ➔ {txn.toCounterName}
                             </Badge>
                           ) : (
-                            <span className="font-semibold text-foreground">{txn.counterName}</span>
+                            <span className="font-semibold text-foreground whitespace-nowrap">{txn.counterName}</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          {editingTxnId === txn.id && !isCustomerPayment ? (
-                            <Input
-                              type="text"
-                              value={editNarration}
-                              onChange={(e) => setEditNarration(e.target.value)}
-                              className="h-8 text-sm"
-                              placeholder="Enter narration"
-                            />
-                          ) : (
-                            <span className="text-muted-foreground italic">
-                              {txn.narration || '—'}
-                            </span>
-                          )}
+                          <span className="text-muted-foreground italic line-clamp-2">
+                            {txn.narration || '—'}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right">
-                          {editingTxnId === txn.id && txn.type === 'In' && !isCustomerPayment ? (
-                            <Input
-                              type="number"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="h-8 text-sm text-right w-32 ml-auto"
-                              step="0.01"
-                              min="0.01"
-                            />
-                          ) : txn.type === 'In' ? (
+                        <TableCell className="text-right whitespace-nowrap">
+                          {txn.type === 'In' ? (
                             <span className="font-bold text-emerald-600 dark:text-emerald-400">
                               ₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
@@ -325,95 +296,13 @@ export default function CashBankBookReport({
                             ''
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {editingTxnId === txn.id && txn.type === 'Out' && !isCustomerPayment ? (
-                            <Input
-                              type="number"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="h-8 text-sm text-right w-32 ml-auto"
-                              step="0.01"
-                              min="0.01"
-                            />
-                          ) : txn.type === 'Out' ? (
+                        <TableCell className="text-right whitespace-nowrap">
+                          {txn.type === 'Out' ? (
                             <span className="font-bold text-rose-600 dark:text-rose-400">
                               ₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           ) : (
                             ''
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {isCustomerPayment ? (
-                            <span className="text-xs text-muted-foreground italic">
-                              Customer Payment
-                            </span>
-                          ) : (
-                            <div className="flex items-center justify-center gap-1">
-                              {editingTxnId === txn.id ? (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleSaveEditTxn(txn)}
-                                    disabled={isLocked}
-                                    className="h-8 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                                  >
-                                    <Check className="h-4 w-4" weight="bold" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={cancelEdit}
-                                    disabled={isLocked}
-                                    className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
-                                  >
-                                    <X className="h-4 w-4" weight="bold" />
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => startEditTxn(txn)}
-                                    disabled={isLocked}
-                                    className="h-8 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        disabled={isLocked}
-                                        className="h-8 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950"
-                                      >
-                                        <Trash className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Are you sure you want to delete this transaction? The counter balance will be automatically recalculated. This action cannot be undone.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => handleDeleteTxn(txn)}
-                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        >
-                                          Delete Transaction
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </>
-                              )}
-                            </div>
                           )}
                         </TableCell>
                       </TableRow>

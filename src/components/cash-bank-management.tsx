@@ -93,9 +93,6 @@ export default function CashBankManagement({
           <CashBankBookReport
             counters={counters}
             transactions={transactions}
-            customerPayments={[]}
-            onUpdateAll={handleUpdateAll}
-            isLocked={isLocked}
           />
         </TabsContent>
       </Tabs>
