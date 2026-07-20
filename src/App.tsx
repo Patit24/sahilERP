@@ -753,13 +753,27 @@ function App() {
 
     const loadRemote = async () => {
       try {
+        const restoredKeysStr = localStorage.getItem('restored_keys')
+        const restoredKeys = restoredKeysStr ? JSON.parse(restoredKeysStr) : {}
+        const isRestored = restoredKeys[partitionKey] === true || restoredKeys[`data_${companyId}_${activeFY}`] === true
+
         if (canUseRemoteStorage()) {
-          const remoteSnapshot = await loadRemoteTenantData(companyId, partitionKey)
-          if (remoteSnapshot && !cancelled) {
-            remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
-            writeTenantCache(companyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
-            applyTenantData(remoteSnapshot.payload)
-            appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
+          if (isRestored) {
+            console.log(`Skipping remote load for ${partitionKey} because it was recently restored locally. Data will be pushed to remote.`)
+            delete restoredKeys[partitionKey]
+            delete restoredKeys[`data_${companyId}_${activeFY}`]
+            localStorage.setItem('restored_keys', JSON.stringify(restoredKeys))
+            
+            // Force expectedRevision to null so it overwrites remote without conflict
+            remoteRevisionRef.current[partitionKey] = null
+          } else {
+            const remoteSnapshot = await loadRemoteTenantData(companyId, partitionKey)
+            if (remoteSnapshot && !cancelled) {
+              remoteRevisionRef.current[partitionKey] = remoteSnapshot.revision
+              writeTenantCache(companyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
+              applyTenantData(remoteSnapshot.payload)
+              appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
+            }
           }
         }
         if (!cancelled) setTenantHydrated(true)
@@ -1154,11 +1168,14 @@ function App() {
         const data = JSON.parse(e.target?.result as string)
         
         if (data.type === 'MASTER_DATA_BACKUP' && data.storageData) {
+          const restoredKeys = JSON.parse(localStorage.getItem('restored_keys') || '{}')
           Object.keys(data.storageData).forEach((key) => {
             if (isAllowedRestoreKey(key)) {
               localStorage.setItem(key, JSON.stringify(data.storageData[key]))
+              restoredKeys[key] = true
             }
           })
+          localStorage.setItem('restored_keys', JSON.stringify(restoredKeys))
           appendAuditLog('legacy_master_restore')
           void appendServerAuditLog(metadata.activeCompanyId, tenantKey, 'legacy_master_restore')
           
@@ -1518,11 +1535,14 @@ function App() {
 
         // 1. MASTER SYSTEM RESTORE
         if (parsed.type === 'MASTER_SYSTEM_BACKUP' && parsed.storageData) {
+          const restoredKeys = JSON.parse(localStorage.getItem('restored_keys') || '{}')
           Object.entries(parsed.storageData).forEach(([key, value]) => {
             if (isAllowedRestoreKey(key) && typeof value === 'string') {
               localStorage.setItem(key, value);
+              restoredKeys[key] = true;
             }
           });
+          localStorage.setItem('restored_keys', JSON.stringify(restoredKeys))
           appendAuditLog('master_restore', { keyCount: Object.keys(parsed.storageData).length })
           void appendServerAuditLog(metadata.activeCompanyId, tenantKey, 'master_restore', { keyCount: Object.keys(parsed.storageData).length })
           toast.success("Master Backup Detected! All businesses restored. Reloading...");
@@ -1543,6 +1563,11 @@ function App() {
           if (parsed.cashBankData) {
             localStorage.setItem(`cashbank_${companyId}_${financialYear}`, JSON.stringify(parsed.cashBankData));
           }
+
+          const restoredKeys = JSON.parse(localStorage.getItem('restored_keys') || '{}')
+          restoredKeys[`data_${companyId}_${financialYear}`] = true
+          restoredKeys[`data_v3_${companyId}_${financialYear}`] = true
+          localStorage.setItem('restored_keys', JSON.stringify(restoredKeys))
 
           // Update app_metadata to register the business
           try {
