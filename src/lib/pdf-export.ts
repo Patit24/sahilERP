@@ -12,6 +12,8 @@ import {
   InvoiceItem
 } from './types'
 import { formatCurrency, formatMT } from './calculations'
+import { amountToWords } from './number-to-words'
+
 
 function formatAmountForPDF(amount: number): string {
   const formatted = amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -946,8 +948,9 @@ interface StyledInvoiceOptions {
   invoiceAmount: number
   additionalCost?: number
   additionalCostRemarks?: string
-  roundOffAdjustment?: number
+  roundOffAdjustment: number
   paidAmount?: number
+  paymentCounterName?: string
   filePrefix: string
   footerLabel?: string
   advancePayment?: {
@@ -976,157 +979,241 @@ function drawInvoiceTextBlock(doc: jsPDF, label: string, value: string, x: numbe
 
 
 function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
-  const doc = new jsPDF('portrait', 'mm', 'a4')
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
-  const margin = 15
-  const contentWidth = pageWidth - margin * 2
+  const doc = new jsPDF('portrait', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10; // Tally usually has smaller margins
+  const contentWidth = pageWidth - margin * 2;
   const invoiceDate = options.invoiceDate
     ? new Date(options.invoiceDate).toLocaleDateString('en-IN')
-    : '-'
-  const dueDate = invoiceDate
-  const paidAmount = Math.max(0, options.paidAmount || options.advancePayment?.allocatedAmount || 0)
-  const amountDue = Math.max(0, options.invoiceAmount - paidAmount)
+    : '-';
+  const amountDue = Math.max(0, options.invoiceAmount - (options.paidAmount || options.advancePayment?.allocatedAmount || 0));
 
-  doc.setFillColor(0, 0, 0)
-  doc.rect(0, 0, pageWidth, 50, 'F')
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(14)
-  doc.setTextColor(255, 255, 255)
-  doc.text('I N V O I C E', pageWidth / 2, 23, { align: 'center' })
-  doc.setFontSize(9)
-  doc.setTextColor(150, 150, 150)
-  doc.text(options.businessName.toUpperCase(), pageWidth / 2, 37, { align: 'center' })
-  doc.setTextColor(45, 45, 45)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('Tax Invoice', pageWidth / 2, margin + 5, { align: 'center' });
 
-  drawInvoiceTextBlock(doc, options.partyLabel, options.partyName, margin + 12, 76, 45)
-  drawInvoiceTextBlock(doc, 'From', `${options.businessName}\n${options.state || ''}${options.phone ? `\nPhone: ${options.phone}` : ''}`, margin + 62, 76, 55)
-  drawInvoiceTextBlock(doc, 'Due Date', dueDate, pageWidth - margin - 36, 76, 34)
+  // Outer Border
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  const startY = margin + 10;
+  // Let's draw the top block
+  // Top left: Company
+  doc.rect(margin, startY, contentWidth / 2, 35);
+  // Top right: Invoice Info
+  doc.rect(margin + contentWidth / 2, startY, contentWidth / 2, 35);
 
-  const partyDetails = [
-    options.partyAddress ? `Address: ${options.partyAddress}` : '',
-    options.partyPhone ? `Phone: ${options.partyPhone}` : '',
-    `Invoice No: ${options.invoiceNo}`,
-    `Invoice Date: ${invoiceDate}`
-  ].filter(Boolean).join('   |   ')
+  // Buyer Info (Left)
+  doc.rect(margin, startY + 35, contentWidth / 2, 30);
+  // Dispatch Info (Right)
+  doc.rect(margin + contentWidth / 2, startY + 35, contentWidth / 2, 30);
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.setTextColor(95, 95, 95)
-  doc.text(partyDetails, margin + 12, 101, { maxWidth: contentWidth - 24 })
+  // Fill Company Info
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(options.businessName.toUpperCase(), margin + 2, startY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(options.state || '', margin + 2, startY + 9);
+  if (options.phone) doc.text(`Phone: ${options.phone}`, margin + 2, startY + 13);
+  doc.text('GSTIN/UIN: -', margin + 2, startY + 17);
+  doc.text('State Name: -, Code: -', margin + 2, startY + 21);
+  doc.text('E-Mail: -', margin + 2, startY + 25);
 
-  const rows = (options.items || []).map((line, index) => {
-    const item = options.itemMap.get(line.itemId)
+  // Fill Invoice Info (Right side)
+  doc.setFont('helvetica', 'normal');
+  const rightX = margin + contentWidth / 2 + 2;
+  const col2X = margin + contentWidth * 0.75 + 2;
+  
+  doc.text('Invoice No.', rightX, startY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(options.invoiceNo, rightX, startY + 9);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text('Dated', col2X, startY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(invoiceDate, col2X, startY + 9);
+
+  // Grid lines inside Top Right
+  doc.line(margin + contentWidth / 2, startY + 12, pageWidth - margin, startY + 12);
+  doc.line(margin + contentWidth * 0.75, startY, margin + contentWidth * 0.75, startY + 35);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Delivery Note', rightX, startY + 16);
+  doc.text('Mode/Terms of Payment', col2X, startY + 16);
+  
+  doc.line(margin + contentWidth / 2, startY + 23, pageWidth - margin, startY + 23);
+  doc.text('Reference No. & Date.', rightX, startY + 27);
+  doc.text('Other References', col2X, startY + 27);
+
+  // Buyer Info
+  doc.setFontSize(8);
+  doc.text('Buyer (Bill to)', margin + 2, startY + 35 + 4);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(options.partyName.toUpperCase(), margin + 2, startY + 35 + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  if (options.partyAddress) {
+    const splitAddr = doc.splitTextToSize(options.partyAddress, (contentWidth / 2) - 4);
+    doc.text(splitAddr, margin + 2, startY + 35 + 13);
+  }
+  if (options.partyPhone) doc.text(`Phone: ${options.partyPhone}`, margin + 2, startY + 35 + 23);
+  doc.text('GSTIN/UIN: -', margin + 2, startY + 35 + 27);
+
+  // Dispatch Info (Right)
+  doc.line(margin + contentWidth / 2, startY + 35 + 10, pageWidth - margin, startY + 35 + 10);
+  doc.line(margin + contentWidth / 2, startY + 35 + 20, pageWidth - margin, startY + 35 + 20);
+
+  doc.text('Dispatch Doc No.', rightX, startY + 35 + 4);
+  doc.text('Delivery Note Date', col2X, startY + 35 + 4);
+  
+  doc.text('Dispatched through', rightX, startY + 35 + 14);
+  doc.text('Destination', col2X, startY + 35 + 14);
+
+  doc.text('Terms of Delivery', rightX, startY + 35 + 24);
+
+  const tableStartY = startY + 65;
+  const items = options.items || [];
+  const rows = items.map((line, index) => {
+    const item = options.itemMap.get(line.itemId);
     return [
-      `${index + 1}. ${item?.name || 'Unknown item'}`,
-      item?.description || `${item?.unit || 'MT'} material`,
+      (index + 1).toString(),
+      item?.name || 'Unknown item',
+      '-', // HSN/SAC
       formatMT(line.quantityMT),
-      formatAmountForPDF(line.amount).replace('Rs.', '')
-    ]
-  })
+      (line.amount / line.quantityMT).toFixed(2), // Rate
+      item?.unit || 'MT',
+      line.amount.toFixed(2)
+    ];
+  });
+  
+  // Empty rows to stretch table to bottom
+  while(rows.length < 10) {
+    rows.push(['', '', '', '', '', '', '']);
+  }
 
-  autoTable(doc, {
-    startY: 112,
-    head: [['ITEM', 'DESCRIPTION', 'QTY', 'TOTAL']],
-    body: rows.length > 0 ? rows : [['-', 'No items', '-', '-']],
-    theme: 'plain',
+  (doc as any).autoTable({
+    startY: tableStartY,
+    head: [['Sl\\nNo.', 'Description of Goods', 'HSN/SAC', 'Quantity', 'Rate', 'per', 'Amount']],
+    body: rows,
+    theme: 'grid',
     headStyles: {
       fillColor: [255, 255, 255],
-      textColor: [35, 35, 35],
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
+      lineWidth: 0.3,
       fontStyle: 'bold',
       halign: 'center',
-      fontSize: 8,
-      cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
+      fontSize: 8
     },
     bodyStyles: {
+      textColor: [0, 0, 0],
+      lineColor: [0, 0, 0],
+      lineWidth: 0.3,
       fontSize: 8,
-      textColor: [55, 55, 55],
-      minCellHeight: 14,
-      cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
+      minCellHeight: 8
     },
     columnStyles: {
-      0: { cellWidth: 42, halign: 'left' },
-      1: { cellWidth: 72, halign: 'left' },
-      2: { cellWidth: 30, halign: 'center' },
-      3: { cellWidth: 36, halign: 'center', fontStyle: 'bold' }
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 60, halign: 'left' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 25, halign: 'right' },
+      5: { cellWidth: 15, halign: 'center' },
+      6: { cellWidth: 35, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: margin + 8, right: margin + 8 }
-  })
+    margin: { left: margin, right: margin }
+  });
 
-  doc.setDrawColor(45, 45, 45)
-  doc.setLineWidth(0.35)
-  doc.rect(margin, 108, contentWidth, 82)
-  doc.line(margin, 124, pageWidth - margin, 124)
+  const finalY = (doc as any).lastAutoTable.finalY;
 
-  const summaryY = Math.max((doc as any).lastAutoTable?.finalY || 190, 196)
-  const leftY = summaryY + 8
-  doc.setTextColor(45, 45, 45)
-  drawInvoiceTextBlock(doc, 'Phone', options.phone || '-', margin + 12, leftY, 44)
-  drawInvoiceTextBlock(doc, 'Web', 'sktraders.local', margin + 62, leftY, 52)
+  // Add additional rows for Subtotal, Discount, Additional Cost, Round Off
+  let currentY = finalY;
+  const rightColX = pageWidth - margin - 35; // Matches amount column
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, currentY, contentWidth, 8);
+  doc.line(pageWidth - margin - 35, currentY, pageWidth - margin - 35, currentY + 8);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Total', pageWidth - margin - 40, currentY + 5, { align: 'right' });
+  doc.text(options.invoiceAmount.toFixed(2), pageWidth - margin - 2, currentY + 5, { align: 'right' });
+  
+  currentY += 8;
 
-  const totalsX = pageWidth - margin - 70
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text('Subtotal', totalsX + 34, summaryY + 10, { align: 'right' })
-  doc.text(formatAmountForPDF(options.invoiceAmount - (options.additionalCost || 0)).replace('Rs.', ''), totalsX + 62, summaryY + 10, { align: 'right' })
-
-  if (options.additionalCost) {
-    doc.text(options.additionalCostRemarks || 'Additional', totalsX + 34, summaryY + 17, { align: 'right' })
-    doc.text(formatAmountForPDF(options.additionalCost).replace('Rs.', ''), totalsX + 62, summaryY + 17, { align: 'right' })
+  if (options.paidAmount) {
+    doc.rect(margin, currentY, contentWidth, 8);
+    doc.line(pageWidth - margin - 35, currentY, pageWidth - margin - 35, currentY + 8);
+    
+    doc.setFont('helvetica', 'bold');
+    const label = options.paymentCounterName 
+      ? `Cash In (${options.paymentCounterName})` 
+      : 'Amount Received / Paid';
+    doc.text(label, pageWidth - margin - 40, currentY + 5, { align: 'right' });
+    doc.text(options.paidAmount.toFixed(2), pageWidth - margin - 2, currentY + 5, { align: 'right' });
+    
+    currentY += 8;
+    
+    doc.rect(margin, currentY, contentWidth, 8);
+    doc.line(pageWidth - margin - 35, currentY, pageWidth - margin - 35, currentY + 8);
+    
+    doc.text('Balance Due', pageWidth - margin - 40, currentY + 5, { align: 'right' });
+    doc.text(amountDue.toFixed(2), pageWidth - margin - 2, currentY + 5, { align: 'right' });
+    
+    currentY += 8;
+  } else if (options.advancePayment) {
+    doc.rect(margin, currentY, contentWidth, 8);
+    doc.line(pageWidth - margin - 35, currentY, pageWidth - margin - 35, currentY + 8);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('Advance Applied', pageWidth - margin - 40, currentY + 5, { align: 'right' });
+    doc.text(options.advancePayment.allocatedAmount.toFixed(2), pageWidth - margin - 2, currentY + 5, { align: 'right' });
+    
+    currentY += 8;
+    
+    doc.rect(margin, currentY, contentWidth, 8);
+    doc.line(pageWidth - margin - 35, currentY, pageWidth - margin - 35, currentY + 8);
+    
+    doc.text('Balance Due', pageWidth - margin - 40, currentY + 5, { align: 'right' });
+    doc.text(amountDue.toFixed(2), pageWidth - margin - 2, currentY + 5, { align: 'right' });
+    
+    currentY += 8;
   }
 
-  if (options.roundOffAdjustment) {
-    doc.text('Round off', totalsX + 34, summaryY + 24, { align: 'right' })
-    doc.text(formatAmountForPDF(options.roundOffAdjustment).replace('Rs.', ''), totalsX + 62, summaryY + 24, { align: 'right' })
-  }
+  // Amount in words
+  doc.rect(margin, currentY, contentWidth, 15);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Amount Chargeable (in words)', margin + 2, currentY + 4);
+  doc.setFont('helvetica', 'bold');
+  
+  // Use amountToWords
+  doc.text(amountToWords(options.invoiceAmount), margin + 2, currentY + 10);
+  
+  currentY += 15;
 
-  if (paidAmount > 0) {
-    doc.text('Deposit (paid)', totalsX + 34, summaryY + 31, { align: 'right' })
-    doc.text(`-${formatAmountForPDF(paidAmount).replace('Rs.', '')}`, totalsX + 62, summaryY + 31, { align: 'right' })
-  }
+  // Footer / Declaration
+  const footerHeight = 35;
+  doc.rect(margin, currentY, contentWidth, footerHeight);
+  doc.line(margin + contentWidth / 2, currentY, margin + contentWidth / 2, currentY + footerHeight);
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('TOTAL QTY', totalsX + 34, summaryY + 44, { align: 'right' })
-  doc.text(formatMT(options.quantityMT), totalsX + 62, summaryY + 44, { align: 'right' })
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.text('AMOUNT DUE', totalsX + 34, summaryY + 55, { align: 'right' })
-  doc.text(formatAmountForPDF(amountDue).replace('Rs.', ''), totalsX + 62, summaryY + 55, { align: 'right' })
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.text('Declaration', margin + 2, currentY + 4);
+  doc.text('We declare that this invoice shows the actual price of the', margin + 2, currentY + 8);
+  doc.text('goods described and that all particulars are true and correct.', margin + 2, currentY + 11);
 
-  if (true) {
-    doc.setFont('times', 'italic')
-    doc.setFontSize(21)
-    doc.setTextColor(15, 15, 15)
-    doc.text('Thank you!', margin + 12, leftY + 50)
-  } else {
-    doc.setFont('times', 'italic')
-    doc.setFontSize(16)
-    doc.text('Thank you!', margin + 12, leftY + 62)
-  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text(`for ${options.businessName.toUpperCase()}`, pageWidth - margin - 2, currentY + 5, { align: 'right' });
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text('Authorised Signatory', pageWidth - margin - 2, currentY + footerHeight - 3, { align: 'right' });
 
-  if (options.advancePayment) {
-    const advanceY = Math.min(leftY + 72, pageHeight - 34)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-    doc.setTextColor(85, 85, 85)
-    doc.text(
-      `Advance: ${formatAmountForPDF(options.advancePayment.paymentAmount)} | Booking: ${options.advancePayment.bookingMT ? formatMT(options.advancePayment.bookingMT) : '-'} | Allocated: ${formatAmountForPDF(options.advancePayment.allocatedAmount)} | Remaining: ${formatAmountForPDF(options.advancePayment.remainingAdvanceAmount)}`,
-      margin + 12,
-      advanceY,
-      { maxWidth: contentWidth - 24 }
-    )
-  }
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(130, 130, 130)
-  doc.text(options.footerLabel || 'Generated from SK TRADERS ERP', pageWidth / 2, 286, { align: 'center' })
-
-  const safeInvoiceNo = options.invoiceNo.replace(/[^a-z0-9_-]+/gi, '_')
-  doc.save(`${options.filePrefix}_${safeInvoiceNo}.pdf`)
+  const safeInvoiceNo = options.invoiceNo.replace(/[^a-z0-9_-]+/gi, '_');
+  doc.save(`${options.filePrefix}_${safeInvoiceNo}.pdf`);
 }
-
 export function exportPurchaseInvoicePDF(
   invoice: PurchaseInvoice,
   supplier: Supplier | undefined,
@@ -1136,6 +1223,7 @@ export function exportPurchaseInvoicePDF(
     state?: string
     phone?: string
     paidAmount?: number
+    paymentCounterName?: string
     advancePayment?: {
       paymentDate: string
       paymentAmount: number
@@ -1162,8 +1250,9 @@ export function exportPurchaseInvoicePDF(
     invoiceAmount: invoice.invoiceAmount,
     additionalCost: invoice.additionalCost,
     additionalCostRemarks: invoice.additionalCostRemarks,
-    roundOffAdjustment: invoice.roundOffAdjustment,
+    roundOffAdjustment: invoice.roundOffAdjustment || 0,
     paidAmount: options.paidAmount,
+    paymentCounterName: options.paymentCounterName,
     filePrefix: 'Purchase_Invoice',
     advancePayment: options.advancePayment
   })
@@ -1178,6 +1267,7 @@ export function exportSalesInvoicePDF(
     state?: string
     phone?: string
     paidAmount?: number
+    paymentCounterName?: string
   }
 ) {
   exportStyledInvoicePDF({
@@ -1196,8 +1286,9 @@ export function exportSalesInvoicePDF(
     invoiceAmount: invoice.invoiceAmount,
     additionalCost: invoice.additionalCost,
     additionalCostRemarks: invoice.additionalCostRemarks,
-    roundOffAdjustment: invoice.roundOffAdjustment,
+    roundOffAdjustment: invoice.roundOffAdjustment || 0,
     paidAmount: options.paidAmount,
+    paymentCounterName: options.paymentCounterName,
     filePrefix: 'Sales_Invoice'
   })
 }

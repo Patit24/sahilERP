@@ -27,6 +27,14 @@ import {
 } from '@phosphor-icons/react'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 
+type DisplayTransaction = CashBankTransaction & {
+  displayId: string;
+  isTransferSide?: 'out' | 'in';
+  displayCounterId: string;
+  displayCounterName: string;
+  runningBalance?: number;
+};
+
 interface CashBankBookReportProps {
   counters: Counter[]
   transactions: CashBankTransaction[]
@@ -42,30 +50,81 @@ export default function CashBankBookReport({
   const [dateTo, setDateTo] = useState('')
 
   const allTransactions = useMemo(() => {
-    let filtered = [...transactions].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
+    let expanded: DisplayTransaction[] = [];
+    transactions.forEach(t => {
+      if (t.type === 'Transfer') {
+        expanded.push({ 
+          ...t, 
+          displayId: `${t.id}-out`, 
+          isTransferSide: 'out', 
+          displayCounterId: t.counterId,
+          displayCounterName: t.counterName
+        });
+        expanded.push({ 
+          ...t, 
+          displayId: `${t.id}-in`, 
+          isTransferSide: 'in', 
+          displayCounterId: t.toCounterId!,
+          displayCounterName: t.toCounterName!
+        });
+      } else {
+        expanded.push({ 
+          ...t, 
+          displayId: t.id, 
+          displayCounterId: t.counterId,
+          displayCounterName: t.counterName
+        });
+      }
+    });
 
+    // Sort ascending for balance calculation
+    let expandedAscending = expanded.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Filter by counter BEFORE calculating balance
+    let filteredForBalance = expandedAscending;
     if (filterCounter !== 'all') {
-      filtered = filtered.filter(t => t.counterId === filterCounter || (t.type === 'Transfer' && t.toCounterId === filterCounter))
+      filteredForBalance = filteredForBalance.filter(t => t.displayCounterId === filterCounter);
     }
+    
+    // Filter by type BEFORE calculating balance (if the user only wants to see 'In' transactions, 
+    // wait, does filtering by Type affect running balance? YES! If they filter by Type, they usually still want the actual real running balance of the counter.
+    // Actually, ledgers usually show the true running balance regardless of type filters, but standard behavior varies.
+    // Let's calculate the TRUE balance first, before any type or date filters!)
+    
+    let currentBalance = 0;
+    if (filterCounter === 'all') {
+      currentBalance = counters.reduce((sum, c) => sum + (c.openingBalance || 0), 0);
+    } else {
+      const counter = counters.find(c => c.id === filterCounter);
+      if (counter) currentBalance = counter.openingBalance || 0;
+    }
+    
+    const withBalance = filteredForBalance.map(t => {
+      if (t.type === 'In' || t.isTransferSide === 'in') {
+        currentBalance += t.amount;
+      } else if (t.type === 'Out' || t.isTransferSide === 'out') {
+        currentBalance -= t.amount;
+      }
+      return { ...t, runningBalance: currentBalance };
+    });
 
+    // NOW apply the remaining filters
+    let finalFiltered = withBalance;
     if (filterType !== 'all') {
-      filtered = filtered.filter(t => t.type.toLowerCase() === filterType.toLowerCase())
+      finalFiltered = finalFiltered.filter(t => t.type.toLowerCase() === filterType.toLowerCase())
     }
-
     if (dateFrom) {
-      filtered = filtered.filter(t => new Date(t.date) >= new Date(dateFrom))
+      finalFiltered = finalFiltered.filter(t => new Date(t.date) >= new Date(dateFrom))
     }
-
     if (dateTo) {
       const to = new Date(dateTo)
       to.setHours(23, 59, 59, 999)
-      filtered = filtered.filter(t => new Date(t.date) <= to)
+      finalFiltered = finalFiltered.filter(t => new Date(t.date) <= to)
     }
 
-    return filtered
-  }, [transactions, filterCounter, filterType, dateFrom, dateTo])
+    // Finally, sort descending for display
+    return finalFiltered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, counters, filterCounter, filterType, dateFrom, dateTo])
 
   const clearFilters = () => {
     setFilterCounter('all')
@@ -250,19 +309,20 @@ export default function CashBankBookReport({
                   <TableHead className="font-semibold">Narration / Remarks</TableHead>
                   <TableHead className="text-right font-semibold">Cash In (Cr)</TableHead>
                   <TableHead className="text-right font-semibold">Cash Out (Dr)</TableHead>
+                  <TableHead className="text-right font-semibold">Balance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {allTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                       No transactions recorded or found with current filters
                     </TableCell>
                   </TableRow>
                 ) : (
                   allTransactions.map((txn) => {
                     return (
-                      <TableRow key={txn.id} className="hover:bg-muted/30">
+                      <TableRow key={txn.displayId} className="hover:bg-muted/30">
                         <TableCell className="font-mono text-sm text-muted-foreground whitespace-nowrap">
                           {new Date(txn.date).toLocaleDateString('en-IN', {
                             day: '2-digit',
@@ -274,12 +334,12 @@ export default function CashBankBookReport({
                           {txn.type === 'Transfer' ? (
                             <Badge 
                               variant="outline" 
-                              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800 font-medium whitespace-nowrap"
+                              className={`font-medium whitespace-nowrap ${txn.isTransferSide === 'out' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'}`}
                             >
-                              {txn.counterName} ➔ {txn.toCounterName}
+                              Transfer {txn.isTransferSide === 'out' ? 'Out to' : 'In from'} {txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}
                             </Badge>
                           ) : (
-                            <span className="font-semibold text-foreground whitespace-nowrap">{txn.counterName}</span>
+                            <span className="font-semibold text-foreground whitespace-nowrap">{txn.displayCounterName}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -288,7 +348,7 @@ export default function CashBankBookReport({
                           </span>
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap">
-                          {txn.type === 'In' ? (
+                          {txn.type === 'In' || (txn.type === 'Transfer' && txn.isTransferSide === 'in') ? (
                             <span className="font-bold text-emerald-600 dark:text-emerald-400">
                               ₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
@@ -297,13 +357,16 @@ export default function CashBankBookReport({
                           )}
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap">
-                          {txn.type === 'Out' ? (
+                          {txn.type === 'Out' || (txn.type === 'Transfer' && txn.isTransferSide === 'out') ? (
                             <span className="font-bold text-rose-600 dark:text-rose-400">
                               ₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           ) : (
                             ''
                           )}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap font-bold text-foreground">
+                          ₹{(txn.runningBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
                     )

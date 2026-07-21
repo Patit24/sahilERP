@@ -501,7 +501,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     setSupplierPickerOpen(false)
     setSupplierSearch('')
     setAmountPaid('')
-    setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
     setShowAdditionalCharge(false)
     setShowInvoiceNotes(false)
@@ -526,7 +525,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setInvoiceItems([])
       setRoundOffAdjustment(0)
       setAmountPaid('')
-      setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
@@ -556,7 +554,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       setPickerQuantities({})
       setRoundOffAdjustment(0)
       setAmountPaid('')
-      setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
@@ -677,11 +674,13 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
 
   const handleDownloadInvoicePDF = (invoice: PurchaseInvoice) => {
+    const payment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     exportPurchaseInvoicePDF(invoice, supplierMap.get(invoice.supplierId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-            paidAmount: payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))?.amount || 0
+      paidAmount: payment?.amount || 0,
+      paymentCounterName: payment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
   }

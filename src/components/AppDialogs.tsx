@@ -73,7 +73,7 @@ interface AppDialogsProps {
   handleEditBusiness: () => void
   handleDeleteBusiness: () => void
   activeCompany: string
-  metadata: { businesses: BusinessMetadata[] }
+  metadata: { businesses: BusinessMetadata[], activeCompanyId: string }
   settingsDialogOpen: boolean
   setSettingsDialogOpen: (open: boolean) => void
   tempGstPercentage: string
@@ -129,6 +129,7 @@ export function AppDialogs({
   const [gstRegistered, setGstRegistered] = useState<'yes' | 'no'>('no')
   const [panNumber, setPanNumber] = useState('')
   const [website, setWebsite] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const handleCreateBusinessWithDetails = () => {
     const businessId = newBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, '_')
@@ -339,13 +340,29 @@ export function AppDialogs({
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to delete "{activeCompany}"? This will permanently delete all data for this business. This action cannot be undone.
+                        <div className="flex items-center space-x-2 mt-4 p-3 bg-destructive/10 rounded-md">
+                          <input 
+                            type="checkbox" 
+                            id="confirm-delete-checkbox" 
+                            className="w-4 h-4 accent-destructive"
+                            checked={confirmDelete}
+                            onChange={(e) => setConfirmDelete(e.target.checked)}
+                          />
+                          <Label htmlFor="confirm-delete-checkbox" className="text-sm font-medium text-destructive">
+                            I understand that if I delete this profile, the business data will be permanently deleted and cannot be restored.
+                          </Label>
+                        </div>
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel onClick={() => setConfirmDelete(false)}>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={handleDeleteBusiness}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => {
+                          handleDeleteBusiness();
+                          setConfirmDelete(false);
+                        }}
+                        disabled={!confirmDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                       >
                         Delete Business
                       </AlertDialogAction>

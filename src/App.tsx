@@ -489,13 +489,43 @@ function App() {
   
   const setActiveCompany = (companyName: string) => {
     const business = metadata.businesses.find(b => b.name === companyName)
-    if (business) {
+    if (business && business.id !== metadata.activeCompanyId) {
+      setSuppliers([])
+      setCustomers([])
+      setItems([])
+      setInvoices([])
+      setPayments([])
+      setReceivedDiscounts([])
+      setSalesInvoices([])
+      setCustomerPayments([])
+      setExpenseTypes([])
+      setExpenseEntries([])
+      setFixedSchemes([])
+      setMTBookings([])
+      setCashBankCounters([])
+      setCashBankTransactions([])
       setMetadata(prev => ({ ...prev, activeCompanyId: business.id }))
     }
   }
   
   const setActiveFY = (fy: string) => {
-    setMetadata(prev => ({ ...prev, activeFY: fy }))
+    if (fy !== metadata.activeFY) {
+      setSuppliers([])
+      setCustomers([])
+      setItems([])
+      setInvoices([])
+      setPayments([])
+      setReceivedDiscounts([])
+      setSalesInvoices([])
+      setCustomerPayments([])
+      setExpenseTypes([])
+      setExpenseEntries([])
+      setFixedSchemes([])
+      setMTBookings([])
+      setCashBankCounters([])
+      setCashBankTransactions([])
+      setMetadata(prev => ({ ...prev, activeFY: fy }))
+    }
   }
   
   const [activeView, setActiveView] = useState('dashboard')
@@ -765,9 +795,10 @@ function App() {
             delete restoredKeys[partitionKey]
             delete restoredKeys[`data_${companyId}_${activeFY}`]
             localStorage.setItem('restored_keys', JSON.stringify(restoredKeys))
-            
             // Force expectedRevision to null so it overwrites remote without conflict
             remoteRevisionRef.current[partitionKey] = null
+            // Clear lastSavedDataRef so the sync hook does not short-circuit
+            lastSavedDataRef.current = ''
           } else {
             const remoteSnapshot = await loadRemoteTenantData(companyId, partitionKey)
             if (remoteSnapshot && !cancelled) {
@@ -1141,7 +1172,9 @@ function App() {
         fixedSchemes: [],
         mtBookings: [],
         advanceBookingPickups: [],
-        discountLedgerEntries: []
+        discountLedgerEntries: [],
+        cashBankCounters: [],
+        cashBankTransactions: []
       }
       writeTenantCache(metadata.activeCompanyId, partitionKey, emptyTenantData, remoteRevisionRef.current[partitionKey] ?? null)
       localStorage.removeItem(cashBankKey)
@@ -1326,6 +1359,8 @@ function App() {
     setExpenseEntries([])
     setFixedSchemes([])
     setMTBookings([])
+    setCashBankCounters([])
+    setCashBankTransactions([])
     
     setNewBusinessName('')
     setNewBusinessStartFY(getCurrentFY())
@@ -1419,6 +1454,8 @@ function App() {
     setExpenseEntries([])
     setFixedSchemes([])
     setMTBookings([])
+    setCashBankCounters([])
+    setCashBankTransactions([])
     
     setEditBusinessDialogOpen(false)
     toast.success(`Business "${businessToDelete?.name}" deleted successfully`)

@@ -38,6 +38,7 @@ export function EditBusinessDialog({
 }: EditBusinessDialogProps) {
   const [name, setName] = useState(businessName)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [confirmDeleteCheckbox, setConfirmDeleteCheckbox] = useState(false)
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -109,13 +110,29 @@ export function EditBusinessDialog({
                         Are you sure you want to delete <strong>{businessName}</strong>?
                         This will permanently remove all data associated with this business across all financial years.
                         This action cannot be undone.
+                        <div className="flex items-center space-x-2 mt-4 p-3 bg-destructive/10 rounded-md">
+                          <input 
+                            type="checkbox" 
+                            id="edit-confirm-delete-checkbox" 
+                            className="w-4 h-4 accent-destructive"
+                            checked={confirmDeleteCheckbox}
+                            onChange={(e) => setConfirmDeleteCheckbox(e.target.checked)}
+                          />
+                          <Label htmlFor="edit-confirm-delete-checkbox" className="text-sm font-medium text-destructive">
+                            I understand that if I delete this profile, the business data will be permanently deleted and cannot be restored.
+                          </Label>
+                        </div>
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel onClick={() => setConfirmDeleteCheckbox(false)}>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={handleDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => {
+                          handleDelete();
+                          setConfirmDeleteCheckbox(false);
+                        }}
+                        disabled={!confirmDeleteCheckbox}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                       >
                         Delete Permanently
                       </AlertDialogAction>

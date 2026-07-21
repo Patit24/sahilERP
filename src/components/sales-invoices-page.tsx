@@ -460,7 +460,6 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
     setCustomerSearch('')
     setRoundOffAdjustment(0)
     setAmountReceived('')
-    setPaymentMode('Cash')
     setMarkAsFullyPaid(false)
     setShowAdditionalCharge(false)
     setShowInvoiceNotes(false)
@@ -485,7 +484,6 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setInvoiceItems([])
       setRoundOffAdjustment(0)
       setAmountReceived('')
-      setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
@@ -510,7 +508,6 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
       setPickerQuantities({})
       setRoundOffAdjustment(0)
       setAmountReceived('')
-      setPaymentMode('Cash')
       setMarkAsFullyPaid(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
@@ -640,11 +637,13 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const balanceAmountPreview = Math.max(finalInvoiceAmountPreview - receivedAmountPreview, 0)
 
   const handleDownloadInvoicePDF = (invoice: SalesInvoice) => {
+    const payment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     exportSalesInvoicePDF(invoice, customerMap.get(invoice.customerId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-            paidAmount: customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))?.amount || 0
+      paidAmount: payment?.amount || 0,
+      paymentCounterName: payment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
   }

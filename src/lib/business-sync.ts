@@ -50,6 +50,12 @@ export async function deleteBusinessFromCloud(businessId: string) {
   if (!isRemoteStorageEnabled || !isFirebaseConfigured || !db) return;
   try {
     await deleteDoc(doc(db, 'businesses', businessId));
+    
+    // Also delete all snapshots for this business
+    const snapshotsRef = collection(db, 'tenants', businessId, 'snapshots');
+    const snap = await getDocs(snapshotsRef);
+    const deletePromises = snap.docs.map(snapshotDoc => deleteDoc(snapshotDoc.ref));
+    await Promise.all(deletePromises);
   } catch (e) {
     console.error('Failed to delete business from cloud:', e);
   }
