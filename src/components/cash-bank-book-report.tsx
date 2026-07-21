@@ -355,21 +355,23 @@ export default function CashBankBookReport({
                           {txn.type === 'Transfer' ? (
                             <Badge 
                               variant="outline" 
-                              className={`font-medium min-w-[180px] flex items-center justify-center gap-2 ${txn.isTransferSide === 'out' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'}`}
+                              className={`font-medium w-[220px] p-0 overflow-hidden ${txn.isTransferSide === 'out' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800'}`}
                             >
-                              {txn.isTransferSide === 'out' ? (
-                                <>
-                                  <span className="truncate max-w-[80px]" title={txn.counterName}>{txn.counterName}</span>
-                                  <ArrowRight weight="bold" className="shrink-0" />
-                                  <span className="truncate max-w-[80px]" title={txn.toCounterName}>{txn.toCounterName}</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="truncate max-w-[80px]" title={txn.toCounterName}>{txn.toCounterName}</span>
-                                  <ArrowLeft weight="bold" className="shrink-0" />
-                                  <span className="truncate max-w-[80px]" title={txn.counterName}>{txn.counterName}</span>
-                                </>
-                              )}
+                              <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full px-2 py-1 gap-1">
+                                {txn.isTransferSide === 'out' ? (
+                                  <>
+                                    <span className="truncate text-right" title={txn.counterName}>{txn.counterName}</span>
+                                    <ArrowRight weight="bold" className="shrink-0 mx-1" />
+                                    <span className="truncate text-left" title={txn.toCounterName}>{txn.toCounterName}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="truncate text-right" title={txn.toCounterName}>{txn.toCounterName}</span>
+                                    <ArrowLeft weight="bold" className="shrink-0 mx-1" />
+                                    <span className="truncate text-left" title={txn.counterName}>{txn.counterName}</span>
+                                  </>
+                                )}
+                              </div>
                             </Badge>
                           ) : (
                             <span className="font-semibold text-foreground whitespace-nowrap">{txn.displayCounterName}</span>
