@@ -351,7 +351,7 @@ export default function CashBankBookReport({
                             year: 'numeric'
                           })}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           {txn.type === 'Transfer' ? (
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-foreground whitespace-nowrap px-2.5 py-1 rounded-md bg-muted border border-border/50 text-sm shadow-sm" title={txn.isTransferSide === 'out' ? txn.counterName : txn.toCounterName}>
