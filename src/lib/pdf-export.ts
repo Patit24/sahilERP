@@ -1093,7 +1093,7 @@ function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
     rows.push(['', '', '', '', '', '', '']);
   }
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: tableStartY,
     head: [['Sl\\nNo.', 'Description of Goods', 'HSN/SAC', 'Quantity', 'Rate', 'per', 'Amount']],
     body: rows,
