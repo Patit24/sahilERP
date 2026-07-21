@@ -183,7 +183,23 @@ export default function CashBankBookReport({
           Live Financial Balances
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {counters.map(c => (
+          <div className="bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950 dark:to-violet-900 border-violet-200 dark:border-violet-800 border rounded-xl p-4 flex flex-col justify-between min-h-[100px]">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-violet-900 dark:text-violet-100">
+                Total Liquid Assets
+              </span>
+              <Wallet className="h-5 w-5 text-violet-600 dark:text-violet-400" weight="duotone" />
+            </div>
+            <div className="text-2xl font-extrabold text-violet-700 dark:text-violet-300 mt-3">
+              ₹{totalLiquid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+
+          {[...counters].sort((a, b) => {
+            if (a.type === 'Bank' && b.type === 'Cash') return -1;
+            if (a.type === 'Cash' && b.type === 'Bank') return 1;
+            return 0;
+          }).map(c => (
             <div 
               key={c.id} 
               className="bg-card border border-border rounded-xl p-4 flex flex-col justify-between min-h-[100px] hover:shadow-md transition-shadow"
@@ -213,18 +229,6 @@ export default function CashBankBookReport({
               </div>
             </div>
           ))}
-
-          <div className="bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950 dark:to-violet-900 border-violet-200 dark:border-violet-800 border rounded-xl p-4 flex flex-col justify-between min-h-[100px]">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-violet-900 dark:text-violet-100">
-                Total Liquid Assets
-              </span>
-              <Wallet className="h-5 w-5 text-violet-600 dark:text-violet-400" weight="duotone" />
-            </div>
-            <div className="text-2xl font-extrabold text-violet-700 dark:text-violet-300 mt-3">
-              ₹{totalLiquid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-          </div>
         </div>
       </div>
 
