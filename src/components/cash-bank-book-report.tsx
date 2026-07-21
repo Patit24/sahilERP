@@ -167,14 +167,14 @@ export default function CashBankBookReport({
   const totalLiquid = totalCash + totalBank
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Wallet className="h-7 w-7 text-primary" weight="duotone" />
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Cash & Bank Ledger
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1.5">
             Real-time financial balances and transaction history
           </p>
         </div>
@@ -183,14 +183,14 @@ export default function CashBankBookReport({
       {/* Balances Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Liquid Assets Card */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 rounded-2xl p-5 flex flex-col justify-between min-h-[130px] shadow-lg relative overflow-hidden border border-slate-700">
-          <div className="absolute -top-4 -right-4 p-4 opacity-10 pointer-events-none">
-            <Wallet className="w-24 h-24 text-white" weight="fill" />
+        <div className="bg-card border border-border rounded-xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-6">
+            <span className="text-sm font-medium text-muted-foreground">Total Liquid Assets</span>
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Wallet className="h-4 w-4 text-primary" weight="bold" />
+            </div>
           </div>
-          <div className="relative z-10 flex justify-between items-start">
-            <span className="text-sm font-medium text-slate-300">Total Liquid Assets</span>
-          </div>
-          <div className="relative z-10 text-3xl font-bold text-white mt-4 tracking-tight">
+          <div className="text-3xl font-semibold tracking-tight text-foreground">
             ₹{totalLiquid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </div>
@@ -203,33 +203,18 @@ export default function CashBankBookReport({
         }).map(c => (
           <div 
             key={c.id} 
-            className="bg-card border border-border/60 rounded-2xl p-5 flex flex-col justify-between min-h-[130px] shadow-sm hover:shadow-md transition-all relative overflow-hidden group"
+            className="bg-card border border-border rounded-xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
-              {c.type === 'Cash' ? (
-                <Coins className="w-20 h-20 text-foreground" weight="fill" />
-              ) : (
-                <Bank className="w-20 h-20 text-foreground" weight="fill" />
-              )}
-            </div>
-            
-            <div className="relative z-10 flex justify-between items-start">
-              <span className="text-sm font-medium text-muted-foreground truncate pr-2 group-hover:text-foreground transition-colors">
+            <div className="flex justify-between items-start mb-6">
+              <span className="text-sm font-medium text-muted-foreground truncate pr-2">
                 {c.name}
               </span>
-              <Badge 
-                variant="outline"
-                className={
-                  c.type === 'Cash' 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50 rounded-full px-2 py-0.5' 
-                    : 'bg-blue-50 text-blue-700 border-blue-200/50 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800/50 rounded-full px-2 py-0.5'
-                }
-              >
-                {c.type === 'Cash' ? <Coins className="h-3 w-3 mr-1" /> : <Bank className="h-3 w-3 mr-1" />}
-                <span className="text-[10px] uppercase tracking-wider font-semibold">{c.type}</span>
-              </Badge>
+              <div className="flex items-center gap-1.5 bg-muted px-2 py-1 rounded-md text-xs font-medium text-muted-foreground">
+                {c.type === 'Cash' ? <Coins className="h-3.5 w-3.5" /> : <Bank className="h-3.5 w-3.5" />}
+                <span>{c.type}</span>
+              </div>
             </div>
-            <div className="relative z-10 text-2xl font-bold text-foreground mt-4 tracking-tight">
+            <div className="text-3xl font-semibold tracking-tight text-foreground">
               ₹{c.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -237,20 +222,18 @@ export default function CashBankBookReport({
       </div>
 
       {/* Ledger Section */}
-      <div className="bg-card border border-border/60 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
         {/* Filters Toolbar */}
-        <div className="p-4 border-b border-border/40 bg-muted/10">
-          <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3">
+        <div className="p-4 border-b border-border/50 bg-muted/20">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center gap-4">
             <div className="flex items-center gap-2 mr-auto">
-              <div className="bg-primary/10 p-2 rounded-lg">
-                <Funnel className="h-4 w-4 text-primary" weight="bold" />
-              </div>
-              <span className="text-sm font-semibold">Filter Ledger</span>
+              <Funnel className="h-4 w-4 text-muted-foreground" weight="bold" />
+              <span className="text-sm font-medium text-muted-foreground">Filters</span>
             </div>
             
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               <Select value={filterCounter} onValueChange={setFilterCounter}>
-                <SelectTrigger className="w-[160px] h-9 bg-background border-border/60">
+                <SelectTrigger className="w-[160px] h-9 bg-background border-border shadow-sm">
                   <SelectValue placeholder="All Counters" />
                 </SelectTrigger>
                 <SelectContent>
@@ -262,7 +245,7 @@ export default function CashBankBookReport({
               </Select>
 
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[140px] h-9 bg-background border-border/60">
+                <SelectTrigger className="w-[140px] h-9 bg-background border-border shadow-sm">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,19 +256,19 @@ export default function CashBankBookReport({
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-background border border-border rounded-md shadow-sm px-2">
                 <Input 
                   type="date" 
                   value={dateFrom} 
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-9 w-[130px] bg-background border-border/60"
+                  className="h-9 w-[120px] border-0 focus-visible:ring-0 shadow-none px-1 text-sm"
                 />
                 <span className="text-muted-foreground text-xs font-medium">to</span>
                 <Input 
                   type="date" 
                   value={dateTo} 
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="h-9 w-[130px] bg-background border-border/60"
+                  className="h-9 w-[120px] border-0 focus-visible:ring-0 shadow-none px-1 text-sm"
                 />
               </div>
 
@@ -296,7 +279,7 @@ export default function CashBankBookReport({
                   onClick={clearFilters}
                   className="h-9 px-3 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-4 w-4 mr-1" />
+                  <X className="h-4 w-4 mr-1.5" />
                   Clear
                 </Button>
               )}
@@ -307,12 +290,12 @@ export default function CashBankBookReport({
         {/* Transactions List */}
         <div className="w-full overflow-x-auto">
           <Table>
-            <TableHeader className="bg-muted/30 border-b border-border/40">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="font-semibold w-[120px] pl-6">Date</TableHead>
-                <TableHead className="font-semibold">Transaction Details</TableHead>
-                <TableHead className="font-semibold text-right w-[150px]">Amount</TableHead>
-                <TableHead className="font-semibold text-right w-[160px] pr-6">Balance</TableHead>
+            <TableHeader className="bg-transparent">
+              <TableRow className="hover:bg-transparent border-b border-border/50">
+                <TableHead className="font-medium text-muted-foreground w-[130px] pl-6 h-12">Date</TableHead>
+                <TableHead className="font-medium text-muted-foreground h-12">Transaction Details</TableHead>
+                <TableHead className="font-medium text-muted-foreground text-right w-[160px] h-12">Amount</TableHead>
+                <TableHead className="font-medium text-muted-foreground text-right w-[160px] pr-6 h-12">Balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -322,7 +305,6 @@ export default function CashBankBookReport({
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <Wallet className="h-10 w-10 mb-3 opacity-20" weight="duotone" />
                       <p className="font-medium text-sm">No transactions found</p>
-                      <p className="text-xs opacity-70 mt-1">Adjust your filters to see more results</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -332,22 +314,22 @@ export default function CashBankBookReport({
                   const isOut = txn.type === 'Out' || (isTransfer && txn.isTransferSide === 'out');
                   
                   let Icon = ArrowLeft;
-                  let iconBgClass = 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400';
+                  let iconBgClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
                   
                   if (isTransfer) {
                     Icon = isOut ? ArrowRight : ArrowLeft;
                     iconBgClass = isOut 
-                      ? 'bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400' 
-                      : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400';
+                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400' 
+                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
                   } else if (isOut) {
                     Icon = ArrowRight;
-                    iconBgClass = 'bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400';
+                    iconBgClass = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400';
                   }
 
                   return (
-                    <TableRow key={txn.displayId} className="hover:bg-muted/30 border-border/30 transition-colors group">
-                      <TableCell className="pl-6 align-top pt-4">
-                        <div className="font-medium text-sm text-foreground whitespace-nowrap">
+                    <TableRow key={txn.displayId} className="hover:bg-muted/40 border-b border-border/40 transition-colors">
+                      <TableCell className="pl-6 align-middle py-4">
+                        <div className="font-medium text-sm text-muted-foreground whitespace-nowrap">
                           {new Date(txn.date).toLocaleDateString('en-IN', {
                             day: '2-digit',
                             month: 'short',
@@ -356,32 +338,30 @@ export default function CashBankBookReport({
                         </div>
                       </TableCell>
                       
-                      <TableCell className="align-top pt-3 pb-3">
-                        <div className="flex items-start gap-3 w-max">
-                          <div className={`mt-0.5 flex shrink-0 items-center justify-center w-8 h-8 rounded-full ${iconBgClass}`}>
+                      <TableCell className="align-middle py-4">
+                        <div className="flex items-center gap-4 w-max">
+                          <div className={`flex shrink-0 items-center justify-center w-10 h-10 rounded-full ${iconBgClass}`}>
                             <Icon className="h-4 w-4" weight="bold" />
                           </div>
                           <div className="flex flex-col gap-1">
                             {isTransfer ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-semibold text-foreground text-sm bg-muted/50 border border-border/50 px-2 py-0.5 rounded-md">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-foreground text-sm">
                                   {txn.isTransferSide === 'out' ? txn.counterName : txn.toCounterName}
                                 </span>
-                                <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                                  {txn.isTransferSide === 'out' ? 'To' : 'From'}
-                                </span>
-                                <span className="font-semibold text-foreground text-sm bg-muted/50 border border-border/50 px-2 py-0.5 rounded-md">
+                                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60" weight="bold" />
+                                <span className="font-medium text-foreground text-sm">
                                   {txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}
                                 </span>
                               </div>
                             ) : (
-                              <div className="font-semibold text-foreground text-sm flex items-center">
+                              <div className="font-medium text-foreground text-sm">
                                 {txn.displayCounterName}
                               </div>
                             )}
                             
                             {txn.narration && (
-                              <div className="text-xs text-muted-foreground italic max-w-[400px] line-clamp-2 leading-relaxed">
+                              <div className="text-sm text-muted-foreground max-w-[500px] truncate">
                                 {txn.narration}
                               </div>
                             )}
@@ -389,13 +369,13 @@ export default function CashBankBookReport({
                         </div>
                       </TableCell>
                       
-                      <TableCell className="text-right align-top pt-4">
+                      <TableCell className="text-right align-middle py-4">
                         <div className={`font-semibold tracking-tight whitespace-nowrap ${isOut ? 'text-foreground' : 'text-emerald-600 dark:text-emerald-400'}`}>
                           {isOut ? '-' : '+'}₹{Math.abs(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </TableCell>
                       
-                      <TableCell className="text-right pr-6 align-top pt-4">
+                      <TableCell className="text-right pr-6 align-middle py-4">
                         <div className="font-mono text-sm font-medium text-muted-foreground whitespace-nowrap">
                           {txn.runningBalance !== undefined ? (
                             `₹${txn.runningBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
