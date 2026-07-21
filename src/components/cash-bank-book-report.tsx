@@ -33,6 +33,7 @@ type DisplayTransaction = CashBankTransaction & {
   displayCounterId: string;
   displayCounterName: string;
   runningBalance?: number;
+  _index: number;
 };
 
 interface CashBankBookReportProps {
@@ -51,45 +52,47 @@ export default function CashBankBookReport({
 
   const allTransactions = useMemo(() => {
     let expanded: DisplayTransaction[] = [];
-    transactions.forEach(t => {
+    transactions.forEach((t, i) => {
       if (t.type === 'Transfer') {
         expanded.push({ 
           ...t, 
           displayId: `${t.id}-out`, 
           isTransferSide: 'out', 
           displayCounterId: t.counterId,
-          displayCounterName: t.counterName
+          displayCounterName: t.counterName,
+          _index: i * 10
         });
         expanded.push({ 
           ...t, 
           displayId: `${t.id}-in`, 
           isTransferSide: 'in', 
           displayCounterId: t.toCounterId!,
-          displayCounterName: t.toCounterName!
+          displayCounterName: t.toCounterName!,
+          _index: i * 10 + 1
         });
       } else {
         expanded.push({ 
           ...t, 
           displayId: t.id, 
           displayCounterId: t.counterId,
-          displayCounterName: t.counterName
+          displayCounterName: t.counterName,
+          _index: i * 10
         });
       }
     });
 
     // Sort ascending for balance calculation
-    let expandedAscending = expanded.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let expandedAscending = expanded.sort((a, b) => {
+      const timeDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return a._index - b._index;
+    });
 
     // Filter by counter BEFORE calculating balance
     let filteredForBalance = expandedAscending;
     if (filterCounter !== 'all') {
       filteredForBalance = filteredForBalance.filter(t => t.displayCounterId === filterCounter);
     }
-    
-    // Filter by type BEFORE calculating balance (if the user only wants to see 'In' transactions, 
-    // wait, does filtering by Type affect running balance? YES! If they filter by Type, they usually still want the actual real running balance of the counter.
-    // Actually, ledgers usually show the true running balance regardless of type filters, but standard behavior varies.
-    // Let's calculate the TRUE balance first, before any type or date filters!)
     
     let currentBalance = 0;
     if (filterCounter === 'all') {
@@ -100,10 +103,18 @@ export default function CashBankBookReport({
     }
     
     const withBalance = filteredForBalance.map(t => {
-      if (t.type === 'In' || t.isTransferSide === 'in') {
-        currentBalance += t.amount;
-      } else if (t.type === 'Out' || t.isTransferSide === 'out') {
-        currentBalance -= t.amount;
+      if (filterCounter !== 'all') {
+        if (t.type === 'In' || t.isTransferSide === 'in') {
+          currentBalance += t.amount;
+        } else if (t.type === 'Out' || t.isTransferSide === 'out') {
+          currentBalance -= t.amount;
+        }
+      } else {
+        if (t.type === 'In') {
+          currentBalance += t.amount;
+        } else if (t.type === 'Out') {
+          currentBalance -= t.amount;
+        }
       }
       return { ...t, runningBalance: currentBalance };
     });
@@ -123,7 +134,11 @@ export default function CashBankBookReport({
     }
 
     // Finally, sort descending for display
-    return finalFiltered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return finalFiltered.sort((a, b) => {
+      const timeDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return b._index - a._index;
+    });
   }, [transactions, counters, filterCounter, filterType, dateFrom, dateTo])
 
   const clearFilters = () => {
@@ -336,7 +351,7 @@ export default function CashBankBookReport({
                               variant="outline" 
                               className={`font-medium whitespace-nowrap ${txn.isTransferSide === 'out' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'}`}
                             >
-                              Transfer {txn.isTransferSide === 'out' ? 'Out to' : 'In from'} {txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}
+                              {txn.isTransferSide === 'out' ? `${txn.counterName} ➔ ${txn.toCounterName}` : `${txn.toCounterName} ⬅ ${txn.counterName}`}
                             </Badge>
                           ) : (
                             <span className="font-semibold text-foreground whitespace-nowrap">{txn.displayCounterName}</span>
