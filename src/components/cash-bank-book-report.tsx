@@ -18,15 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { 
-  Wallet, 
-  Coins, 
-  Bank,
-  Funnel,
-  X,
-  ArrowRight,
-  ArrowLeft
-} from '@phosphor-icons/react'
+import { Wallet, Funnel, X, ArrowLeft, ArrowRight, ArrowUpRight, ArrowDownLeft, Coins, Bank } from '@phosphor-icons/react'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 
 type DisplayTransaction = CashBankTransaction & {
@@ -167,31 +159,33 @@ export default function CashBankBookReport({
   const totalLiquid = totalCash + totalBank
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+    <div className="space-y-10 max-w-[1400px] mx-auto animate-in fade-in duration-700 ease-out p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-6">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-semibold tracking-tighter text-zinc-900 dark:text-zinc-50">
             Cash & Bank Ledger
           </h1>
-          <p className="text-sm text-muted-foreground mt-1.5">
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
             Real-time financial balances and transaction history
           </p>
         </div>
       </div>
 
       {/* Balances Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Total Liquid Assets Card */}
-        <div className="bg-card border border-border rounded-xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start mb-6">
-            <span className="text-sm font-medium text-muted-foreground">Total Liquid Assets</span>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Wallet className="h-4 w-4 text-primary" weight="bold" />
+        <div className="group relative overflow-hidden rounded-[24px] bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 p-7 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
+          <div className="flex justify-between items-start mb-8">
+            <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Liquid Assets</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 transition-transform duration-500 group-hover:scale-110">
+              <Wallet className="h-4 w-4" weight="bold" />
             </div>
           </div>
-          <div className="text-3xl font-semibold tracking-tight text-foreground">
-            ₹{totalLiquid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="flex items-baseline gap-1">
+            <span className="text-4xl font-semibold tracking-tighter text-zinc-900 dark:text-zinc-50">
+              ₹{totalLiquid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
 
@@ -203,18 +197,17 @@ export default function CashBankBookReport({
         }).map(c => (
           <div 
             key={c.id} 
-            className="bg-card border border-border rounded-xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
+            className="group relative overflow-hidden rounded-[24px] bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 p-7 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none"
           >
-            <div className="flex justify-between items-start mb-6">
-              <span className="text-sm font-medium text-muted-foreground truncate pr-2">
+            <div className="flex justify-between items-start mb-8">
+              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate pr-2">
                 {c.name}
               </span>
-              <div className="flex items-center gap-1.5 bg-muted px-2 py-1 rounded-md text-xs font-medium text-muted-foreground">
-                {c.type === 'Cash' ? <Coins className="h-3.5 w-3.5" /> : <Bank className="h-3.5 w-3.5" />}
-                <span>{c.type}</span>
+              <div className="flex items-center rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-widest">
+                {c.type}
               </div>
             </div>
-            <div className="text-3xl font-semibold tracking-tight text-foreground">
+            <div className="text-3xl font-semibold tracking-tighter text-zinc-900 dark:text-zinc-50">
               ₹{c.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -222,53 +215,55 @@ export default function CashBankBookReport({
       </div>
 
       {/* Ledger Section */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+      <div className="rounded-[24px] bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] overflow-hidden flex flex-col dark:shadow-none">
         {/* Filters Toolbar */}
-        <div className="p-4 border-b border-border/50 bg-muted/20">
+        <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/50">
           <div className="flex flex-col sm:flex-row flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2 mr-auto">
-              <Funnel className="h-4 w-4 text-muted-foreground" weight="bold" />
-              <span className="text-sm font-medium text-muted-foreground">Filters</span>
+            <div className="flex items-center gap-3 mr-auto">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <Funnel className="h-4 w-4 text-zinc-600 dark:text-zinc-300" weight="bold" />
+              </div>
+              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Filter Ledger</span>
             </div>
             
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               <Select value={filterCounter} onValueChange={setFilterCounter}>
-                <SelectTrigger className="w-[160px] h-9 bg-background border-border shadow-sm">
+                <SelectTrigger className="h-10 w-[160px] rounded-full border-zinc-200/80 dark:border-zinc-800 bg-transparent px-4 text-sm font-medium focus:ring-0 focus:ring-offset-0 dark:text-zinc-300">
                   <SelectValue placeholder="All Counters" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Counters</SelectItem>
+                <SelectContent className="rounded-[16px]">
+                  <SelectItem value="all" className="rounded-[8px]">All Counters</SelectItem>
                   {counters.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id} className="rounded-[8px]">{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[140px] h-9 bg-background border-border shadow-sm">
+                <SelectTrigger className="h-10 w-[140px] rounded-full border-zinc-200/80 dark:border-zinc-800 bg-transparent px-4 text-sm font-medium focus:ring-0 focus:ring-offset-0 dark:text-zinc-300">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="in">Cash In</SelectItem>
-                  <SelectItem value="out">Cash Out</SelectItem>
-                  <SelectItem value="transfer">Transfers</SelectItem>
+                <SelectContent className="rounded-[16px]">
+                  <SelectItem value="all" className="rounded-[8px]">All Types</SelectItem>
+                  <SelectItem value="in" className="rounded-[8px]">Cash In</SelectItem>
+                  <SelectItem value="out" className="rounded-[8px]">Cash Out</SelectItem>
+                  <SelectItem value="transfer" className="rounded-[8px]">Transfers</SelectItem>
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-2 bg-background border border-border rounded-md shadow-sm px-2">
+              <div className="flex items-center gap-2 rounded-full border border-zinc-200/80 dark:border-zinc-800 px-3 h-10">
                 <Input 
                   type="date" 
                   value={dateFrom} 
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-9 w-[120px] border-0 focus-visible:ring-0 shadow-none px-1 text-sm"
+                  className="h-8 w-[110px] border-0 focus-visible:ring-0 shadow-none px-1 text-sm bg-transparent dark:text-zinc-300"
                 />
-                <span className="text-muted-foreground text-xs font-medium">to</span>
+                <span className="text-zinc-400 text-xs font-medium uppercase tracking-widest">to</span>
                 <Input 
                   type="date" 
                   value={dateTo} 
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="h-9 w-[120px] border-0 focus-visible:ring-0 shadow-none px-1 text-sm"
+                  className="h-8 w-[110px] border-0 focus-visible:ring-0 shadow-none px-1 text-sm bg-transparent dark:text-zinc-300"
                 />
               </div>
 
@@ -277,7 +272,7 @@ export default function CashBankBookReport({
                   variant="ghost" 
                   size="sm" 
                   onClick={clearFilters}
-                  className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                  className="h-10 rounded-full px-4 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
                 >
                   <X className="h-4 w-4 mr-1.5" />
                   Clear
@@ -288,23 +283,24 @@ export default function CashBankBookReport({
         </div>
 
         {/* Transactions List */}
-        <div className="w-full overflow-x-auto">
+        <div className="w-full overflow-x-auto p-2">
           <Table>
-            <TableHeader className="bg-transparent">
-              <TableRow className="hover:bg-transparent border-b border-border/50">
-                <TableHead className="font-medium text-muted-foreground w-[130px] pl-6 h-12">Date</TableHead>
-                <TableHead className="font-medium text-muted-foreground h-12">Transaction Details</TableHead>
-                <TableHead className="font-medium text-muted-foreground text-right w-[160px] h-12">Amount</TableHead>
-                <TableHead className="font-medium text-muted-foreground text-right w-[160px] pr-6 h-12">Balance</TableHead>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-none">
+                <TableHead className="font-medium text-xs uppercase tracking-widest text-zinc-500 w-[140px] pl-6 h-14">Date</TableHead>
+                <TableHead className="font-medium text-xs uppercase tracking-widest text-zinc-500 h-14">Transaction Details</TableHead>
+                <TableHead className="font-medium text-xs uppercase tracking-widest text-zinc-500 text-right w-[160px] h-14">Amount</TableHead>
+                <TableHead className="font-medium text-xs uppercase tracking-widest text-zinc-500 text-right w-[180px] pr-8 h-14">Balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {allTransactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-48 text-center">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <Wallet className="h-10 w-10 mb-3 opacity-20" weight="duotone" />
+                <TableRow className="border-none">
+                  <TableCell colSpan={4} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center text-zinc-400">
+                      <Wallet className="h-8 w-8 mb-4 opacity-40" weight="light" />
                       <p className="font-medium text-sm">No transactions found</p>
+                      <p className="text-xs opacity-60 mt-1">Adjust your filters to see more results</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -313,55 +309,50 @@ export default function CashBankBookReport({
                   const isTransfer = txn.type === 'Transfer';
                   const isOut = txn.type === 'Out' || (isTransfer && txn.isTransferSide === 'out');
                   
-                  let Icon = ArrowLeft;
-                  let iconBgClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
+                  let Icon = ArrowDownLeft;
                   
                   if (isTransfer) {
-                    Icon = isOut ? ArrowRight : ArrowLeft;
-                    iconBgClass = isOut 
-                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400' 
-                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
+                    Icon = isOut ? ArrowUpRight : ArrowDownLeft;
                   } else if (isOut) {
-                    Icon = ArrowRight;
-                    iconBgClass = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400';
+                    Icon = ArrowUpRight;
                   }
 
                   return (
-                    <TableRow key={txn.displayId} className="hover:bg-muted/40 border-b border-border/40 transition-colors">
-                      <TableCell className="pl-6 align-middle py-4">
-                        <div className="font-medium text-sm text-muted-foreground whitespace-nowrap">
-                          {new Date(txn.date).toLocaleDateString('en-IN', {
-                            day: '2-digit',
+                    <TableRow key={txn.displayId} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 border-b border-zinc-100 dark:border-zinc-800/50 last:border-0 transition-colors duration-200">
+                      <TableCell className="pl-6 align-middle py-5">
+                        <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                          {new Date(txn.date).toLocaleDateString('en-US', {
+                            day: 'numeric',
                             month: 'short',
                             year: 'numeric'
                           })}
                         </div>
                       </TableCell>
                       
-                      <TableCell className="align-middle py-4">
+                      <TableCell className="align-middle py-5">
                         <div className="flex items-center gap-4 w-max">
-                          <div className={`flex shrink-0 items-center justify-center w-10 h-10 rounded-full ${iconBgClass}`}>
+                          <div className="flex shrink-0 items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
                             <Icon className="h-4 w-4" weight="bold" />
                           </div>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col justify-center gap-1">
                             {isTransfer ? (
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-foreground text-sm">
+                                <span className="font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 text-sm">
                                   {txn.isTransferSide === 'out' ? txn.counterName : txn.toCounterName}
                                 </span>
-                                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60" weight="bold" />
-                                <span className="font-medium text-foreground text-sm">
+                                <ArrowRight className="w-3.5 h-3.5 text-zinc-400" weight="bold" />
+                                <span className="font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 text-sm">
                                   {txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}
                                 </span>
                               </div>
                             ) : (
-                              <div className="font-medium text-foreground text-sm">
+                              <div className="font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 text-sm">
                                 {txn.displayCounterName}
                               </div>
                             )}
                             
                             {txn.narration && (
-                              <div className="text-sm text-muted-foreground max-w-[500px] truncate">
+                              <div className="text-sm text-zinc-500 dark:text-zinc-400 max-w-[500px] truncate">
                                 {txn.narration}
                               </div>
                             )}
@@ -369,14 +360,14 @@ export default function CashBankBookReport({
                         </div>
                       </TableCell>
                       
-                      <TableCell className="text-right align-middle py-4">
-                        <div className={`font-semibold tracking-tight whitespace-nowrap ${isOut ? 'text-foreground' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      <TableCell className="text-right align-middle py-5">
+                        <div className={`font-semibold tracking-tighter text-[15px] whitespace-nowrap ${isOut ? 'text-zinc-900 dark:text-zinc-100' : 'text-emerald-600 dark:text-emerald-400'}`}>
                           {isOut ? '-' : '+'}₹{Math.abs(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </TableCell>
                       
-                      <TableCell className="text-right pr-6 align-middle py-4">
-                        <div className="font-mono text-sm font-medium text-muted-foreground whitespace-nowrap">
+                      <TableCell className="text-right pr-8 align-middle py-5">
+                        <div className="font-mono text-sm font-medium text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
                           {txn.runningBalance !== undefined ? (
                             `₹${txn.runningBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           ) : '—'}
