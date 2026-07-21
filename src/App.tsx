@@ -694,6 +694,8 @@ function App() {
     setMTBookings([])
     setAdvanceBookingPickups([])
     setDiscountLedgerEntries([])
+    setCashBankCounters([])
+    setCashBankTransactions([])
 
     const partitionKey = tenantKey
     const companyId = metadata.activeCompanyId
