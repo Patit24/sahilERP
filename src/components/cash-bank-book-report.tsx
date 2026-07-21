@@ -353,8 +353,8 @@ export default function CashBankBookReport({
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {txn.type === 'Transfer' ? (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-foreground whitespace-nowrap px-2.5 py-1 rounded-md bg-muted border border-border/50 text-sm shadow-sm" title={txn.isTransferSide === 'out' ? txn.counterName : txn.toCounterName}>
+                            <div className="flex items-center gap-2 w-max">
+                              <span className="shrink-0 font-medium text-foreground whitespace-nowrap px-2.5 py-1 rounded-md bg-muted border border-border/50 text-sm shadow-sm" title={txn.isTransferSide === 'out' ? txn.counterName : txn.toCounterName}>
                                 {txn.isTransferSide === 'out' ? txn.counterName : txn.toCounterName}
                               </span>
                               
@@ -364,7 +364,7 @@ export default function CashBankBookReport({
                                 <ArrowLeft className="h-4 w-4 text-emerald-500 shrink-0 drop-shadow-sm" weight="bold" />
                               )}
                               
-                              <span className="font-medium text-foreground whitespace-nowrap px-2.5 py-1 rounded-md bg-muted border border-border/50 text-sm shadow-sm" title={txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}>
+                              <span className="shrink-0 font-medium text-foreground whitespace-nowrap px-2.5 py-1 rounded-md bg-muted border border-border/50 text-sm shadow-sm" title={txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}>
                                 {txn.isTransferSide === 'out' ? txn.toCounterName : txn.counterName}
                               </span>
                             </div>
