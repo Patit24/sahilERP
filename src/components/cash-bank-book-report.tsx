@@ -174,20 +174,41 @@ export default function CashBankBookReport({
 
       {/* Balances Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Total Liquid Assets Card */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white border border-zinc-200/80 p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:border-zinc-300">
-          <div className="flex justify-between items-start mb-6">
-            <span className="text-sm font-medium text-zinc-500">Total Liquid Assets</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 transition-transform duration-500 group-hover:scale-110">
-              <Wallet className="h-4 w-4" weight="bold" />
+        {/* Total Cash Balance */}
+        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 shadow-sm transition-all duration-300 hover:shadow-md rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Coins className="h-5 w-5 text-emerald-600" weight="duotone" />
+              Total Cash Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold tracking-tighter text-emerald-700">
+              ₹{totalCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-semibold tracking-tighter text-zinc-900">
-              ₹{totalLiquid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        </div>
+            <p className="text-xs font-medium text-emerald-600/80 mt-2 uppercase tracking-widest">
+              {counters.filter(c => c.type === 'Cash').length} counter(s)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Bank Balance */}
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-sm transition-all duration-300 hover:shadow-md rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Bank className="h-5 w-5 text-blue-600" weight="duotone" />
+              Total Bank Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold tracking-tighter text-blue-700">
+              ₹{totalBank.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs font-medium text-blue-600/80 mt-2 uppercase tracking-widest">
+              {counters.filter(c => c.type === 'Bank').length} account(s)
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Individual Counters */}
         {[...counters].sort((a, b) => {
