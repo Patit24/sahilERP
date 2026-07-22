@@ -17,6 +17,7 @@ export interface UserAccount {
   role: UserRole
   permissions: PermissionMap
   isActive: boolean
+  allowedCounters?: string[]
   salt: string
   passcodeHash: string
   createdAt: string
@@ -30,6 +31,7 @@ export interface AuthenticatedUser {
   role: UserRole
   permissions: PermissionMap
   isActive: boolean
+  allowedCounters?: string[]
 }
 
 const AUDIT_LOG_KEY = 'app_audit_log'
@@ -186,7 +188,8 @@ export async function createAgentAccount(input: {
   username: string
   displayName: string
   passcode: string
-  permissions: PermissionMap
+  permissions?: PermissionMap
+  allowedCounters?: string[]
 }): Promise<UserAccount> {
   const accounts = getUserAccounts()
   const normalizedUsername = input.username.trim().toLowerCase()
@@ -203,8 +206,9 @@ export async function createAgentAccount(input: {
     username: normalizedUsername,
     displayName: input.displayName.trim() || normalizedUsername,
     role: 'agent',
-    permissions: input.permissions,
+    permissions: input.permissions || {},
     isActive: true,
+    allowedCounters: input.allowedCounters || [],
     salt,
     passcodeHash,
     createdAt: now,
@@ -218,11 +222,11 @@ export async function createAgentAccount(input: {
 export async function updateAgentAccount(id: string, input: {
   displayName: string
   passcode?: string
-  permissions: PermissionMap
-  isActive: boolean
+  permissions?: PermissionMap
+  isActive?: boolean
+  allowedCounters?: string[]
 }): Promise<UserAccount[]> {
   const accounts = getUserAccounts()
-  let nextAccounts = accounts
   const target = accounts.find((account) => account.id === id && account.role === 'agent')
   if (!target) throw new Error('Agent not found')
 
@@ -233,13 +237,14 @@ export async function updateAgentAccount(id: string, input: {
     passcodeHash = await hashPasscode(input.passcode, salt)
   }
 
-  nextAccounts = accounts.map((account) => {
+  const nextAccounts = accounts.map((account) => {
     if (account.id !== id || account.role !== 'agent') return account
     return {
       ...account,
       displayName: input.displayName.trim() || account.username,
-      permissions: input.permissions,
-      isActive: input.isActive,
+      permissions: input.permissions ?? account.permissions,
+      isActive: input.isActive ?? account.isActive,
+      allowedCounters: input.allowedCounters ?? account.allowedCounters,
       salt,
       passcodeHash,
       updatedAt: new Date().toISOString()

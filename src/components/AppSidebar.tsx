@@ -52,6 +52,7 @@ interface AppSidebarProps {
   handleMasterBackup: () => void
   handleSmartRestore: (e: React.ChangeEvent<HTMLInputElement>) => void
   canManageSystem: boolean
+  onLogout?: () => void
 }
 
 export function AppSidebar({

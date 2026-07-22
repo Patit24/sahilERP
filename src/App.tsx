@@ -589,6 +589,26 @@ function App() {
       }))
       .filter((group) => group.items.length > 0)
   }, [currentUser, isMasterAdmin])
+
+  // Filter Cash & Bank Counters for Agents
+  const agentAllowedCounters = currentUser?.role === 'agent' ? (currentUser.allowedCounters || []) : []
+  const visibleCashBankCounters = useMemo(() => {
+    if (currentUser?.role !== 'agent') return cashBankCounters
+    if (agentAllowedCounters.length === 0) return []
+    return cashBankCounters.filter(c => agentAllowedCounters.includes(c.id))
+  }, [cashBankCounters, currentUser, agentAllowedCounters])
+
+  const visibleCashBankTransactions = useMemo(() => {
+    if (currentUser?.role !== 'agent') return cashBankTransactions
+    if (agentAllowedCounters.length === 0) return []
+    return cashBankTransactions.filter(t => {
+      if (t.type === 'Transfer') {
+        return agentAllowedCounters.includes(t.counterId) || agentAllowedCounters.includes(t.toCounterId || '')
+      }
+      return agentAllowedCounters.includes(t.counterId)
+    })
+  }, [cashBankTransactions, currentUser, agentAllowedCounters])
+
   const canAccessView = useCallback((viewId: string) => {
     if (viewId === 'dashboard') return true
     if (viewId === 'user-management') return isMasterAdmin
@@ -2050,6 +2070,7 @@ function App() {
               accounts={userAccounts}
               permissionOptions={permissionOptions}
               onAccountsChange={setUserAccounts}
+              counters={cashBankCounters}
               securityMode={useServerAuth ? 'server' : 'local'}
               onSaveAgent={useServerAuth ? async (input) => updateRemoteUserProfile({
                 id: input.id,

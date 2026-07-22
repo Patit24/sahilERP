@@ -29,12 +29,22 @@ interface UserManagementPageProps {
   permissionOptions: PermissionOption[]
   onAccountsChange: (accounts: UserAccount[]) => void
   securityMode?: 'local' | 'server'
+  counters: any[]
   onSaveAgent?: (input: {
     id: string
     displayName: string
     permissions: PermissionMap
     isActive: boolean
+    allowedCounters?: string[]
   }) => Promise<UserAccount[]>
+  onCreateRemoteAgent?: (input: {
+    email: string
+    displayName: string
+    passcode: string
+    permissions: PermissionMap
+    companyId: string
+    allowedCounters?: string[]
+  }) => Promise<void>
 }
 
 const defaultPermission = 'none' as PermissionLevel
@@ -49,9 +59,11 @@ function emptyPermissions(options: PermissionOption[]): PermissionMap {
 export default function UserManagementPage({
   accounts,
   permissionOptions,
+  counters,
   onAccountsChange,
   securityMode = 'local',
-  onSaveAgent
+  onSaveAgent,
+  onCreateRemoteAgent
 }: UserManagementPageProps) {
   const isServerMode = securityMode === 'server'
   const agentAccounts = useMemo(
@@ -64,6 +76,7 @@ export default function UserManagementPage({
   const [passcode, setPasscode] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [permissions, setPermissions] = useState<PermissionMap>(() => emptyPermissions(permissionOptions))
+  const [allowedCounters, setAllowedCounters] = useState<string[]>([])
 
   const groupedOptions = useMemo(() => {
     return permissionOptions.reduce<Record<string, PermissionOption[]>>((acc, option) => {
@@ -72,6 +85,14 @@ export default function UserManagementPage({
     }, {})
   }, [permissionOptions])
 
+  const toggleCounter = (counterId: string) => {
+    setAllowedCounters(prev => 
+      prev.includes(counterId) 
+        ? prev.filter(id => id !== counterId)
+        : [...prev, counterId]
+    )
+  }
+
   const resetForm = () => {
     setEditingId(null)
     setDisplayName('')
@@ -79,6 +100,7 @@ export default function UserManagementPage({
     setPasscode('')
     setIsActive(true)
     setPermissions(emptyPermissions(permissionOptions))
+    setAllowedCounters([])
   }
 
   const handleEdit = (account: UserAccount) => {
@@ -88,6 +110,7 @@ export default function UserManagementPage({
     setPasscode('')
     setIsActive(account.isActive)
     setPermissions({ ...emptyPermissions(permissionOptions), ...account.permissions, dashboard: 'view' })
+    setAllowedCounters((account as any).allowedCounters || [])
   }
 
   const setPermission = (id: string, level: PermissionLevel) => {
@@ -103,10 +126,7 @@ export default function UserManagementPage({
       toast.error('Agent name is required')
       return
     }
-    if (isServerMode && !editingId) {
-      toast.error('Create users in Supabase Auth first, then edit their permissions here')
-      return
-    }
+
     if (!editingId && !username.trim()) {
       toast.error('Username is required')
       return
@@ -126,7 +146,8 @@ export default function UserManagementPage({
           id: editingId,
           displayName,
           permissions,
-          isActive
+          isActive,
+          allowedCounters
         })
         onAccountsChange(nextAccounts)
         toast.success('Server permissions updated')
@@ -135,7 +156,8 @@ export default function UserManagementPage({
           displayName,
           passcode: passcode.trim() || undefined,
           permissions,
-          isActive
+          isActive,
+          allowedCounters
         })
         onAccountsChange(nextAccounts)
         toast.success('Agent updated')
@@ -144,7 +166,8 @@ export default function UserManagementPage({
           username,
           displayName,
           passcode,
-          permissions
+          permissions,
+          allowedCounters
         })
         onAccountsChange([created, ...accounts])
         toast.success('Agent created')
@@ -233,13 +256,38 @@ export default function UserManagementPage({
                   value={passcode}
                   onChange={(event) => setPasscode(event.target.value)}
                   placeholder="Minimum 6 characters"
-                  disabled={isServerMode}
+                  disabled={isServerMode && Boolean(editingId)}
                 />
                 {isServerMode && (
                   <p className="text-xs text-muted-foreground">
-                    Passwords are managed by Supabase Auth, not browser storage.
+                    Passwords can only be set during creation in Server Mode.
                   </p>
                 )}
+              </div>
+
+
+              <div className="space-y-2">
+                <Label>Assigned Counters</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select which counters this agent can view/manage. (Leave empty if they shouldn't see any balances).
+                </p>
+                <div className="grid gap-2 grid-cols-2">
+                  {counters?.map(counter => (
+                    <div 
+                      key={counter.id} 
+                      onClick={() => toggleCounter(counter.id)}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${allowedCounters.includes(counter.id) ? 'bg-primary/10 border-primary' : 'bg-background hover:bg-muted'}`}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${allowedCounters.includes(counter.id) ? 'bg-primary border-primary' : 'border-input'}`}>
+                        {allowedCounters.includes(counter.id) && <ShieldCheck className="w-3 h-3 text-primary-foreground" />}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{counter.name}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{counter.type}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {editingId && (

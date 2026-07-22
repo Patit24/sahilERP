@@ -2,8 +2,11 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  type User as FirebaseUser
+  type User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  getAuth
 } from 'firebase/auth'
+import { initializeApp, deleteApp } from 'firebase/app'
 import {
   doc,
   getDoc,
@@ -34,6 +37,7 @@ interface FirestoreUserProfile {
   permissions: PermissionMap | null
   isActive: boolean
   companyId: string | null
+  allowedCounters?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -61,7 +65,8 @@ function toAuthenticatedUser(uid: string, profile: FirestoreUserProfile): Authen
     displayName: profile.displayName || profile.email,
     role: profile.role,
     permissions: profile.permissions || {},
-    isActive: profile.isActive
+    isActive: profile.isActive,
+    allowedCounters: profile.allowedCounters || []
   }
 }
 
