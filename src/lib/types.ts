@@ -355,3 +355,47 @@ export interface MTBookingConsumption {
   lockedCDRate: number
   lockedSchemeName: string
 }
+
+export interface CustomerCreditNote {
+  id: string
+  customerId: string
+  date: string
+  amount: number
+  invoiceRef?: string
+  remarks?: string
+  fy: string
+  createdAt?: number
+}
+
+export interface SupplierDebitNote {
+  id: string
+  supplierId: string
+  date: string
+  amount: number
+  invoiceRef?: string
+  remarks?: string
+  fy: string
+  createdAt?: number
+}
+
+export interface SalesReturn {
+  id: string
+  customerId: string
+  returnDate: string
+  amount: number
+  invoiceRef?: string
+  remarks?: string
+  fy: string
+  createdAt?: number
+}
+
+export interface PurchaseReturn {
+  id: string
+  supplierId: string
+  returnDate: string
+  amount: number
+  invoiceRef?: string
+  remarks?: string
+  fy: string
+  createdAt?: number
+}

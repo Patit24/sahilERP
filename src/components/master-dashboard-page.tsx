@@ -45,6 +45,8 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import CDExpiryAlert from '@/components/cd-expiry-alert'
 
 interface MasterDashboardPageProps {
+  currentUser?: any
+  cashBankCounters?: any[]
   suppliers: Supplier[]
   customers: Customer[]
   items: Item[]
@@ -73,7 +75,9 @@ export default function MasterDashboardPage({
   fixedSchemes,
   receivedDiscounts,
   currentFY,
-  onNavigateToReport
+  onNavigateToReport,
+  currentUser,
+  cashBankCounters = []
 }: MasterDashboardPageProps) {
   const { allocations: paymentAllocations, paymentAdvanceInfo } = useMemo(() => {
     return calculatePaymentAllocations(payments, purchaseInvoices)

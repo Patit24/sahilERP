@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Customer, SalesInvoice, CustomerPayment, LedgerEntry } from '@/lib/types'
+import { Customer, SalesInvoice, CustomerPayment, LedgerEntry, CustomerCreditNote, SalesReturn } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -10,10 +10,12 @@ interface CustomerLedgerPageProps {
   customers: Customer[]
   salesInvoices: SalesInvoice[]
   customerPayments: CustomerPayment[]
+  creditNotes: CustomerCreditNote[]
+  salesReturns: SalesReturn[]
   currentFY: string
 }
 
-export default function CustomerLedgerPage({ customers, salesInvoices, customerPayments, currentFY }: CustomerLedgerPageProps) {
+export default function CustomerLedgerPage({ customers, salesInvoices, customerPayments, creditNotes, salesReturns, currentFY }: CustomerLedgerPageProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
 
   const ledgerEntries = useMemo(() => {
@@ -68,7 +70,40 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
       })
     })
 
+
+    const customerCreditNotesFiltered = creditNotes.filter(
+      cn => cn.customerId === selectedCustomerId && cn.fy === currentFY
+    )
+    const customerSalesReturnsFiltered = salesReturns.filter(
+      sr => sr.customerId === selectedCustomerId && sr.fy === currentFY
+    )
+
+    customerCreditNotesFiltered.forEach(cn => {
+      entries.push({
+        date: cn.date,
+        description: 'Credit Note',
+        debit: 0,
+        credit: cn.amount,
+        balance: 0,
+        type: 'payment',
+        refId: cn.id
+      })
+    })
+
+    customerSalesReturnsFiltered.forEach(sr => {
+      entries.push({
+        date: sr.returnDate,
+        description: 'Sales Return',
+        debit: 0,
+        credit: sr.amount,
+        balance: 0,
+        type: 'payment',
+        refId: sr.id
+      })
+    })
+
     entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
 
     let runningBalance = 0
     entries.forEach(entry => {
@@ -77,7 +112,7 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
     })
 
     return entries
-  }, [selectedCustomerId, salesInvoices, customerPayments, currentFY, customers])
+  }, [selectedCustomerId, salesInvoices, customerPayments, creditNotes, salesReturns, currentFY, customers])
 
   const summary = useMemo(() => {
     const totalDebit = ledgerEntries.reduce((sum, e) => sum + e.debit, 0)

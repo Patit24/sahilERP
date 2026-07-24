@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Supplier, PurchaseInvoice, Payment, LedgerEntry } from '@/lib/types'
+import { Supplier, PurchaseInvoice, Payment, LedgerEntry, SupplierDebitNote, PurchaseReturn } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -13,11 +13,13 @@ interface SupplierLedgerPageProps {
   suppliers: Supplier[]
   invoices: PurchaseInvoice[]
   payments: Payment[]
+  debitNotes: SupplierDebitNote[]
+  purchaseReturns: PurchaseReturn[]
   currentFY: string
   businessName?: string
 }
 
-export default function SupplierLedgerPage({ suppliers, invoices, payments, currentFY, businessName }: SupplierLedgerPageProps) {
+export default function SupplierLedgerPage({ suppliers, invoices, payments, debitNotes, purchaseReturns, currentFY, businessName }: SupplierLedgerPageProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
 
   const ledgerEntries = useMemo(() => {
@@ -78,7 +80,44 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, curr
       })
     })
 
+
+    const supplierDebitNotesFiltered = debitNotes.filter(
+      dn => dn.supplierId === selectedSupplierId && dn.fy === currentFY
+    )
+    const supplierPurchaseReturnsFiltered = purchaseReturns.filter(
+      pr => pr.supplierId === selectedSupplierId && pr.fy === currentFY
+    )
+
+    supplierDebitNotesFiltered.forEach(dn => {
+      const timestamp = dn.createdAt || new Date(dn.date).getTime()
+      entriesWithTimestamp.push({
+        date: dn.date,
+        description: 'Debit Note',
+        debit: dn.amount,
+        credit: 0,
+        balance: 0,
+        type: 'payment',
+        refId: dn.id,
+        timestamp
+      })
+    })
+
+    supplierPurchaseReturnsFiltered.forEach(pr => {
+      const timestamp = pr.createdAt || new Date(pr.returnDate).getTime()
+      entriesWithTimestamp.push({
+        date: pr.returnDate,
+        description: 'Purchase Return',
+        debit: pr.amount,
+        credit: 0,
+        balance: 0,
+        type: 'payment',
+        refId: pr.id,
+        timestamp
+      })
+    })
+
     entriesWithTimestamp.sort((a, b) => {
+
       const dateA = new Date(a.date).toISOString().split('T')[0]
       const dateB = new Date(b.date).toISOString().split('T')[0]
       
@@ -98,7 +137,7 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, curr
     })
 
     return entries
-  }, [selectedSupplierId, invoices, payments, currentFY, suppliers])
+  }, [selectedSupplierId, invoices, payments, debitNotes, purchaseReturns, currentFY, suppliers])
 
   const summary = useMemo(() => {
     const totalDebit = ledgerEntries.reduce((sum, e) => sum + e.debit, 0)

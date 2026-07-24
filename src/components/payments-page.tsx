@@ -40,7 +40,6 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
-  const [doNotApplyCD, setDoNotApplyCD] = useState(false)
   const [advanceBookingEnabled, setAdvanceBookingEnabled] = useState(false)
   const [formSupplierId, setFormSupplierId] = useState('')
   const [selectedCounterId, setSelectedCounterId] = useState('')
@@ -268,7 +267,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
         bookingMT: advanceBookingEnabled ? bookingMT : undefined,
         bookingMarketRate: advanceBookingEnabled ? bookingMarketRate : undefined,
         mtBookingId: advanceBookingEnabled ? (editingPayment.mtBookingId || `payment-mt-booking-${editingPayment.id}`) : undefined,
-        doNotApplyCD: doNotApplyCD,
+        doNotApplyCD: false,
         counterId: counterId,
         counterName: selectedCounter.name
       }
@@ -330,7 +329,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
         bookingMT: advanceBookingEnabled ? bookingMT : undefined,
         bookingMarketRate: advanceBookingEnabled ? bookingMarketRate : undefined,
         mtBookingId: advanceBookingEnabled ? `payment-mt-booking-${paymentId}` : undefined,
-        doNotApplyCD: doNotApplyCD,
+        doNotApplyCD: false,
         counterId: counterId,
         counterName: selectedCounter.name,
         fy: currentFY,
@@ -374,7 +373,6 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       return
     }
     setEditingPayment(payment)
-    setDoNotApplyCD(payment.doNotApplyCD || false)
     setAdvanceBookingEnabled(payment.isAdvance || Boolean(payment.bookingMT))
     setFormSupplierId(payment.supplierId)
     setSelectedCounterId(payment.counterId || '')
@@ -425,7 +423,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       return
     }
     setEditingPayment(null)
-    setDoNotApplyCD(false)
+
     setAdvanceBookingEnabled(false)
     setFormSupplierId('')
     setSelectedCounterId('')
@@ -650,28 +648,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                 )}
               </div>
 
-              <div className="space-y-3 pt-2 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="do-not-apply-cd" className="font-semibold">Do Not Apply CD</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Skip Cash Discount calculation for this payment
-                    </p>
-                  </div>
-                  <Switch 
-                    id="do-not-apply-cd"
-                    checked={doNotApplyCD}
-                    onCheckedChange={setDoNotApplyCD}
-                  />
-                </div>
-                {doNotApplyCD && (
-                  <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
-                    <p className="text-xs text-warning-foreground">
-                      <strong>Note:</strong> No Payment-based CD or Invoice-closed CD will be calculated for this payment. Payment will still allocate via FIFO to invoices.
-                    </p>
-                  </div>
-                )}
-              </div>
+
 
               <Button type="submit" className="w-full">
                 {editingPayment ? 'Update Payment' : 'Add Payment'}
@@ -851,18 +828,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                               ) : (
                                 <Badge variant="secondary">Regular</Badge>
                               )}
-                              {payment.doNotApplyCD && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Badge variant="outline" className="ml-2 border-warning text-warning-foreground cursor-help">
-                                      No CD
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Cash Discount calculation disabled for this payment</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
+
                             </TableCell>
                             <TableCell>
                               <div className="text-sm space-y-2 min-w-[280px] max-w-md">

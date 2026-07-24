@@ -184,6 +184,10 @@ import {
   Item,
   SalesInvoice,
   CustomerPayment,
+  CustomerCreditNote,
+  SupplierDebitNote,
+  SalesReturn,
+  PurchaseReturn,
   ExpenseType,
   ExpenseEntry,
   FixedScheme,
@@ -218,6 +222,10 @@ import CashBankCountersMaster from '@/components/cash-bank-counters-master'
 import CashBankVoucherEntry from '@/components/cash-bank-voucher-entry'
 import CashBankBookReport from '@/components/cash-bank-book-report'
 import UserManagementPage, { PermissionOption } from '@/components/user-management-page'
+import CustomerCreditNotePage from '@/components/customer-credit-note-page'
+import SupplierDebitNotePage from '@/components/supplier-debit-note-page'
+import SalesReturnPage from '@/components/sales-return-page'
+import PurchaseReturnPage from '@/components/purchase-return-page'
 import { loadBusinessesFromCloud, saveBusinessToCloud, deleteBusinessFromCloud } from '@/lib/business-sync'
 
 const tenantDataCollectionKeys: Array<keyof TenantData> = [
@@ -234,7 +242,11 @@ const tenantDataCollectionKeys: Array<keyof TenantData> = [
   'fixedSchemes',
   'mtBookings',
   'advanceBookingPickups',
-  'discountLedgerEntries'
+  'discountLedgerEntries',
+  'creditNotes',
+  'debitNotes',
+  'salesReturns',
+  'purchaseReturns'
 ]
 
 function isPrimitive(val: any) {
@@ -335,15 +347,44 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Transactions',
+    title: 'Sale Invoice',
+    items: [
+      { id: 'sales-invoices', label: 'Sales Invoice', icon: Receipt },
+      { id: 'customer-payments', label: 'Payment in', icon: CreditCard },
+      { id: 'customer-credit-notes', label: 'Credit Note', icon: FileText },
+      { id: 'sales-returns', label: 'Sales Return', icon: Receipt },
+      { id: 'customers', label: 'Customer', icon: UsersThree },
+    ]
+  },
+  {
+    title: 'Purchase Invoice',
     items: [
       { id: 'invoices', label: 'Purchase Invoice', icon: Receipt },
-      { id: 'payments', label: 'Supplier Payment', icon: CreditCard },
-      { id: 'advance-mt-bookings', label: 'Advance MT Booking', icon: Scales },
-      { id: 'sales-invoices', label: 'Sales Invoice', icon: Receipt },
-      { id: 'customer-payments', label: 'Customer Payment', icon: CreditCard },
+      { id: 'payments', label: 'Payment Out', icon: CreditCard },
+      { id: 'supplier-debit-notes', label: 'Debit Note', icon: FileText },
+      { id: 'purchase-returns', label: 'Purchase Return', icon: Receipt },
+      { id: 'suppliers', label: 'Supplier', icon: Users },
+    ]
+  },
+  {
+    title: 'Expenses',
+    items: [
       { id: 'expense-entries', label: 'Expense Entries', icon: FileText },
+      { id: 'expense-types', label: 'Expense Types', icon: FileText },
+    ]
+  },
+  {
+    title: 'Item',
+    items: [
+      { id: 'items', label: 'Items', icon: Package },
+    ]
+  },
+  {
+    title: 'Cash & Bank',
+    items: [
       { id: 'cash-bank-voucher', label: 'Cash/Bank Voucher', icon: Bank },
+      { id: 'cash-bank-ledger', label: 'Cash & Bank Ledger', icon: Bank },
+      { id: 'cash-bank-master', label: 'Cash & Bank', icon: Bank },
     ]
   },
   {
@@ -357,19 +398,14 @@ const navGroups: NavGroup[] = [
       { id: 'customer-ledger', label: 'Customer Ledger', icon: FileText },
       { id: 'invoice-details', label: 'Invoice Details', icon: Receipt },
       { id: 'payment-details', label: 'Payment Details', icon: CreditCard },
-      { id: 'cash-bank-ledger', label: 'Cash & Bank Ledger', icon: Bank },
     ]
   },
   {
     title: 'Masters',
     items: [
-      { id: 'suppliers', label: 'Suppliers', icon: Users },
-      { id: 'customers', label: 'Customers', icon: UsersThree },
-      { id: 'items', label: 'Items', icon: Package },
-      { id: 'expense-types', label: 'Expense Types', icon: FileText },
+      { id: 'advance-mt-bookings', label: 'Advance MT Booking', icon: Scales },
       { id: 'fixed-schemes', label: 'Fixed Schemes', icon: CalendarBlank },
       { id: 'mt-bookings', label: 'MT Booking Master', icon: BookBookmark },
-      { id: 'cash-bank-master', label: 'Cash & Bank', icon: Bank },
     ]
   }
 ]
@@ -416,6 +452,10 @@ const viewNames: Record<string, string> = {
   'cash-bank-voucher': 'Cash/Bank Voucher',
   'cash-bank-ledger': 'Cash & Bank Ledger',
   'user-management': 'Agent Access',
+  'customer-credit-notes': 'Credit Note',
+  'supplier-debit-notes': 'Debit Note',
+  'sales-returns': 'Sales Return',
+  'purchase-returns': 'Purchase Return',
 }
 
 function App() {
@@ -470,6 +510,10 @@ function App() {
   const [discountLedgerEntries, setDiscountLedgerEntries] = useState<any[]>([])
   const [cashBankCounters, setCashBankCounters] = useState<any[]>([])
   const [cashBankTransactions, setCashBankTransactions] = useState<any[]>([])
+  const [creditNotes, setCreditNotes] = useState<CustomerCreditNote[]>([])
+  const [debitNotes, setDebitNotes] = useState<SupplierDebitNote[]>([])
+  const [salesReturns, setSalesReturns] = useState<SalesReturn[]>([])
+  const [purchaseReturns, setPurchaseReturns] = useState<PurchaseReturn[]>([])
 
   
   const [isLocked, setIsLocked] = useState(false)
@@ -504,6 +548,10 @@ function App() {
       setMTBookings([])
       setCashBankCounters([])
       setCashBankTransactions([])
+      setCreditNotes([])
+      setDebitNotes([])
+      setSalesReturns([])
+      setPurchaseReturns([])
       setMetadata(prev => ({ ...prev, activeCompanyId: business.id }))
     }
   }
@@ -524,6 +572,10 @@ function App() {
       setMTBookings([])
       setCashBankCounters([])
       setCashBankTransactions([])
+      setCreditNotes([])
+      setDebitNotes([])
+      setSalesReturns([])
+      setPurchaseReturns([])
       setMetadata(prev => ({ ...prev, activeFY: fy }))
     }
   }
@@ -568,6 +620,10 @@ function App() {
   const safeCustomerPayments = customerPayments || []
   const safeExpenseTypes = expenseTypes || []
   const safeExpenseEntries = expenseEntries || []
+  const safeCreditNotes = creditNotes || []
+  const safeDebitNotes = debitNotes || []
+  const safeSalesReturns = salesReturns || []
+  const safePurchaseReturns = purchaseReturns || []
   const safeFixedSchemes = fixedSchemes || []
   const safeMTBookings = mtBookings || []
   const safeStoredCompanies = storedCompanies || ['SK TRADERS']
@@ -770,7 +826,11 @@ function App() {
         advanceBookingPickups: parsedData.advanceBookingPickups || [],
         discountLedgerEntries: parsedData.discountLedgerEntries || [],
         cashBankCounters: parsedData.cashBankCounters || [],
-        cashBankTransactions: parsedData.cashBankTransactions || []
+        cashBankTransactions: parsedData.cashBankTransactions || [],
+        creditNotes: parsedData.creditNotes || [],
+        debitNotes: parsedData.debitNotes || [],
+        salesReturns: parsedData.salesReturns || [],
+        purchaseReturns: parsedData.purchaseReturns || []
       }
       lastSavedDataRef.current = JSON.stringify(normalizedData)
       setSuppliers(normalizedData.suppliers)
@@ -789,6 +849,10 @@ function App() {
       setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
       setCashBankCounters(normalizedData.cashBankCounters)
       setCashBankTransactions(normalizedData.cashBankTransactions)
+      setCreditNotes(normalizedData.creditNotes)
+      setDebitNotes(normalizedData.debitNotes)
+      setSalesReturns(normalizedData.salesReturns)
+      setPurchaseReturns(normalizedData.purchaseReturns)
     }
 
     if (storedData) {
@@ -876,7 +940,11 @@ function App() {
       advanceBookingPickups,
       discountLedgerEntries,
       cashBankCounters,
-      cashBankTransactions
+      cashBankTransactions,
+      creditNotes,
+      debitNotes,
+      salesReturns,
+      purchaseReturns
     }
 
     if (lastSavedDataRef.current) {
@@ -943,7 +1011,11 @@ function App() {
                   advanceBookingPickups: latest.payload.advanceBookingPickups || [],
                   discountLedgerEntries: latest.payload.discountLedgerEntries || [],
                   cashBankCounters: latest.payload.cashBankCounters || [],
-                  cashBankTransactions: latest.payload.cashBankTransactions || []
+                  cashBankTransactions: latest.payload.cashBankTransactions || [],
+                  creditNotes: latest.payload.creditNotes || [],
+                  debitNotes: latest.payload.debitNotes || [],
+                  salesReturns: latest.payload.salesReturns || [],
+                  purchaseReturns: latest.payload.purchaseReturns || []
                 }
                 lastSavedDataRef.current = JSON.stringify(normalizedData)
                 writeTenantCache(metadata.activeCompanyId, partitionKey, normalizedData, latest.revision)
@@ -1032,7 +1104,11 @@ function App() {
         advanceBookingPickups: remoteSnapshot.payload.advanceBookingPickups || [],
         discountLedgerEntries: remoteSnapshot.payload.discountLedgerEntries || [],
         cashBankCounters: remoteSnapshot.payload.cashBankCounters || [],
-        cashBankTransactions: remoteSnapshot.payload.cashBankTransactions || []
+        cashBankTransactions: remoteSnapshot.payload.cashBankTransactions || [],
+        creditNotes: remoteSnapshot.payload.creditNotes || [],
+        debitNotes: remoteSnapshot.payload.debitNotes || [],
+        salesReturns: remoteSnapshot.payload.salesReturns || [],
+        purchaseReturns: remoteSnapshot.payload.purchaseReturns || []
       }
       lastSavedDataRef.current = JSON.stringify(normalizedData)
       writeTenantCache(metadata.activeCompanyId, tenantKey, normalizedData, remoteSnapshot.revision)
@@ -1052,9 +1128,21 @@ function App() {
       setDiscountLedgerEntries(normalizedData.discountLedgerEntries)
       setCashBankCounters(normalizedData.cashBankCounters)
       setCashBankTransactions(normalizedData.cashBankTransactions)
+      setCreditNotes(normalizedData.creditNotes)
+      setDebitNotes(normalizedData.debitNotes)
+      setSalesReturns(normalizedData.salesReturns)
+      setPurchaseReturns(normalizedData.purchaseReturns)
       appendAuditLog('remote_tenant_realtime_update', undefined, tenantKey)
     }) || undefined
   }, [metadata.activeCompanyId, tenantHydrated, tenantKey, useServerAuth, canSyncRemoteTenant])
+
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setIsAuthenticated(false)
+    setAuthPasscode('')
+    setAuthConfirmPasscode('')
+  }
 
   const handleAuthSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1194,7 +1282,11 @@ function App() {
         advanceBookingPickups: [],
         discountLedgerEntries: [],
         cashBankCounters: [],
-        cashBankTransactions: []
+        cashBankTransactions: [],
+        creditNotes: [],
+        debitNotes: [],
+        salesReturns: [],
+        purchaseReturns: []
       }
       writeTenantCache(metadata.activeCompanyId, partitionKey, emptyTenantData, remoteRevisionRef.current[partitionKey] ?? null)
       localStorage.removeItem(cashBankKey)
@@ -1756,6 +1848,10 @@ function App() {
       case 'cash-bank-master':
       case 'cash-bank-voucher':
       case 'cash-bank-ledger':
+      case 'customer-credit-notes':
+      case 'supplier-debit-notes':
+      case 'sales-returns':
+      case 'purchase-returns':
         if (!canAccessView(action)) {
           toast.error(`No access to ${viewNames[action] || 'this area'}`)
           break
@@ -1788,6 +1884,8 @@ function App() {
         case 'dashboard':
           return (
             <MasterDashboardPage
+              currentUser={currentUser}
+              cashBankCounters={cashBankCounters}
               suppliers={safeSuppliers}
               customers={safeCustomers}
               items={safeItems}
@@ -1823,11 +1921,19 @@ function App() {
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('invoices')}
               gstPercentage={safeGstPercentage}
-              counters={cashBankCounters}
-              transactions={cashBankTransactions}
+              counters={visibleCashBankCounters}
+              transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(c)
-                setCashBankTransactions(t)
+                setCashBankCounters(prev => {
+                  const updatedIds = c.map(uc => uc.id)
+                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                  return [...untouched, ...c]
+                })
+                setCashBankTransactions(prev => {
+                  const updatedIds = t.map(ut => ut.id)
+                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                  return [...untouched, ...t]
+                })
               }}
             />
           )
@@ -1843,11 +1949,19 @@ function App() {
               fixedSchemes={safeFixedSchemes}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('payments')}
-              counters={cashBankCounters}
-              transactions={cashBankTransactions}
+              counters={visibleCashBankCounters}
+              transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(c)
-                setCashBankTransactions(t)
+                setCashBankCounters(prev => {
+                  const updatedIds = c.map(uc => uc.id)
+                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                  return [...untouched, ...c]
+                })
+                setCashBankTransactions(prev => {
+                  const updatedIds = t.map(ut => ut.id)
+                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                  return [...untouched, ...t]
+                })
               }}
             />
           )
@@ -1879,11 +1993,19 @@ function App() {
               setItems={setItems}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('sales-invoices')}
-              counters={cashBankCounters}
-              transactions={cashBankTransactions}
+              counters={visibleCashBankCounters}
+              transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(c)
-                setCashBankTransactions(t)
+                setCashBankCounters(prev => {
+                  const updatedIds = c.map(uc => uc.id)
+                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                  return [...untouched, ...c]
+                })
+                setCashBankTransactions(prev => {
+                  const updatedIds = t.map(ut => ut.id)
+                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                  return [...untouched, ...t]
+                })
               }}
             />
           )
@@ -1898,11 +2020,19 @@ function App() {
               isLocked={isViewReadOnly('customer-payments')}
               activeCompanyId={metadata.activeCompanyId}
               activeFY={safeCurrentFY}
-              counters={cashBankCounters}
-              transactions={cashBankTransactions}
+              counters={visibleCashBankCounters}
+              transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(c)
-                setCashBankTransactions(t)
+                setCashBankCounters(prev => {
+                  const updatedIds = c.map(uc => uc.id)
+                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                  return [...untouched, ...c]
+                })
+                setCashBankTransactions(prev => {
+                  const updatedIds = t.map(ut => ut.id)
+                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                  return [...untouched, ...t]
+                })
               }}
             />
           )
@@ -1958,6 +2088,8 @@ function App() {
               suppliers={safeSuppliers}
               invoices={safeInvoices}
               payments={safePayments}
+              debitNotes={safeDebitNotes}
+              purchaseReturns={safePurchaseReturns}
               currentFY={safeCurrentFY}
               businessName={safeBusinessName}
             />
@@ -1968,6 +2100,8 @@ function App() {
               customers={safeCustomers}
               salesInvoices={safeSalesInvoices}
               customerPayments={safeCustomerPayments}
+              creditNotes={safeCreditNotes}
+              salesReturns={safeSalesReturns}
               currentFY={safeCurrentFY}
             />
           )
@@ -1990,11 +2124,19 @@ function App() {
               invoices={safeInvoices}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('expense-entries')}
-              counters={cashBankCounters}
-              transactions={cashBankTransactions}
+              counters={visibleCashBankCounters}
+              transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(c)
-                setCashBankTransactions(t)
+                setCashBankCounters(prev => {
+                  const updatedIds = c.map(uc => uc.id)
+                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                  return [...untouched, ...c]
+                })
+                setCashBankTransactions(prev => {
+                  const updatedIds = t.map(ut => ut.id)
+                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                  return [...untouched, ...t]
+                })
               }}
             />
           )
@@ -2051,26 +2193,42 @@ function App() {
           />
         case 'cash-bank-voucher':
           return <CashBankVoucherEntry 
-            counters={cashBankCounters} 
-            transactions={cashBankTransactions} 
+            counters={visibleCashBankCounters} 
+            transactions={visibleCashBankTransactions} 
             onUpdateAll={(c, t) => {
-              setCashBankCounters(c)
-              setCashBankTransactions(t)
+              setCashBankCounters(prev => {
+                const updatedIds = c.map(uc => uc.id)
+                const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                return [...untouched, ...c]
+              })
+              setCashBankTransactions(prev => {
+                const updatedIds = t.map(ut => ut.id)
+                const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                return [...untouched, ...t]
+              })
             }}
             isLocked={isViewReadOnly('cash-bank-voucher')} 
           />
         case 'cash-bank-ledger':
           return <CashBankBookReport 
-            counters={cashBankCounters} 
-            transactions={cashBankTransactions} 
+            counters={visibleCashBankCounters} 
+            transactions={visibleCashBankTransactions} 
           />
+        case 'customer-credit-notes':
+          return <CustomerCreditNotePage creditNotes={safeCreditNotes} setCreditNotes={setCreditNotes} customers={safeCustomers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('customer-credit-notes')} />
+        case 'supplier-debit-notes':
+          return <SupplierDebitNotePage debitNotes={safeDebitNotes} setDebitNotes={setDebitNotes} suppliers={safeSuppliers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('supplier-debit-notes')} />
+        case 'sales-returns':
+          return <SalesReturnPage salesReturns={safeSalesReturns} setSalesReturns={setSalesReturns} customers={safeCustomers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('sales-returns')} />
+        case 'purchase-returns':
+          return <PurchaseReturnPage purchaseReturns={safePurchaseReturns} setPurchaseReturns={setPurchaseReturns} suppliers={safeSuppliers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('purchase-returns')} />
         case 'user-management':
           return (
             <UserManagementPage
               accounts={userAccounts}
               permissionOptions={permissionOptions}
               onAccountsChange={setUserAccounts}
-              counters={cashBankCounters}
+              counters={visibleCashBankCounters}
               securityMode={useServerAuth ? 'server' : 'local'}
               onSaveAgent={useServerAuth ? async (input) => updateRemoteUserProfile({
                 id: input.id,
@@ -2311,6 +2469,7 @@ function App() {
       
       <div className="flex h-screen bg-background overflow-hidden">
         <AppSidebar
+          onLogout={handleLogout}
           sidebarRef={sidebarRef}
           sidebarExpanded={sidebarExpanded}
           mobileSidebarOpen={mobileSidebarOpen}

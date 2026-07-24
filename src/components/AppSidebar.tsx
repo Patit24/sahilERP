@@ -14,6 +14,7 @@ import {
   Gear,
   DownloadSimple,
   UploadSimple,
+  SignOut,
   Database,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
@@ -78,6 +79,7 @@ export function AppSidebar({
   handleMasterBackup,
   handleSmartRestore,
   canManageSystem,
+  onLogout,
 }: AppSidebarProps) {
   const isVisuallyExpanded = sidebarExpanded || isHoveringsidebar || mobileSidebarOpen
 
@@ -434,6 +436,7 @@ export function AppSidebar({
             </button>
           </div>
 
+
           <div className="w-full">
             <input
               type="file"
@@ -450,6 +453,17 @@ export function AppSidebar({
               Restore Backup File
             </label>
           </div>
+          {onLogout && (
+            <div className="pt-2">
+              <button
+                onClick={onLogout}
+                className="flex items-center justify-center gap-2 w-full h-9 rounded-lg text-xs font-semibold bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-all shadow-sm"
+              >
+                <SignOut className="w-4 h-4" weight="bold" />
+                Logout
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
     </motion.aside>
