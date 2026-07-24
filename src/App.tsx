@@ -582,9 +582,14 @@ function App() {
   
   const [activeView, setActiveView] = useState('dashboard')
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    'Transactions': true,
+    'Sale Invoice': true,
+    'Purchase Invoice': false,
+    'Expenses': false,
+    'Item': false,
+    'Cash & Bank': false,
     'Reports': false,
-    'Masters': false
+    'Masters': false,
+    'Admin': false
   })
   
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
@@ -1595,9 +1600,9 @@ function App() {
   const handleGroupToggle = (groupTitle: string, isOpen: boolean) => {
     if (isOpen) {
       setOpenGroups(prev => {
-        const newState: Record<string, boolean> = {}
+        const newState: Record<string, boolean> = { [groupTitle]: true }
         Object.keys(prev).forEach(key => {
-          newState[key] = key === groupTitle
+          if (key !== groupTitle) newState[key] = false
         })
         return newState
       })
