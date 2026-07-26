@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
-import { SalesReturn, Customer } from '@/lib/types'
+import { SalesReturn, Customer, Item, InvoiceItem, CustomerCreditNote } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,29 +11,59 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Plus, Trash, PencilSimple, CaretUpDown, Check } from '@phosphor-icons/react'
-import { formatCurrency, getFYMonths, isDateInFY } from '@/lib/calculations'
+import { Plus, Trash, PencilSimple, CaretUpDown, Check, UserPlus, Package } from '@phosphor-icons/react'
+import { formatCurrency, formatMT, getFYMonths, isDateInFY } from '@/lib/calculations'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { PartyEditorDialog } from '@/components/party-editor-dialog'
+import { ItemEditorDialog } from '@/components/item-editor-dialog'
 
 interface SalesReturnPageProps {
   salesReturns: SalesReturn[]
   setSalesReturns: (updater: (prev: SalesReturn[]) => SalesReturn[]) => void
   customers: Customer[]
+  setCustomers?: (updater: (prev: Customer[]) => Customer[]) => void
+  items: Item[]
+  setItems?: (updater: (prev: Item[]) => Item[]) => void
+  creditNotes?: CustomerCreditNote[]
+  setCreditNotes?: (updater: (prev: CustomerCreditNote[]) => CustomerCreditNote[]) => void
   currentFY: string
   isLocked?: boolean
 }
 
-export default function SalesReturnPage({ salesReturns, setSalesReturns, customers, currentFY, isLocked = false }: SalesReturnPageProps) {
+export default function SalesReturnPage({
+  salesReturns,
+  setSalesReturns,
+  customers,
+  setCustomers,
+  items,
+  setItems,
+  creditNotes = [],
+  setCreditNotes,
+  currentFY,
+  isLocked = false
+}: SalesReturnPageProps) {
   const [open, setOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<SalesReturn | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<SalesReturn | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
-  const [selectedEntity, setSelectedEntity] = useState<string>('all')
-  const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
-  const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
+  const [selectedCustomerFilter, setSelectedCustomerFilter] = useState<string>('all')
+  
+  // Form State
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
+  const [returnNo, setReturnNo] = useState<string>('')
+  const [returnDate, setReturnDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
+  const [returnItems, setReturnItems] = useState<InvoiceItem[]>([])
+  const [additionalCost, setAdditionalCost] = useState<number>(0)
+  const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
+  const [remarks, setRemarks] = useState<string>('')
+
+  // Quick dialogs
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
+  const [showQuickCustomer, setShowQuickCustomer] = useState(false)
+  const [showQuickItem, setShowQuickItem] = useState(false)
 
   const fyItems = salesReturns.filter(p => p.fy === currentFY)
   const fyMonths = getFYMonths(currentFY)
@@ -51,14 +81,92 @@ export default function SalesReturnPage({ salesReturns, setSalesReturns, custome
       })
     }
     
-    if (selectedEntity !== 'all') {
-      result = result.filter(p => p.customerId === selectedEntity)
+    if (selectedCustomerFilter !== 'all') {
+      result = result.filter(p => p.customerId === selectedCustomerFilter)
     }
     
     return result.sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime())
-  }, [fyItems, selectedMonth, selectedEntity])
+  }, [fyItems, selectedMonth, selectedCustomerFilter])
   
   const totalAmount = filteredItems.reduce((sum, p) => sum + p.amount, 0)
+  const totalQuantityMT = filteredItems.reduce((sum, p) => sum + (p.quantityMT || 0), 0)
+
+  // Items calculation in form
+  const itemsSubtotal = useMemo(() => {
+    return returnItems.reduce((sum, item) => sum + (item.amount || 0), 0)
+  }, [returnItems])
+
+  const totalReturnMT = useMemo(() => {
+    return returnItems.reduce((sum, item) => sum + (item.quantityMT || 0), 0)
+  }, [returnItems])
+
+  const calculatedTotalAmount = useMemo(() => {
+    return Math.max(0, itemsSubtotal + (additionalCost || 0) + (roundOffAdjustment || 0))
+  }, [itemsSubtotal, additionalCost, roundOffAdjustment])
+
+  const handleOpenAddModal = () => {
+    setEditingItem(null)
+    setSelectedCustomerId('')
+    setReturnNo('')
+    setReturnDate(format(new Date(), 'yyyy-MM-dd'))
+    setReturnItems([])
+    setAdditionalCost(0)
+    setRoundOffAdjustment(0)
+    setRemarks('')
+    setOpen(true)
+  }
+
+  const handleOpenEditModal = (item: SalesReturn) => {
+    setEditingItem(item)
+    setSelectedCustomerId(item.customerId)
+    setReturnNo(item.returnNo || item.invoiceRef || '')
+    setReturnDate(item.returnDate)
+    setReturnItems(item.items || [])
+    setAdditionalCost(item.additionalCost || 0)
+    setRoundOffAdjustment(item.roundOffAdjustment || 0)
+    setRemarks(item.remarks || '')
+    setOpen(true)
+  }
+
+  const handleAddLineItem = () => {
+    if (items.length === 0) {
+      toast.error('No items available', { description: 'Please add items in Masters first.' })
+      return
+    }
+    const firstItem = items[0]
+    setReturnItems(prev => [
+      ...prev,
+      {
+        itemId: firstItem.id,
+        quantityMT: 1,
+        rate: firstItem.salesPrice || 0,
+        amount: firstItem.salesPrice || 0
+      }
+    ])
+  }
+
+  const handleUpdateLineItem = (index: number, field: keyof InvoiceItem, value: any) => {
+    setReturnItems(prev => prev.map((item, idx) => {
+      if (idx !== index) return item
+      const updated = { ...item, [field]: value }
+      if (field === 'itemId') {
+        const selected = items.find(i => i.id === value)
+        if (selected && selected.salesPrice) {
+          updated.rate = selected.salesPrice
+        }
+      }
+      if (field === 'quantityMT' || field === 'rate' || field === 'itemId') {
+        const qty = Number(updated.quantityMT) || 0
+        const rate = Number(updated.rate) || 0
+        updated.amount = parseFloat((qty * rate).toFixed(2))
+      }
+      return updated
+    }))
+  }
+
+  const handleRemoveLineItem = (index: number) => {
+    setReturnItems(prev => prev.filter((_, idx) => idx !== index))
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -67,19 +175,14 @@ export default function SalesReturnPage({ salesReturns, setSalesReturns, custome
       toast.error('Cannot save in locked mode', { description: 'Unlock the data in Settings to make changes' })
       return
     }
-    
-    const formData = new FormData(e.currentTarget)
-    const returnDate = formData.get('returnDate') as string
-    const amount = parseFloat(formData.get('amount') as string)
-    const remarks = formData.get('remarks') as string
 
-    if (!selectedEntityInForm) {
-      toast.error('Select a customer')
+    if (!selectedCustomerId) {
+      toast.error('Please select a customer')
       return
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error('Enter a valid amount')
+    if (returnItems.length === 0) {
+      toast.error('Please add at least one line item')
       return
     }
 
@@ -88,41 +191,73 @@ export default function SalesReturnPage({ salesReturns, setSalesReturns, custome
       return
     }
 
-    if (editingItem) {
-      const updated: SalesReturn = {
-        ...editingItem,
-        customerId: selectedEntityInForm,
-        returnDate,
-        amount,
-        remarks,
-      }
-      setSalesReturns((prev) => prev.map(p => p.id === editingItem.id ? updated : p))
-      toast.success('Sales Return updated')
-    } else {
-      const newItem: SalesReturn = {
-        id: crypto.randomUUID(),
-        customerId: selectedEntityInForm,
-        returnDate,
-        amount,
-        remarks,
-        fy: currentFY,
-        createdAt: Date.now()
-      }
-      setSalesReturns((prev) => [...prev, newItem])
-      toast.success('Sales Return added')
+    const returnId = editingItem ? editingItem.id : `sr-${Date.now()}`
+    const finalReturnNo = returnNo.trim() || `SR-${Date.now().toString().slice(-6)}`
+
+    const salesReturnRecord: SalesReturn = {
+      id: returnId,
+      customerId: selectedCustomerId,
+      returnNo: finalReturnNo,
+      returnDate,
+      amount: calculatedTotalAmount,
+      items: returnItems,
+      quantityMT: totalReturnMT,
+      additionalCost,
+      roundOffAdjustment,
+      invoiceRef: finalReturnNo,
+      remarks,
+      fy: currentFY,
+      createdAt: editingItem?.createdAt || Date.now()
     }
+
+    // Automatically create or update Customer Credit Note
+    const creditNoteId = `credit-note-sr-${returnId}`
+    const creditNoteRecord: CustomerCreditNote = {
+      id: creditNoteId,
+      customerId: selectedCustomerId,
+      date: returnDate,
+      amount: calculatedTotalAmount,
+      invoiceRef: finalReturnNo,
+      remarks: `Sales Return #${finalReturnNo}${remarks ? ' - ' + remarks : ''}`,
+      fy: currentFY,
+      createdAt: Date.now()
+    }
+
+    // Save Sales Return
+    setSalesReturns(prev => {
+      const exists = prev.some(s => s.id === returnId)
+      return exists ? prev.map(s => s.id === returnId ? salesReturnRecord : s) : [salesReturnRecord, ...prev]
+    })
+
+    // Save corresponding Credit Note automatically
+    if (setCreditNotes) {
+      setCreditNotes(prev => {
+        const exists = prev.some(c => c.id === creditNoteId)
+        return exists ? prev.map(c => c.id === creditNoteId ? creditNoteRecord : c) : [creditNoteRecord, ...prev]
+      })
+    }
+
+    toast.success(editingItem ? 'Sales Return & Credit Note updated' : 'Sales Return & Credit Note created', {
+      description: `Items added back to inventory. Credit Note of ${formatCurrency(calculatedTotalAmount)} auto-generated.`
+    })
 
     setOpen(false)
     setEditingItem(null)
-    setSelectedEntityInForm('')
   }
 
   const handleDelete = () => {
     if (isLocked || !itemToDelete) return
-    setSalesReturns((prev) => prev.filter(p => p.id !== itemToDelete.id))
+    const returnId = itemToDelete.id
+    const creditNoteId = `credit-note-sr-${returnId}`
+
+    setSalesReturns(prev => prev.filter(s => s.id !== returnId))
+    if (setCreditNotes) {
+      setCreditNotes(prev => prev.filter(c => c.id !== creditNoteId))
+    }
+
     setDeleteDialogOpen(false)
     setItemToDelete(null)
-    toast.success('Sales Return deleted')
+    toast.success('Sales Return & associated Credit Note deleted')
   }
 
   return (
@@ -130,108 +265,54 @@ export default function SalesReturnPage({ salesReturns, setSalesReturns, custome
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Sales Returns</h1>
-          <p className="text-muted-foreground">Manage sales returns for {currentFY}</p>
+          <p className="text-muted-foreground">Record item returns from customers (adds stock & auto-creates Credit Notes)</p>
         </div>
         
-        <Dialog open={open} onOpenChange={(v) => {
-          setOpen(v)
-          if (!v) { setEditingItem(null); setSelectedEntityInForm('') }
-        }}>
-          <DialogTrigger asChild>
-            <Button disabled={isLocked}>
-              <Plus className="mr-2 h-4 w-4" /> Add Sales Return
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>{editingItem ? 'Edit' : 'Add'} Sales Return</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2 flex flex-col">
-                <Label>Customer</Label>
-                <Popover open={entityComboboxOpen} onOpenChange={setEntityComboboxOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={entityComboboxOpen}
-                      className="justify-between"
-                    >
-                      {selectedEntityInForm
-                        ? customers.find((c) => c.id === selectedEntityInForm)?.name
-                        : "Select customer..."}
-                      <CaretUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search customer..." />
-                      <CommandList>
-                        <CommandEmpty>No customer found.</CommandEmpty>
-                        <CommandGroup>
-                          {customers.map((c) => (
-                            <CommandItem
-                              key={c.id}
-                              value={c.name}
-                              onSelect={() => {
-                                setSelectedEntityInForm(c.id)
-                                setEntityComboboxOpen(false)
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", selectedEntityInForm === c.id ? "opacity-100" : "opacity-0")} />
-                              {c.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="returnDate">Date</Label>
-                <Input
-                  id="returnDate"
-                  name="returnDate"
-                  type="date"
-                  defaultValue={editingItem?.returnDate || format(new Date(), 'yyyy-MM-dd')}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Input
-                  id="amount"
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={editingItem?.amount}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="remarks">Remarks</Label>
-                <Textarea
-                  id="remarks"
-                  name="remarks"
-                  defaultValue={editingItem?.remarks}
-                  placeholder="Optional notes"
-                />
-              </div>
-
-              <div className="pt-4 flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit">Save</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={handleOpenAddModal} disabled={isLocked}>
+          <Plus className="mr-2 h-4 w-4" /> Add Sales Return
+        </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-card">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Return Records</p>
+              <h3 className="text-2xl font-bold mt-1">{filteredItems.length}</h3>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Package className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Quantity Returned</p>
+              <h3 className="text-2xl font-bold mt-1">{formatMT(totalQuantityMT)}</h3>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <Package className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Return Value</p>
+              <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{formatCurrency(totalAmount)}</h3>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+              <Package className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="w-full sm:w-[200px]">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -247,9 +328,9 @@ export default function SalesReturnPage({ salesReturns, setSalesReturns, custome
           </Select>
         </div>
         <div className="w-full sm:w-[250px]">
-          <Select value={selectedEntity} onValueChange={setSelectedEntity}>
+          <Select value={selectedCustomerFilter} onValueChange={setSelectedCustomerFilter}>
             <SelectTrigger>
-              <SelectValue placeholder="All Customers" />
+              <SelectValue placeholder="Select customer" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Customers</SelectItem>
@@ -261,87 +342,390 @@ export default function SalesReturnPage({ salesReturns, setSalesReturns, custome
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0 overflow-auto">
-          <Table>
-            <TableHeader>
+      {/* Data Table */}
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Return / Ref No</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Return Items Summary</TableHead>
+              <TableHead className="text-right">Quantity (MT)</TableHead>
+              <TableHead className="text-right">Return Amount</TableHead>
+              <TableHead>Remarks</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredItems.length === 0 ? (
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Remarks</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  No sales returns recorded for this period.
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No sales returns found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredItems.map((item) => {
-                  const entity = customers.find(c => c.id === item.customerId)
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>{format(parseISO(item.returnDate), 'dd MMM yyyy')}</TableCell>
-                      <TableCell className="font-medium">{entity?.name || 'Unknown'}</TableCell>
-                      <TableCell className="text-right font-medium text-emerald-600">
-                        {formatCurrency(item.amount)}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{item.remarks || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingItem(item)
-                            setSelectedEntityInForm(item.customerId)
-                            setOpen(true)
-                          }}
-                          disabled={isLocked}
-                        >
-                          <PencilSimple className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => {
-                            setItemToDelete(item)
-                            setDeleteDialogOpen(true)
-                          }}
-                          disabled={isLocked}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ) : (
+              filteredItems.map(item => {
+                const customer = customers.find(c => c.id === item.customerId)
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.returnDate}</TableCell>
+                    <TableCell className="font-medium">{item.returnNo || item.invoiceRef || '-'}</TableCell>
+                    <TableCell className="font-semibold">{customer?.name || 'Unknown'}</TableCell>
+                    <TableCell>
+                      {item.items && item.items.length > 0 ? (
+                        <div className="text-xs space-y-1">
+                          {item.items.map((line, i) => {
+                            const itm = items.find(x => x.id === line.itemId)
+                            return (
+                              <div key={i}>
+                                {itm?.name || 'Item'} ({line.quantityMT} {itm?.unit || 'MT'} @ {formatCurrency(line.rate)})
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Custom Return Amount</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatMT(item.quantityMT || 0)}</TableCell>
+                    <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(item.amount)}
+                    </TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate">{item.remarks || '-'}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditModal(item)} disabled={isLocked}>
+                        <PencilSimple className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => { setItemToDelete(item); setDeleteDialogOpen(true) }} disabled={isLocked}>
+                        <Trash className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
+      {/* Main Dialog: Add / Edit Sales Return */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingItem ? 'Edit Sales Return' : 'New Sales Return'}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Header info */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Customer *</Label>
+                  {setCustomers && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 text-xs flex items-center gap-1"
+                      onClick={() => setShowQuickCustomer(true)}
+                    >
+                      <UserPlus className="h-3 w-3" /> Quick Add
+                    </Button>
+                  )}
+                </div>
+                <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      {selectedCustomerId
+                        ? customers.find(c => c.id === selectedCustomerId)?.name
+                        : 'Select customer...'}
+                      <CaretUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search customer..." />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map(c => (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => {
+                                setSelectedCustomerId(c.id)
+                                setCustomerPickerOpen(false)
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedCustomerId === c.id ? "opacity-100" : "opacity-0")} />
+                              {c.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="returnNo">Return / Invoice Ref No</Label>
+                <Input
+                  id="returnNo"
+                  placeholder="e.g. SR-001"
+                  value={returnNo}
+                  onChange={e => setReturnNo(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="returnDate">Return Date *</Label>
+                <Input
+                  id="returnDate"
+                  type="date"
+                  value={returnDate}
+                  onChange={e => setReturnDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Return Items (Items will be added back to inventory)</h3>
+                <div className="flex items-center gap-2">
+                  {setItems && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowQuickItem(true)}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" /> Quick Add Item
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" onClick={handleAddLineItem}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Add Item Line
+                  </Button>
+                </div>
+              </div>
+
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[35%]">Item Name</TableHead>
+                      <TableHead className="w-[15%]">Unit</TableHead>
+                      <TableHead className="w-[20%] text-right">Quantity MT</TableHead>
+                      <TableHead className="w-[20%] text-right">Return Rate</TableHead>
+                      <TableHead className="w-[20%] text-right">Amount</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {returnItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">
+                          No items added. Click "Add Item Line" to add items being returned.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      returnItems.map((line, idx) => {
+                        const selectedItem = items.find(i => i.id === line.itemId)
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell>
+                              <Select
+                                value={line.itemId}
+                                onValueChange={v => handleUpdateLineItem(idx, 'itemId', v)}
+                              >
+                                <SelectTrigger className="h-9">
+                                  <SelectValue placeholder="Select item" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {items.map(itm => (
+                                    <SelectItem key={itm.id} value={itm.id}>
+                                      {itm.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+
+                            <TableCell>
+                              <span className="text-sm font-medium">{selectedItem?.unit || 'MT'}</span>
+                            </TableCell>
+
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                className="h-9 text-right"
+                                value={line.quantityMT || ''}
+                                onChange={e => handleUpdateLineItem(idx, 'quantityMT', parseFloat(e.target.value) || 0)}
+                              />
+                            </TableCell>
+
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="h-9 text-right"
+                                value={line.rate || ''}
+                                onChange={e => handleUpdateLineItem(idx, 'rate', parseFloat(e.target.value) || 0)}
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-right font-bold text-sm">
+                              {formatCurrency(line.amount || 0)}
+                            </TableCell>
+
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => handleRemoveLineItem(idx)}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Bottom Calculations & Additional Costs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="remarks">Remarks / Reason for Return</Label>
+                  <Textarea
+                    id="remarks"
+                    placeholder="Enter reason for customer return..."
+                    value={remarks}
+                    onChange={e => setRemarks(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-muted/30 p-4 rounded-lg border">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total Items Quantity:</span>
+                  <span className="font-semibold">{formatMT(totalReturnMT)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Items Subtotal:</span>
+                  <span className="font-semibold">{formatCurrency(itemsSubtotal)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm gap-4">
+                  <span className="text-muted-foreground">Additional Costs:</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="h-8 w-32 text-right"
+                    value={additionalCost || ''}
+                    onChange={e => setAdditionalCost(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-sm gap-4">
+                  <span className="text-muted-foreground">Round-Off Adjustment:</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="h-8 w-32 text-right"
+                    value={roundOffAdjustment || ''}
+                    onChange={e => setRoundOffAdjustment(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div className="border-t pt-2 flex items-center justify-between font-bold text-lg text-emerald-600 dark:text-emerald-400">
+                  <span>Total Return Amount:</span>
+                  <span>{formatCurrency(calculatedTotalAmount)}</span>
+                </div>
+
+                <p className="text-xs text-muted-foreground pt-1 italic">
+                  Note: Saving this sales return will automatically create/update a Credit Note of {formatCurrency(calculatedTotalAmount)} for {customers.find(c => c.id === selectedCustomerId)?.name || 'the customer'}.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                {editingItem ? 'Update Return & Credit Note' : 'Save Sales Return & Credit Note'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Alert */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Sales Return</AlertDialogTitle>
+            <AlertDialogTitle>Delete Sales Return?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this sales return? This action cannot be undone.
+              This will permanently delete this sales return record AND automatically delete its associated Credit Note. Inventory stock will be adjusted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Add Party Dialog */}
+      {setCustomers && (
+        <PartyEditorDialog
+          open={showQuickCustomer}
+          onOpenChange={setShowQuickCustomer}
+          type="customer"
+          onSave={newCustomer => {
+            setCustomers(prev => [...prev, newCustomer as Customer])
+            setSelectedCustomerId(newCustomer.id)
+            toast.success(`Customer "${newCustomer.name}" added`)
+          }}
+        />
+      )}
+
+      {/* Quick Add Item Dialog */}
+      {setItems && (
+        <ItemEditorDialog
+          open={showQuickItem}
+          onOpenChange={setShowQuickItem}
+          onSave={newItem => {
+            setItems(prev => [...prev, newItem])
+            setReturnItems(prev => [
+              ...prev,
+              {
+                itemId: newItem.id,
+                quantityMT: 1,
+                rate: newItem.salesPrice || 0,
+                amount: newItem.salesPrice || 0
+              }
+            ])
+            toast.success(`Item "${newItem.name}" added`)
+          }}
+        />
+      )}
     </div>
   )
 }

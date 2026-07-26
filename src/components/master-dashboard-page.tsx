@@ -17,7 +17,9 @@ import {
   ExpenseEntry,
   ExpenseType,
   FixedScheme,
-  ReceivedDiscount
+  ReceivedDiscount,
+  PurchaseReturn,
+  SalesReturn
 } from '@/lib/types'
 import {
   calculatePaymentAllocations,
@@ -52,6 +54,8 @@ interface MasterDashboardPageProps {
   items: Item[]
   purchaseInvoices: PurchaseInvoice[]
   salesInvoices: SalesInvoice[]
+  purchaseReturns?: PurchaseReturn[]
+  salesReturns?: SalesReturn[]
   payments: Payment[]
   customerPayments: CustomerPayment[]
   expenseEntries: ExpenseEntry[]
@@ -68,6 +72,8 @@ export default function MasterDashboardPage({
   items,
   purchaseInvoices,
   salesInvoices,
+  purchaseReturns = [],
+  salesReturns = [],
   payments,
   customerPayments,
   expenseEntries,
@@ -99,8 +105,8 @@ export default function MasterDashboardPage({
   }, [purchaseInvoices, suppliers])
 
   const inventoryData = useMemo(() => {
-    return calculateInventoryReport(items, purchaseInvoices, salesInvoices)
-  }, [items, purchaseInvoices, salesInvoices])
+    return calculateInventoryReport(items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns)
+  }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns])
 
   const cdAtRiskData = useMemo(() => {
     return calculateCDAtRisk(purchaseInvoices, payments, paymentAllocations, suppliers)

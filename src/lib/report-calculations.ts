@@ -44,7 +44,9 @@ import {
   Item,
   FixedScheme,
   ReceivedDiscount,
-  PaymentAllocation
+  PaymentAllocation,
+  PurchaseReturn,
+  SalesReturn
 } from './types'
 import {
   calculatePaymentAllocations,
@@ -92,7 +94,9 @@ export interface CDAtRisk {
 export function calculateInventoryReport(
   items: Item[],
   purchaseInvoices: PurchaseInvoice[],
-  salesInvoices: SalesInvoice[]
+  salesInvoices: SalesInvoice[],
+  purchaseReturns: PurchaseReturn[] = [],
+  salesReturns: SalesReturn[] = []
 ): InventoryData[] {
   const inventory: InventoryData[] = []
 
@@ -133,6 +137,18 @@ export function calculateInventoryReport(
       }
     })
 
+    // Subtract Purchase Returns (Items go back to supplier -> MINUS from inventory)
+    purchaseReturns.forEach(ret => {
+      if (ret.items && Array.isArray(ret.items)) {
+        ret.items.forEach(invItem => {
+          if (invItem.itemId === item.id) {
+            totalPurchaseMT -= invItem.quantityMT
+            totalPurchaseAmount -= invItem.amount
+          }
+        })
+      }
+    })
+
     salesInvoices.forEach(invoice => {
       if (invoice.items && Array.isArray(invoice.items)) {
         invoice.items.forEach(invItem => {
@@ -143,6 +159,19 @@ export function calculateInventoryReport(
         })
       }
     })
+
+    // Subtract Sales Returns (Items come back from customer -> PLUS in inventory)
+    salesReturns.forEach(ret => {
+      if (ret.items && Array.isArray(ret.items)) {
+        ret.items.forEach(invItem => {
+          if (invItem.itemId === item.id) {
+            totalSalesMT -= invItem.quantityMT
+            totalSalesAmount -= invItem.amount
+          }
+        })
+      }
+    })
+
 
     const totalAvailableMT = openingStockMT + totalPurchaseMT
     const balanceMT = totalAvailableMT - totalSalesMT

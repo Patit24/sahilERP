@@ -1896,6 +1896,8 @@ function App() {
               items={safeItems}
               purchaseInvoices={safeInvoices}
               salesInvoices={safeSalesInvoices}
+              purchaseReturns={safePurchaseReturns}
+              salesReturns={safeSalesReturns}
               payments={safePayments}
               customerPayments={safeCustomerPayments}
               expenseEntries={safeExpenseEntries}
@@ -2151,6 +2153,8 @@ function App() {
               items={safeItems}
               purchaseInvoices={safeInvoices}
               salesInvoices={safeSalesInvoices}
+              purchaseReturns={safePurchaseReturns}
+              salesReturns={safeSalesReturns}
               currentFY={safeCurrentFY}
               businessName={safeBusinessName}
             />
@@ -2224,9 +2228,35 @@ function App() {
         case 'supplier-debit-notes':
           return <SupplierDebitNotePage debitNotes={safeDebitNotes} setDebitNotes={setDebitNotes} suppliers={safeSuppliers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('supplier-debit-notes')} />
         case 'sales-returns':
-          return <SalesReturnPage salesReturns={safeSalesReturns} setSalesReturns={setSalesReturns} customers={safeCustomers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('sales-returns')} />
+          return (
+            <SalesReturnPage
+              salesReturns={safeSalesReturns}
+              setSalesReturns={setSalesReturns}
+              customers={safeCustomers}
+              setCustomers={setCustomers}
+              items={safeItems}
+              setItems={setItems}
+              creditNotes={safeCreditNotes}
+              setCreditNotes={setCreditNotes}
+              currentFY={safeCurrentFY}
+              isLocked={isViewReadOnly('sales-returns')}
+            />
+          )
         case 'purchase-returns':
-          return <PurchaseReturnPage purchaseReturns={safePurchaseReturns} setPurchaseReturns={setPurchaseReturns} suppliers={safeSuppliers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('purchase-returns')} />
+          return (
+            <PurchaseReturnPage
+              purchaseReturns={safePurchaseReturns}
+              setPurchaseReturns={setPurchaseReturns}
+              suppliers={safeSuppliers}
+              setSuppliers={setSuppliers}
+              items={safeItems}
+              setItems={setItems}
+              debitNotes={safeDebitNotes}
+              setDebitNotes={setDebitNotes}
+              currentFY={safeCurrentFY}
+              isLocked={isViewReadOnly('purchase-returns')}
+            />
+          )
         case 'user-management':
           return (
             <UserManagementPage

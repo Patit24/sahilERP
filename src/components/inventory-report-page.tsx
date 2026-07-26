@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Item, PurchaseInvoice, SalesInvoice } from '@/lib/types'
+import { Item, PurchaseInvoice, SalesInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
 import { calculateInventoryReport, InventoryData } from '@/lib/report-calculations'
 import { formatCurrency, formatMT } from '@/lib/calculations'
 import { Package, TrendUp, TrendDown, FilePdf } from '@phosphor-icons/react'
@@ -15,6 +15,8 @@ interface InventoryReportPageProps {
   items: Item[]
   purchaseInvoices: PurchaseInvoice[]
   salesInvoices: SalesInvoice[]
+  purchaseReturns?: PurchaseReturn[]
+  salesReturns?: SalesReturn[]
   currentFY: string
   businessName?: string
 }
@@ -23,12 +25,15 @@ export default function InventoryReportPage({
   items,
   purchaseInvoices,
   salesInvoices,
+  purchaseReturns = [],
+  salesReturns = [],
   currentFY,
   businessName = 'Steel Trading ERP'
 }: InventoryReportPageProps) {
   const inventoryData = useMemo(() => {
-    return calculateInventoryReport(items, purchaseInvoices, salesInvoices)
-  }, [items, purchaseInvoices, salesInvoices])
+    return calculateInventoryReport(items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns)
+  }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns])
+
 
   const totals = useMemo(() => {
     return inventoryData.reduce(

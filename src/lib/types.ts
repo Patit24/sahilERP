@@ -381,8 +381,13 @@ export interface SupplierDebitNote {
 export interface SalesReturn {
   id: string
   customerId: string
+  returnNo?: string
   returnDate: string
   amount: number
+  items?: InvoiceItem[]
+  quantityMT?: number
+  additionalCost?: number
+  roundOffAdjustment?: number
   invoiceRef?: string
   remarks?: string
   fy: string
@@ -392,10 +397,16 @@ export interface SalesReturn {
 export interface PurchaseReturn {
   id: string
   supplierId: string
+  returnNo?: string
   returnDate: string
   amount: number
+  items?: InvoiceItem[]
+  quantityMT?: number
+  additionalCost?: number
+  roundOffAdjustment?: number
   invoiceRef?: string
   remarks?: string
   fy: string
   createdAt?: number
 }
+
