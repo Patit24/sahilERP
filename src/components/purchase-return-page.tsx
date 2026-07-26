@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { PurchaseReturn, Supplier, Item, InvoiceItem, SupplierDebitNote } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -212,7 +212,6 @@ export default function PurchaseReturnPage({
 
     // Automatically create or update Supplier Debit Note
     const debitNoteId = `debit-note-pr-${returnId}`
-    const supplierObj = suppliers.find(s => s.id === selectedSupplierId)
     const debitNoteRecord: SupplierDebitNote = {
       id: debitNoteId,
       supplierId: selectedSupplierId,
@@ -344,7 +343,7 @@ export default function PurchaseReturnPage({
       </div>
 
       {/* Data Table */}
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -412,38 +411,41 @@ export default function PurchaseReturnPage({
 
       {/* Main Dialog: Add / Edit Purchase Return */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[92vw] max-w-5xl max-h-[90vh] overflow-y-auto p-6">
           <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Purchase Return' : 'New Purchase Return'}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">{editingItem ? 'Edit Purchase Return' : 'New Purchase Return'}</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6 pt-2">
             {/* Header info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Supplier *</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/20 p-4 rounded-xl border">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between h-6">
+                  <Label className="text-sm font-semibold">Supplier *</Label>
                   {setSuppliers && (
                     <Button
                       type="button"
-                      variant="link"
-                      className="h-auto p-0 text-xs flex items-center gap-1"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-primary hover:text-primary gap-1"
                       onClick={() => setShowQuickSupplier(true)}
                     >
-                      <UserPlus className="h-3 w-3" /> Quick Add
+                      <UserPlus className="h-3.5 w-3.5" /> Quick Add
                     </Button>
                   )}
                 </div>
                 <Popover open={supplierPickerOpen} onOpenChange={setSupplierPickerOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {selectedSupplierId
-                        ? suppliers.find(s => s.id === selectedSupplierId)?.name
-                        : 'Select supplier...'}
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
+                      <span className="truncate">
+                        {selectedSupplierId
+                          ? suppliers.find(s => s.id === selectedSupplierId)?.name
+                          : 'Select supplier...'}
+                      </span>
                       <CaretUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
+                  <PopoverContent className="w-[320px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search supplier..." />
                       <CommandList>
@@ -469,21 +471,23 @@ export default function PurchaseReturnPage({
                 </Popover>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="returnNo">Return / Invoice Ref No</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="returnNo" className="text-sm font-semibold">Return / Invoice Ref No</Label>
                 <Input
                   id="returnNo"
                   placeholder="e.g. PR-001"
+                  className="h-10"
                   value={returnNo}
                   onChange={e => setReturnNo(e.target.value)}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="returnDate">Return Date *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="returnDate" className="text-sm font-semibold">Return Date *</Label>
                 <Input
                   id="returnDate"
                   type="date"
+                  className="h-10"
                   value={returnDate}
                   onChange={e => setReturnDate(e.target.value)}
                   required
@@ -491,10 +495,13 @@ export default function PurchaseReturnPage({
               </div>
             </div>
 
-            {/* Line Items Table */}
+            {/* Line Items Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Return Items (Items will be deducted from inventory)</h3>
+                <div>
+                  <h3 className="font-bold text-base">Return Items</h3>
+                  <p className="text-xs text-muted-foreground">Items added here will be deducted from your inventory stock</p>
+                </div>
                 <div className="flex items-center gap-2">
                   {setItems && (
                     <Button
@@ -512,23 +519,23 @@ export default function PurchaseReturnPage({
                 </div>
               </div>
 
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-xl overflow-hidden bg-card">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[35%]">Item Name</TableHead>
-                      <TableHead className="w-[15%]">Unit</TableHead>
+                    <TableRow className="bg-muted/60">
+                      <TableHead className="w-[38%]">Item Name</TableHead>
+                      <TableHead className="w-[12%] text-center">Unit</TableHead>
                       <TableHead className="w-[20%] text-right">Quantity MT</TableHead>
-                      <TableHead className="w-[20%] text-right">Return Rate</TableHead>
-                      <TableHead className="w-[20%] text-right">Amount</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-[20%] text-right">Return Rate (₹)</TableHead>
+                      <TableHead className="w-[20%] text-right">Amount (₹)</TableHead>
+                      <TableHead className="w-[40px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {returnItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">
-                          No items added. Click "Add Item Line" to add items being returned.
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
+                          No items added. Click <span className="font-semibold text-foreground">"Add Item Line"</span> to specify return items.
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -541,7 +548,7 @@ export default function PurchaseReturnPage({
                                 value={line.itemId}
                                 onValueChange={v => handleUpdateLineItem(idx, 'itemId', v)}
                               >
-                                <SelectTrigger className="h-9">
+                                <SelectTrigger className="h-10">
                                   <SelectValue placeholder="Select item" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -554,8 +561,8 @@ export default function PurchaseReturnPage({
                               </Select>
                             </TableCell>
 
-                            <TableCell>
-                              <span className="text-sm font-medium">{selectedItem?.unit || 'MT'}</span>
+                            <TableCell className="text-center font-semibold text-sm">
+                              {selectedItem?.unit || 'MT'}
                             </TableCell>
 
                             <TableCell>
@@ -563,7 +570,7 @@ export default function PurchaseReturnPage({
                                 type="number"
                                 step="0.001"
                                 min="0"
-                                className="h-9 text-right"
+                                className="h-10 text-right font-mono"
                                 value={line.quantityMT || ''}
                                 onChange={e => handleUpdateLineItem(idx, 'quantityMT', parseFloat(e.target.value) || 0)}
                               />
@@ -574,22 +581,22 @@ export default function PurchaseReturnPage({
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                className="h-9 text-right"
+                                className="h-10 text-right font-mono"
                                 value={line.rate || ''}
                                 onChange={e => handleUpdateLineItem(idx, 'rate', parseFloat(e.target.value) || 0)}
                               />
                             </TableCell>
 
-                            <TableCell className="text-right font-bold text-sm">
+                            <TableCell className="text-right font-bold text-sm font-mono">
                               {formatCurrency(line.amount || 0)}
                             </TableCell>
 
-                            <TableCell>
+                            <TableCell className="text-center">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => handleRemoveLineItem(idx)}
                               >
                                 <Trash className="h-4 w-4" />
@@ -604,71 +611,78 @@ export default function PurchaseReturnPage({
               </div>
             </div>
 
-            {/* Bottom Calculations & Additional Costs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t">
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="remarks">Remarks / Reason for Return</Label>
-                  <Textarea
-                    id="remarks"
-                    placeholder="Enter reason for returning goods..."
-                    value={remarks}
-                    onChange={e => setRemarks(e.target.value)}
-                    rows={4}
-                  />
-                </div>
+            {/* Bottom Section: Remarks & Summary Box */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-4 border-t">
+              <div className="md:col-span-6 space-y-2">
+                <Label htmlFor="remarks" className="font-semibold text-sm">Remarks / Reason for Return</Label>
+                <Textarea
+                  id="remarks"
+                  placeholder="Enter reason for returning goods to supplier..."
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  rows={5}
+                  className="resize-none"
+                />
               </div>
 
-              <div className="space-y-3 bg-muted/30 p-4 rounded-lg border">
+              <div className="md:col-span-6 bg-muted/30 p-5 rounded-xl border space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total Items Quantity:</span>
-                  <span className="font-semibold">{formatMT(totalReturnMT)}</span>
+                  <span className="text-muted-foreground font-medium">Total Items Quantity:</span>
+                  <span className="font-semibold font-mono">{formatMT(totalReturnMT)}</span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Items Subtotal:</span>
-                  <span className="font-semibold">{formatCurrency(itemsSubtotal)}</span>
+                  <span className="text-muted-foreground font-medium">Items Subtotal:</span>
+                  <span className="font-semibold font-mono">{formatCurrency(itemsSubtotal)}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm gap-4">
-                  <span className="text-muted-foreground">Additional Costs:</span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="h-8 w-32 text-right"
-                    value={additionalCost || ''}
-                    onChange={e => setAdditionalCost(parseFloat(e.target.value) || 0)}
-                  />
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">Additional Costs:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">₹</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="h-8 w-28 text-right font-mono text-sm"
+                      value={additionalCost || ''}
+                      onChange={e => setAdditionalCost(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm gap-4">
-                  <span className="text-muted-foreground">Round-Off Adjustment:</span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="h-8 w-32 text-right"
-                    value={roundOffAdjustment || ''}
-                    onChange={e => setRoundOffAdjustment(parseFloat(e.target.value) || 0)}
-                  />
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">Round-Off Adjustment:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">₹</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="h-8 w-28 text-right font-mono text-sm"
+                      value={roundOffAdjustment || ''}
+                      onChange={e => setRoundOffAdjustment(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
                 </div>
 
-                <div className="border-t pt-2 flex items-center justify-between font-bold text-lg text-emerald-600 dark:text-emerald-400">
-                  <span>Total Return Amount:</span>
-                  <span>{formatCurrency(calculatedTotalAmount)}</span>
+                <div className="border-t pt-3 mt-2 flex items-center justify-between">
+                  <span className="font-bold text-base text-foreground">Total Return Amount:</span>
+                  <span className="font-extrabold text-xl text-emerald-600 dark:text-emerald-400 font-mono tracking-tight shrink-0">
+                    {formatCurrency(calculatedTotalAmount)}
+                  </span>
                 </div>
 
-                <p className="text-xs text-muted-foreground pt-1 italic">
-                  Note: Saving this purchase return will automatically create/update a Debit Note of {formatCurrency(calculatedTotalAmount)} for {suppliers.find(s => s.id === selectedSupplierId)?.name || 'the supplier'}.
+                <p className="text-[11px] text-muted-foreground pt-1 border-t border-dashed">
+                  Note: Saving this purchase return will auto-create/update a Debit Note of <span className="font-semibold text-foreground">{formatCurrency(calculatedTotalAmount)}</span> for the selected supplier.
                 </p>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-3 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingItem ? 'Update Return & Debit Note' : 'Save Purchase Return & Debit Note'}
+              <Button type="submit" className="min-w-44">
+                {editingItem ? 'Update Return & Debit Note' : 'Save Return & Debit Note'}
               </Button>
             </div>
           </form>
