@@ -454,7 +454,7 @@ export default function MasterDashboardPage({
             >
               {Object.entries(stockSummary).map(([unit, qty]) => (
                 <div key={unit}>
-                  {qty.toFixed(3)} {unit}
+                  {(Number(qty) || 0).toFixed(3)} {unit}
                 </div>
               ))}
             </motion.div>
@@ -491,7 +491,7 @@ export default function MasterDashboardPage({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              Margin: {profitMargin.toFixed(2)}%
+              Margin: {(Number.isFinite(profitMargin) ? profitMargin : 0).toFixed(2)}%
             </motion.p>
           </CardContent>
         </AnimatedCard>
@@ -545,7 +545,7 @@ export default function MasterDashboardPage({
             >
               <div>{salesInvoices.length} invoices</div>
               {Object.entries(salesVolumeByUnit).map(([unit, qty]) => (
-                <div key={unit}>{qty.toFixed(3)} {unit}</div>
+                <div key={unit}>{(Number(qty) || 0).toFixed(3)} {unit}</div>
               ))}
             </motion.div>
           </CardContent>
@@ -570,7 +570,7 @@ export default function MasterDashboardPage({
             >
               <div>{purchaseInvoices.length} invoices</div>
               {Object.entries(purchaseVolumeByUnit).map(([unit, qty]) => (
-                <div key={unit}>{qty.toFixed(3)} {unit}</div>
+                <div key={unit}>{(Number(qty) || 0).toFixed(3)} {unit}</div>
               ))}
             </motion.div>
           </CardContent>

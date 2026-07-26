@@ -1046,16 +1046,18 @@ export function calculatePendingAnnualDiscounts(
 }
 
 export function formatCurrency(amount: number): string {
+  const val = Number.isFinite(Number(amount)) ? Number(amount) : 0
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(amount)
+  }).format(val)
 }
 
 export function formatMT(mt: number): string {
-  return `${mt.toFixed(2)} MT`
+  const val = Number.isFinite(Number(mt)) ? Number(mt) : 0
+  return `${val.toFixed(2)} MT`
 }
 
 export function getCurrentFY(): string {

@@ -51,7 +51,8 @@ export default function InventoryReportPage({
     const doc = new jsPDF('landscape')
     
     const formatAmount = (amount: number): string => {
-      const formatted = amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+      const val = Number.isFinite(Number(amount)) ? Number(amount) : 0
+      const formatted = val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
       return `Rs.${formatted}`
     }
     
