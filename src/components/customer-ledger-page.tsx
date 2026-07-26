@@ -54,8 +54,9 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
         credit: 0,
         balance: 0,
         type: 'invoice',
-        refId: invoice.id
-      })
+        refId: invoice.id,
+        timestamp: (invoice as any).createdAt || 0
+      } as any)
     })
 
     customerPaymentsFiltered.forEach(payment => {
@@ -66,10 +67,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
         credit: payment.amount,
         balance: 0,
         type: 'payment',
-        refId: payment.id
-      })
+        refId: payment.id,
+        timestamp: (payment as any).createdAt || 0
+      } as any)
     })
-
 
     const customerCreditNotesFiltered = creditNotes.filter(
       cn => cn.customerId === selectedCustomerId && cn.fy === currentFY
@@ -86,8 +87,9 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
         credit: cn.amount,
         balance: 0,
         type: 'payment',
-        refId: cn.id
-      })
+        refId: cn.id,
+        timestamp: cn.createdAt || 0
+      } as any)
     })
 
     customerSalesReturnsFiltered.forEach(sr => {
@@ -98,11 +100,19 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
         credit: sr.amount,
         balance: 0,
         type: 'payment',
-        refId: sr.id
-      })
+        refId: sr.id,
+        timestamp: sr.createdAt || 0
+      } as any)
     })
 
-    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    entries.sort((a, b) => {
+      const timeDiff = new Date(a.date).getTime() - new Date(b.date).getTime()
+      if (timeDiff !== 0) return timeDiff
+      const tsA = (a as any).timestamp || 0
+      const tsB = (b as any).timestamp || 0
+      if (tsA !== tsB) return tsA - tsB
+      return (a.refId || '').localeCompare(b.refId || '')
+    })
 
 
     let runningBalance = 0

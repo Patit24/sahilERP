@@ -117,7 +117,6 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
     })
 
     entriesWithTimestamp.sort((a, b) => {
-
       const dateA = new Date(a.date).toISOString().split('T')[0]
       const dateB = new Date(b.date).toISOString().split('T')[0]
       
@@ -125,7 +124,11 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
         return new Date(a.date).getTime() - new Date(b.date).getTime()
       }
       
-      return a.timestamp - b.timestamp
+      if (a.timestamp !== b.timestamp) {
+        return a.timestamp - b.timestamp
+      }
+
+      return (a.refId || '').localeCompare(b.refId || '')
     })
 
     entries.push(...entriesWithTimestamp)

@@ -1045,8 +1045,13 @@ export function calculatePendingAnnualDiscounts(
   })
 }
 
+export function roundCurrency(amount: number): number {
+  if (!Number.isFinite(amount)) return 0
+  return Math.round((amount + Number.EPSILON) * 100) / 100
+}
+
 export function formatCurrency(amount: number): string {
-  const val = Number.isFinite(Number(amount)) ? Number(amount) : 0
+  const val = Number.isFinite(Number(amount)) ? roundCurrency(Number(amount)) : 0
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',

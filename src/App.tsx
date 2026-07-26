@@ -315,6 +315,33 @@ function readTenantCache(companyId: string, tenantKey: string): TenantCacheEnvel
   }
 }
 
+function safeLocalStorageSet(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch (error: any) {
+    console.warn(`LocalStorage write warning for "${key}":`, error)
+    if (error?.name === 'QuotaExceededError' || error?.code === 22 || String(error).includes('Quota')) {
+      console.warn('LocalStorage quota exceeded. Pruning orphaned cache keys...')
+      try {
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && (k.startsWith('tenant_cache_') || k.includes('_temp_') || k.includes('_backup_old_'))) {
+            keysToRemove.push(k)
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k))
+        localStorage.setItem(key, value)
+        return true
+      } catch (retryError) {
+        console.error('LocalStorage write failed after pruning:', retryError)
+      }
+    }
+    return false
+  }
+}
+
 function writeTenantCache(
   companyId: string,
   tenantKey: string,
@@ -322,16 +349,12 @@ function writeTenantCache(
   revision: number | null
 ): void {
   if (isLocalCacheDisabled) return
-  try {
-    localStorage.setItem(tenantKey, JSON.stringify(payload))
-    localStorage.setItem(getTenantCacheKey(companyId, tenantKey), JSON.stringify({
-      payload,
-      revision,
-      updatedAt: new Date().toISOString()
-    }))
-  } catch (error) {
-    console.error('Failed to write tenant cache:', error)
-  }
+  safeLocalStorageSet(tenantKey, JSON.stringify(payload))
+  safeLocalStorageSet(getTenantCacheKey(companyId, tenantKey), JSON.stringify({
+    payload,
+    revision,
+    updatedAt: new Date().toISOString()
+  }))
 }
 
 type NavItem = {
@@ -1890,7 +1913,7 @@ function App() {
           return (
             <MasterDashboardPage
               currentUser={currentUser}
-              cashBankCounters={cashBankCounters}
+              cashBankCounters={visibleCashBankCounters}
               suppliers={safeSuppliers}
               customers={safeCustomers}
               items={safeItems}
@@ -2196,7 +2219,7 @@ function App() {
           )
         case 'cash-bank-master':
           return <CashBankCountersMaster 
-            counters={cashBankCounters} 
+            counters={visibleCashBankCounters} 
             onUpdateCounters={setCashBankCounters} 
             isLocked={isViewReadOnly('cash-bank-master')} 
           />
