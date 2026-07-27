@@ -2,6 +2,10 @@
 @import "tw-animate-css";
 
 @layer base {
+  html {
+    font-size: 84%;
+  }
+
   * {
     @apply border-border
   }
