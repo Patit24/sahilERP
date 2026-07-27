@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   createAgentAccount,
   deleteAgentAccount,
+  getUserAccounts,
   PermissionLevel,
   PermissionMap,
   updateAgentAccount,
@@ -179,8 +180,8 @@ export default function UserManagementPage({
           permissions,
           allowedCounters
         })
-        onAccountsChange([created, ...accounts])
-        toast.success('Agent created successfully')
+        onAccountsChange(getUserAccounts())
+        toast.success(`Agent created! Username: "${created.username}"`)
       }
       resetForm()
     } catch (error) {

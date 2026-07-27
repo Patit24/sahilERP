@@ -128,8 +128,28 @@ export function getUserAccounts(): UserAccount[] {
   return safeJsonParse<UserAccount[]>(localStorage.getItem(APP_USERS_KEY), [])
 }
 
-export function saveUserAccounts(accounts: UserAccount[]): void {
-  localStorage.setItem(APP_USERS_KEY, JSON.stringify(accounts))
+export function saveUserAccounts(accounts: UserAccount[], overwrite = false): void {
+  if (overwrite) {
+    localStorage.setItem(APP_USERS_KEY, JSON.stringify(accounts))
+    return
+  }
+  const existing = safeJsonParse<UserAccount[]>(localStorage.getItem(APP_USERS_KEY), [])
+  const map = new Map<string, UserAccount>()
+
+  // Load existing accounts into map by id and normalized username
+  existing.forEach((acc) => {
+    map.set(acc.id, acc)
+    map.set(`user:${acc.username.toLowerCase()}`, acc)
+  })
+
+  // Merge new or updated accounts
+  accounts.forEach((acc) => {
+    map.set(acc.id, acc)
+    map.set(`user:${acc.username.toLowerCase()}`, acc)
+  })
+
+  const merged = Array.from(new Set(Array.from(map.values())))
+  localStorage.setItem(APP_USERS_KEY, JSON.stringify(merged))
 }
 
 function toAuthenticatedUser(account: UserAccount): AuthenticatedUser {
@@ -161,7 +181,7 @@ export function getCurrentUser(): AuthenticatedUser | null {
 export async function createMasterAdmin(username: string, displayName: string, passcode: string): Promise<AuthenticatedUser> {
   const now = new Date().toISOString()
   const accounts = getUserAccounts()
-  const normalizedUsername = username.trim().toLowerCase() || 'admin'
+  const normalizedUsername = username.trim().toLowerCase().split('@')[0] || 'admin'
   const salt = createSalt()
   const passcodeHash = await hashPasscode(passcode, salt)
   const account: UserAccount = {
@@ -177,7 +197,7 @@ export async function createMasterAdmin(username: string, displayName: string, p
     updatedAt: now
   }
   const next = accounts.filter((item) => item.role !== 'master_admin')
-  saveUserAccounts([account, ...next])
+  saveUserAccounts([account, ...next], true)
   sessionStorage.setItem(APP_AUTH_SESSION_KEY, 'true')
   sessionStorage.setItem(APP_AUTH_USER_ID_KEY, account.id)
   appendAuditLog('master_admin_created', { username: account.username })
@@ -192,10 +212,11 @@ export async function createAgentAccount(input: {
   allowedCounters?: string[]
 }): Promise<UserAccount> {
   const accounts = getUserAccounts()
-  const normalizedUsername = input.username.trim().toLowerCase()
+  const rawUsername = input.username.trim().toLowerCase()
+  const normalizedUsername = rawUsername.split('@')[0]
   if (!normalizedUsername) throw new Error('Username is required')
-  if (accounts.some((account) => account.username.toLowerCase() === normalizedUsername)) {
-    throw new Error('Username already exists')
+  if (accounts.some((account) => account.username.toLowerCase() === normalizedUsername || account.username.toLowerCase() === rawUsername)) {
+    throw new Error(`Username '${normalizedUsername}' already exists`)
   }
 
   const now = new Date().toISOString()
@@ -250,9 +271,9 @@ export async function updateAgentAccount(id: string, input: {
       updatedAt: new Date().toISOString()
     }
   })
-  saveUserAccounts(nextAccounts)
+  saveUserAccounts(nextAccounts, true)
   appendAuditLog('agent_account_updated', { agentId: id, isActive: input.isActive })
-  return nextAccounts
+  return getUserAccounts()
 }
 
 export function deleteAgentAccount(id: string): UserAccount[] {
@@ -260,7 +281,7 @@ export function deleteAgentAccount(id: string): UserAccount[] {
   const target = accounts.find((account) => account.id === id && account.role === 'agent')
   if (!target) throw new Error('Agent not found')
   const next = accounts.filter((account) => account.id !== id)
-  saveUserAccounts(next)
+  saveUserAccounts(next, true)
   appendAuditLog('agent_account_deleted', { agentId: id, username: target.username })
   if (sessionStorage.getItem(APP_AUTH_USER_ID_KEY) === id) {
     lockAppSession()
@@ -268,25 +289,59 @@ export function deleteAgentAccount(id: string): UserAccount[] {
   return next
 }
 
-export async function verifyUserLogin(username: string, passcode: string): Promise<AuthenticatedUser | null> {
-  const normalizedUsername = username.trim().toLowerCase()
-  const account = getUserAccounts().find((item) => item.username.toLowerCase() === normalizedUsername && item.isActive)
-  if (!account) return null
-  const hash = await hashPasscode(passcode, account.salt)
-  if (hash !== account.passcodeHash) {
-    const legacyHash = await legacyHashPasscode(passcode, account.salt)
-    if (legacyHash !== account.passcodeHash) return null
-    const accounts = getUserAccounts().map((item) => (
-      item.id === account.id
-        ? { ...item, passcodeHash: hash, updatedAt: new Date().toISOString() }
-        : item
-    ))
-    saveUserAccounts(accounts)
+export interface DetailedLoginResult {
+  success: boolean
+  user?: AuthenticatedUser
+  error?: string
+}
+
+export async function verifyUserLoginDetailed(username: string, passcode: string): Promise<DetailedLoginResult> {
+  const raw = username.trim().toLowerCase()
+  if (!raw) return { success: false, error: 'Username is required' }
+  const cleanUsername = raw.split('@')[0]
+
+  const accounts = getUserAccounts()
+  const account = accounts.find(
+    (item) => item.username.toLowerCase() === cleanUsername || item.username.toLowerCase() === raw
+  )
+
+  if (!account) {
+    return { success: false, error: `User '${username.trim()}' does not exist.` }
   }
+
+  if (!account.isActive) {
+    return { success: false, error: `Account '${account.username}' is disabled. Please contact Master Admin.` }
+  }
+
+  const hash = await hashPasscode(passcode, account.salt)
+  let isValid = (hash === account.passcodeHash)
+
+  if (!isValid) {
+    const legacyHash = await legacyHashPasscode(passcode, account.salt)
+    if (legacyHash === account.passcodeHash) {
+      isValid = true
+      const updatedAccounts = accounts.map((item) => (
+        item.id === account.id
+          ? { ...item, passcodeHash: hash, updatedAt: new Date().toISOString() }
+          : item
+      ))
+      saveUserAccounts(updatedAccounts, true)
+    }
+  }
+
+  if (!isValid) {
+    return { success: false, error: `Incorrect passcode for user '${account.username}'.` }
+  }
+
   sessionStorage.setItem(APP_AUTH_SESSION_KEY, 'true')
   sessionStorage.setItem(APP_AUTH_USER_ID_KEY, account.id)
   appendAuditLog('user_logged_in', { username: account.username, role: account.role })
-  return toAuthenticatedUser(account)
+  return { success: true, user: toAuthenticatedUser(account) }
+}
+
+export async function verifyUserLogin(username: string, passcode: string): Promise<AuthenticatedUser | null> {
+  const res = await verifyUserLoginDetailed(username, passcode)
+  return res.user || null
 }
 
 export async function setAppPasscode(passcode: string): Promise<void> {

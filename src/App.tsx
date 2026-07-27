@@ -155,7 +155,8 @@ import {
   saveUserAccounts,
   UserAccount,
   verifyAppPasscode,
-  verifyUserLogin
+  verifyUserLogin,
+  verifyUserLoginDetailed
 } from '@/lib/security-utils'
 import {
   canUseRemoteStorage,
@@ -1196,7 +1197,11 @@ function App() {
 
       try {
         setAuthBusy(true)
-        const user = await signInRemoteUser(authUsername, authPasscode)
+        let email = authUsername.trim().toLowerCase()
+        if (!email.includes('@')) {
+          email = `${email}@sktraders.local`
+        }
+        const user = await signInRemoteUser(email, authPasscode)
         if (!user) {
           setAuthError('No active server profile found for this user.')
           return
@@ -1240,7 +1245,8 @@ function App() {
         setIsAuthenticated(true)
         toast.success('Master admin created')
       } else {
-        let user = await verifyUserLogin(authUsername, authPasscode)
+        const loginRes = await verifyUserLoginDetailed(authUsername, authPasscode)
+        let user = loginRes.user || null
 
         if (!user && getUserAccounts().length === 0 && authUsername.trim().toLowerCase() === 'admin') {
           const legacyValid = await verifyAppPasscode(authPasscode)
@@ -1252,7 +1258,7 @@ function App() {
         }
 
         if (!user) {
-          setAuthError('Incorrect passcode.')
+          setAuthError(loginRes.error || 'Incorrect username or passcode.')
           return
         }
         setCurrentUser(user)
