@@ -2154,20 +2154,13 @@ function App() {
             />
           )
         case 'expense-types':
-          return (
-            <ExpenseTypesPage
-              expenseTypes={safeExpenseTypes}
-              setExpenseTypes={setExpenseTypes}
-              expenseEntries={safeExpenseEntries}
-              isLocked={isViewReadOnly('expense-types')}
-            />
-          )
         case 'expense-entries':
           return (
             <ExpenseEntriesPage
               expenseEntries={safeExpenseEntries}
               setExpenseEntries={setExpenseEntries}
               expenseTypes={safeExpenseTypes}
+              setExpenseTypes={setExpenseTypes}
               suppliers={safeSuppliers}
               invoices={safeInvoices}
               currentFY={safeCurrentFY}
