@@ -36,6 +36,7 @@ export interface TenantData {
   debitNotes: any[]
   salesReturns: any[]
   purchaseReturns: any[]
+  userAccounts?: any[]
 }
 
 const METADATA_KEY = 'app_metadata'
@@ -87,7 +88,8 @@ export function getTenantData(companyId: string, fy: string): TenantData {
       creditNotes: [],
       debitNotes: [],
       salesReturns: [],
-      purchaseReturns: []
+      purchaseReturns: [],
+      userAccounts: []
     }
     localStorage.setItem(key, JSON.stringify(emptyData))
     return emptyData

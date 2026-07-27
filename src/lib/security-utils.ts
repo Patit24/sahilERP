@@ -128,7 +128,7 @@ export function getUserAccounts(): UserAccount[] {
   return safeJsonParse<UserAccount[]>(localStorage.getItem(APP_USERS_KEY), [])
 }
 
-function saveUserAccounts(accounts: UserAccount[]): void {
+export function saveUserAccounts(accounts: UserAccount[]): void {
   localStorage.setItem(APP_USERS_KEY, JSON.stringify(accounts))
 }
 

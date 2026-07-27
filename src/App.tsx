@@ -152,6 +152,7 @@ import {
   lockAppSession,
   PermissionLevel,
   safeJsonParse,
+  saveUserAccounts,
   UserAccount,
   verifyAppPasscode,
   verifyUserLogin
@@ -246,7 +247,8 @@ const tenantDataCollectionKeys: Array<keyof TenantData> = [
   'creditNotes',
   'debitNotes',
   'salesReturns',
-  'purchaseReturns'
+  'purchaseReturns',
+  'userAccounts'
 ]
 
 function isPrimitive(val: any) {
@@ -858,7 +860,8 @@ function App() {
         creditNotes: parsedData.creditNotes || [],
         debitNotes: parsedData.debitNotes || [],
         salesReturns: parsedData.salesReturns || [],
-        purchaseReturns: parsedData.purchaseReturns || []
+        purchaseReturns: parsedData.purchaseReturns || [],
+        userAccounts: parsedData.userAccounts || getUserAccounts() || []
       }
       lastSavedDataRef.current = JSON.stringify(normalizedData)
       setSuppliers(normalizedData.suppliers)
@@ -881,6 +884,10 @@ function App() {
       setDebitNotes(normalizedData.debitNotes)
       setSalesReturns(normalizedData.salesReturns)
       setPurchaseReturns(normalizedData.purchaseReturns)
+      if (normalizedData.userAccounts && normalizedData.userAccounts.length > 0) {
+        setUserAccounts(normalizedData.userAccounts)
+        saveUserAccounts(normalizedData.userAccounts)
+      }
     }
 
     if (storedData) {
@@ -972,7 +979,8 @@ function App() {
       creditNotes,
       debitNotes,
       salesReturns,
-      purchaseReturns
+      purchaseReturns,
+      userAccounts
     }
 
     if (lastSavedDataRef.current) {
@@ -2285,7 +2293,10 @@ function App() {
             <UserManagementPage
               accounts={userAccounts}
               permissionOptions={permissionOptions}
-              onAccountsChange={setUserAccounts}
+              onAccountsChange={(nextAccounts) => {
+                setUserAccounts(nextAccounts)
+                saveUserAccounts(nextAccounts)
+              }}
               counters={cashBankCounters}
               securityMode={useServerAuth ? 'server' : 'local'}
               onSaveAgent={useServerAuth ? async (input) => updateRemoteUserProfile({
