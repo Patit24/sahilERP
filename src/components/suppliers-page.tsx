@@ -31,7 +31,8 @@ import {
   CurrencyInr,
   PlusCircle,
   Tag,
-  ArrowsClockwise
+  ArrowsClockwise,
+  CalendarBlank
 } from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
@@ -78,6 +79,9 @@ export default function SuppliersPage({
   const [gstin, setGstin] = useState('')
   const [openingBalance, setOpeningBalance] = useState('0')
   const [balanceType, setBalanceType] = useState<'Credit' | 'Debit'>('Credit')
+
+  // CD Feature Effective Date
+  const [effectiveFromDate, setEffectiveFromDate] = useState<string>(new Date().toISOString().split('T')[0])
 
   // CD Feature 1: Payment CD Rules & Advance CD %
   const [advanceCDPercentage, setAdvanceCDPercentage] = useState('0')
@@ -141,6 +145,16 @@ export default function SuppliersPage({
     return Math.min(suppliers.length, 14) // Demo registration count
   }, [suppliers])
 
+  // Total Configured Rules Calculation for right side summary card
+  const totalConfiguredRulesCount = useMemo(() => {
+    let count = 0
+    if (parseFloat(advanceCDPercentage) > 0) count += 1
+    count += paymentCDRules.length
+    count += invoiceCloseCDRules.length
+    if (parseFloat(targetMT) > 0 || parseFloat(targetRatePerMT) > 0) count += 1
+    return count
+  }, [advanceCDPercentage, paymentCDRules, invoiceCloseCDRules, targetMT, targetRatePerMT])
+
   // Helper: Open Editor in Add Mode
   const handleAddSupplier = () => {
     if (isLocked) return toast.error('Data is locked.')
@@ -152,6 +166,7 @@ export default function SuppliersPage({
     setGstin('')
     setOpeningBalance('0')
     setBalanceType('Credit')
+    setEffectiveFromDate(new Date().toISOString().split('T')[0])
     setAdvanceCDPercentage('0')
     setPaymentCDRules([])
     setInvoiceCloseCDRules([])
@@ -171,6 +186,7 @@ export default function SuppliersPage({
     setGstin(supplier.gstin || '')
     setOpeningBalance((supplier.openingBalance || 0).toString())
     setBalanceType(supplier.balanceType || 'Credit')
+    setEffectiveFromDate(supplier.cdRuleVersions?.[0]?.effectiveFrom || new Date().toISOString().split('T')[0])
     setAdvanceCDPercentage((supplier.advanceCDPercentage || 0).toString())
     setPaymentCDRules(supplier.paymentCDRules || [])
     setInvoiceCloseCDRules(supplier.invoiceCloseCDRules || [])
@@ -214,9 +230,9 @@ export default function SuppliersPage({
           paymentCDRules,
           invoiceCloseCDRules,
           advanceCDPercentage: advCD,
-          effectiveFrom: new Date().toISOString().split('T')[0]
+          effectiveFrom: effectiveFromDate
         },
-        effectiveDate: new Date().toISOString().split('T')[0],
+        effectiveDate: effectiveFromDate,
         changedBy,
         changedAt: new Date().toISOString(),
         reason: 'Rule updated in supplier management',
@@ -227,7 +243,7 @@ export default function SuppliersPage({
         id: `v-${Date.now()}`,
         version: currentVerNumber,
         ruleName: 'Supplier CD Rules',
-        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveFrom: effectiveFromDate,
         paymentCDRules,
         invoiceCloseCDRules,
         advanceCDPercentage: advCD,
@@ -262,7 +278,7 @@ export default function SuppliersPage({
         id: `v-1`,
         version: 1,
         ruleName: 'Initial Setup',
-        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveFrom: effectiveFromDate,
         paymentCDRules,
         invoiceCloseCDRules,
         advanceCDPercentage: advCD,
@@ -292,8 +308,8 @@ export default function SuppliersPage({
           ruleName: 'Initial Setup',
           ruleVersion: 1,
           previousValues: { paymentCDRules: [], invoiceCloseCDRules: [], advanceCDPercentage: 0 },
-          newValues: { paymentCDRules, invoiceCloseCDRules, advanceCDPercentage: advCD, effectiveFrom: new Date().toISOString().split('T')[0] },
-          effectiveDate: new Date().toISOString().split('T')[0],
+          newValues: { paymentCDRules, invoiceCloseCDRules, advanceCDPercentage: advCD, effectiveFrom: effectiveFromDate },
+          effectiveDate: effectiveFromDate,
           changedBy,
           changedAt: new Date().toISOString(),
           reason: 'Initial rule setup',
@@ -770,13 +786,30 @@ export default function SuppliersPage({
             </div>
           </div>
 
-          {/* 3 CD Feature Cards Section matching Prompt Instruction */}
+          {/* 3 CD Feature Cards Section matching Prompt Instruction + Effective Date */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs space-y-6">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Tag className="h-5 w-5 text-[#0256e8]" weight="duotone" />
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Discount & CD Rules Configuration</h3>
-                <p className="text-xs text-slate-500">Configure Payment CD Rules, Invoice Closed CD Rules, and Annual Target</p>
+            
+            {/* Header & Effective Date Input (User requested in Screenshot 2) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Tag className="h-5 w-5 text-[#0256e8]" weight="duotone" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Discount & CD Rules Configuration</h3>
+                  <p className="text-xs text-slate-500">Configure Payment CD Rules, Invoice Closed CD Rules, and Annual Target</p>
+                </div>
+              </div>
+
+              {/* Effective From Date (Apply CD Rules Current Date Picker) */}
+              <div className="flex items-center gap-2 bg-blue-50/80 p-2 rounded-xl border border-blue-100/90 shrink-0">
+                <CalendarBlank className="h-4 w-4 text-[#0256e8]" weight="bold" />
+                <Label className="text-xs font-bold text-slate-700 whitespace-nowrap">Effective From *</Label>
+                <Input
+                  type="date"
+                  value={effectiveFromDate}
+                  onChange={(e) => setEffectiveFromDate(e.target.value)}
+                  className="h-8 text-xs bg-white font-mono font-bold text-slate-900 w-36 shadow-2xs"
+                  required
+                />
               </div>
             </div>
 
@@ -987,39 +1020,73 @@ export default function SuppliersPage({
 
         </div>
 
-        {/* Right Column Cards (Width 4/12) matching Screenshot 2 */}
+        {/* Right Column Cards (Width 4/12) matching Screenshot 1 & 2 */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* Card 1: CD Rules Active Version & Audit Log */}
+          {/* Card 1: CD Rules Active Version & TOTAL RULES BREAKDOWN */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Tag className="h-4 w-4 text-[#0256e8]" weight="bold" />
                 <span>CD Rules</span>
               </h3>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-extrabold">
-                V1 APPROVED
-              </Badge>
+              
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="bg-blue-50 text-[#0256e8] border-blue-200 text-[10px] font-extrabold">
+                  {totalConfiguredRulesCount} TOTAL RULES
+                </Badge>
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-extrabold">
+                  V1 APPROVED
+                </Badge>
+              </div>
             </div>
 
-            {/* Active Version Display matching Screenshot 2 */}
-            <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                <span>v1 2026-07-18</span>
-                <span className="text-[10px] font-extrabold text-[#0256e8] uppercase">Current Active</span>
+            {/* Active Version Display showing ALL Total Active Rules (Requested in Screenshot 1) */}
+            <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-900 border-b border-blue-100/80 pb-2">
+                <span>v1 {effectiveFromDate}</span>
+                <span className="text-[10px] font-extrabold text-[#0256e8] uppercase">CURRENT ACTIVE</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">ADVANCE CD</p>
-                  <p className="font-extrabold text-slate-900 text-sm">{advanceCDPercentage}%</p>
+              {/* Total Active Rules List Grid */}
+              <div className="space-y-2.5 text-xs">
+                
+                {/* 1. Advance CD */}
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-extrabold">ADVANCE CD</span>
+                  <span className="font-extrabold text-slate-900">{advanceCDPercentage}%</span>
                 </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">PROMPT CD</p>
-                  <p className="font-extrabold text-slate-900 text-sm">
-                    {paymentCDRules[0]?.percentageRate || 1.0}%
-                  </p>
+
+                {/* 2. Prompt CD */}
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-extrabold">PROMPT CD</span>
+                  <span className="font-extrabold text-slate-900 text-right">
+                    {paymentCDRules.length > 0
+                      ? paymentCDRules.map((r) => `${r.minDays}-${r.maxDays}d: ${r.percentageRate}%`).join(', ')
+                      : '1%'}
+                  </span>
                 </div>
+
+                {/* 3. Invoice Closed CD */}
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-extrabold">INVOICE CLOSED CD</span>
+                  <span className="font-bold text-slate-800 text-right">
+                    {invoiceCloseCDRules.length > 0
+                      ? invoiceCloseCDRules.map((r) => `${r.minDays}-${r.maxDays}d: ₹${r.ratePerMT}/MT`).join(', ')
+                      : 'Not configured'}
+                  </span>
+                </div>
+
+                {/* 4. Annual Target */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500 uppercase font-extrabold">ANNUAL TARGET</span>
+                  <span className="font-bold text-emerald-700 text-right">
+                    {parseFloat(targetMT) > 0 || parseFloat(targetRatePerMT) > 0
+                      ? `${targetMT} MT @ ₹${targetRatePerMT}/MT`
+                      : 'Not configured'}
+                  </span>
+                </div>
+
               </div>
             </div>
 
@@ -1034,7 +1101,7 @@ export default function SuppliersPage({
                   <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-[#0256e8]" />
                   <div className="flex items-center justify-between text-xs font-bold text-slate-900">
                     <span>Supplier CD Rules v1</span>
-                    <span className="text-[10px] font-normal text-slate-400">27/7/2026</span>
+                    <span className="text-[10px] font-normal text-slate-400">{effectiveFromDate}</span>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] space-y-1 text-slate-600">
@@ -1047,7 +1114,7 @@ export default function SuppliersPage({
                       <span className="font-bold text-slate-900">Advance CD: {advanceCDPercentage}%</span>
                     </div>
                     <p className="text-[10px] text-slate-400 pt-1 italic">
-                      Changed by {changedBy} · Bulk update approved
+                      Changed by {changedBy} · Effective: {effectiveFromDate}
                     </p>
                   </div>
                 </div>
