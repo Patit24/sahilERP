@@ -11,6 +11,9 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { ExpenseEntry, ExpenseType, Supplier, PurchaseInvoice } from '@/lib/types'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { cn } from '@/lib/utils'
 import { 
   Plus, 
   Trash, 
@@ -25,7 +28,8 @@ import {
   ArrowDownRight,
   CaretLeft,
   Check,
-  Funnel
+  Funnel,
+  CaretUpDown
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { formatCurrency, isDateInFY } from '@/lib/calculations'
@@ -65,6 +69,7 @@ export default function ExpenseEntriesPage({
   const [selectedCounterId, setSelectedCounterId] = useState('')
   const [supplierId, setSupplierId] = useState('')
   const [linkedInvoiceId, setLinkedInvoiceId] = useState('')
+  const [invoiceSearchOpen, setInvoiceSearchOpen] = useState(false)
   const [expenseWithGst, setExpenseWithGst] = useState(false)
   const [notes, setNotes] = useState('')
 
@@ -170,6 +175,10 @@ export default function ExpenseEntriesPage({
     if (!amt || amt <= 0) return toast.error('Enter a valid amount')
     if (!expenseDate) return toast.error('Select an expense date')
     if (!selectedCounterId) return toast.error('Select a payment counter/account')
+    if (isInvoiceLinked && !linkedInvoiceId) {
+      toast.error('Linked Purchase Invoice is mandatory for invoice-linked expenses!')
+      return
+    }
 
     const selectedCounter = counters.find((c) => c.id === selectedCounterId)
     const typeObj = expenseTypes.find((t) => t.id === expenseTypeId)
@@ -543,22 +552,79 @@ export default function ExpenseEntriesPage({
             {/* Supplier / Linked Invoice if Invoice Linked */}
             {isInvoiceLinked ? (
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-bold text-slate-700">Linked Purchase Invoice</Label>
-                <Select value={linkedInvoiceId} onValueChange={setLinkedInvoiceId}>
-                  <SelectTrigger className="w-full h-9 bg-white text-xs">
-                    <SelectValue placeholder="Select Invoice to Link Expense..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {invoices.map((inv) => {
-                      const supp = suppliers.find((s) => s.id === inv.supplierId)
-                      return (
-                        <SelectItem key={inv.id} value={inv.id}>
-                          Invoice #{inv.invoiceNo} - {supp?.name || 'Supplier'} ({formatCurrency(inv.invoiceAmount)})
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-bold text-slate-700">
+                  Linked Purchase Invoice <span className="text-red-500 font-extrabold">*</span>
+                </Label>
+
+                <Popover open={invoiceSearchOpen} onOpenChange={setInvoiceSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={invoiceSearchOpen}
+                      className={cn(
+                        "w-full h-9 justify-between bg-white text-xs text-left font-normal border-slate-200",
+                        !linkedInvoiceId && "text-slate-400 border-amber-300 bg-amber-50/20"
+                      )}
+                    >
+                      {linkedInvoiceId ? (() => {
+                        const inv = invoices.find((i) => i.id === linkedInvoiceId)
+                        const supp = suppliers.find((s) => s.id === inv?.supplierId)
+                        return inv ? (
+                          <span className="font-semibold text-slate-900 truncate">
+                            Invoice #{inv.invoiceNo} · {supp?.name || 'Supplier'} ({inv.invoiceDate}) · {formatCurrency(inv.invoiceAmount)}
+                          </span>
+                        ) : "Select Invoice to Link Expense..."
+                      })() : (
+                        <span className="text-slate-400">Select Invoice to Link Expense (Mandatory)...</span>
+                      )}
+                      <CaretUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 text-slate-500" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[420px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search invoice #, supplier name, date..." className="h-9 text-xs" />
+                      <CommandList className="max-h-[260px] overflow-y-auto">
+                        <CommandEmpty className="py-4 text-center text-xs text-slate-500">
+                          No matching purchase invoices found.
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {invoices.map((inv) => {
+                            const supp = suppliers.find((s) => s.id === inv.supplierId)
+                            const searchLabel = `Invoice #${inv.invoiceNo} ${supp?.name || ''} ${inv.invoiceDate} ${inv.invoiceAmount}`
+                            return (
+                              <CommandItem
+                                key={inv.id}
+                                value={searchLabel}
+                                onSelect={() => {
+                                  setLinkedInvoiceId(inv.id)
+                                  if (inv.supplierId) setSupplierId(inv.supplierId)
+                                  setInvoiceSearchOpen(false)
+                                }}
+                                className="text-xs cursor-pointer py-2.5 px-3 flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", linkedInvoiceId === inv.id ? "opacity-100" : "opacity-0")} />
+                                  <div>
+                                    <p className="font-bold text-slate-900">
+                                      Invoice #{inv.invoiceNo} <span className="font-medium text-slate-600">· {supp?.name || 'Supplier'}</span>
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">
+                                      Date: {inv.invoiceDate} | Qty: {inv.quantityMT} MT
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="font-mono font-extrabold text-slate-900 text-xs">
+                                  {formatCurrency(inv.invoiceAmount)}
+                                </span>
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             ) : (
               <div className="space-y-1.5 sm:col-span-2">
