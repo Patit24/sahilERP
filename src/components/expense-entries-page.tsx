@@ -549,8 +549,8 @@ export default function ExpenseEntriesPage({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
             
-            {/* Supplier / Linked Invoice if Invoice Linked */}
-            {isInvoiceLinked ? (
+            {/* Linked Invoice if Invoice Linked */}
+            {isInvoiceLinked && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-bold text-slate-700">
                   Linked Purchase Invoice <span className="text-red-500 font-extrabold">*</span>
@@ -625,21 +625,6 @@ export default function ExpenseEntriesPage({
                     </Command>
                   </PopoverContent>
                 </Popover>
-              </div>
-            ) : (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-bold text-slate-700">Supplier (Optional)</Label>
-                <Select value={supplierId} onValueChange={setSupplierId}>
-                  <SelectTrigger className="w-full h-9 bg-white text-xs">
-                    <SelectValue placeholder="Select Optional Supplier..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             )}
 
