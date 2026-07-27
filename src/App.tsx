@@ -223,6 +223,7 @@ import PaymentDetailsPage from '@/components/payment-details-page'
 import CashBankCountersMaster from '@/components/cash-bank-counters-master'
 import CashBankVoucherEntry from '@/components/cash-bank-voucher-entry'
 import CashBankBookReport from '@/components/cash-bank-book-report'
+import CashBankManagement from '@/components/cash-bank-management'
 import UserManagementPage, { PermissionOption } from '@/components/user-management-page'
 import CustomerCreditNotePage from '@/components/customer-credit-note-page'
 import SupplierDebitNotePage from '@/components/supplier-debit-note-page'
@@ -2237,34 +2238,27 @@ function App() {
             />
           )
         case 'cash-bank-master':
-          return <CashBankCountersMaster 
-            counters={visibleCashBankCounters} 
-            onUpdateCounters={setCashBankCounters} 
-            isLocked={isViewReadOnly('cash-bank-master')} 
-          />
         case 'cash-bank-voucher':
-          return <CashBankVoucherEntry 
-            counters={visibleCashBankCounters} 
-            transactions={visibleCashBankTransactions} 
-            onUpdateAll={(c, t) => {
-              setCashBankCounters(prev => {
-                const updatedIds = c.map(uc => uc.id)
-                const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                return [...untouched, ...c]
-              })
-              setCashBankTransactions(prev => {
-                const updatedIds = t.map(ut => ut.id)
-                const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                return [...untouched, ...t]
-              })
-            }}
-            isLocked={isViewReadOnly('cash-bank-voucher')} 
-          />
         case 'cash-bank-ledger':
-          return <CashBankBookReport 
-            counters={visibleCashBankCounters} 
-            transactions={visibleCashBankTransactions} 
-          />
+          return (
+            <CashBankManagement 
+              counters={visibleCashBankCounters} 
+              transactions={visibleCashBankTransactions} 
+              onUpdateAll={(c, t) => {
+                setCashBankCounters(prev => {
+                  const updatedIds = c.map(uc => uc.id)
+                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
+                  return [...untouched, ...c]
+                })
+                setCashBankTransactions(prev => {
+                  const updatedIds = t.map(ut => ut.id)
+                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
+                  return [...untouched, ...t]
+                })
+              }}
+              isLocked={isViewReadOnly('cash-bank-master')} 
+            />
+          )
         case 'customer-credit-notes':
           return <CustomerCreditNotePage creditNotes={safeCreditNotes} setCreditNotes={setCreditNotes} customers={safeCustomers} currentFY={safeCurrentFY} isLocked={isViewReadOnly('customer-credit-notes')} />
         case 'supplier-debit-notes':
