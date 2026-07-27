@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft, Plus, PencilSimple, Trash, MagnifyingGlass, Barcode, Package, UserPlus, X, FileText, Check } from '@phosphor-icons/react'
+import { ArrowLeft, CaretLeft, Plus, PencilSimple, Trash, MagnifyingGlass, Barcode, Package, UserPlus, X, FileText, Check, Receipt, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, isDateInFY } from '@/lib/calculations'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
@@ -353,148 +353,196 @@ export default function SalesReturnPage({
   }
 
   return (
-    <div className="space-y-4">
-      {/* If form is NOT open, show Register view */}
+    <div className="space-y-6 pb-12">
       {!open ? (
-        <div className="space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Sales Returns</h1>
-              <p className="text-muted-foreground">Manage item returns from customers (adds stock & auto-creates Credit Notes)</p>
-            </div>
-            
-            <Button onClick={handleOpenAdd} disabled={isLocked}>
-              <Plus className="mr-2 h-4 w-4" /> Add Sales Return
-            </Button>
-          </div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-card">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Return Records</p>
-                  <h3 className="text-2xl font-bold mt-1">{filteredReturns.length}</h3>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <Package className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Quantity Returned</p>
-                  <h3 className="text-2xl font-bold mt-1">{formatMT(totalQuantityMT)}</h3>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
-                  <Package className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Return Value</p>
-                  <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{formatCurrency(totalAmount)}</h3>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                  <Package className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="w-full sm:w-[200px]">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select month" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Months</SelectItem>
-                  {fyMonths.map(month => (
-                    <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full sm:w-[250px]">
-              <Select value={selectedCustomerFilter} onValueChange={setSelectedCustomerFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  {customers.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-slate-700 hover:bg-slate-200/60"
+              >
+                <CaretLeft className="h-5 w-5" weight="bold" />
+              </Button>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sales Returns</h1>
             </div>
           </div>
 
-          {/* Register Table */}
-          <div className="rounded-md border bg-card overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            {/* Card 1: Total Return Records */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Return Records</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{filteredReturns.length}</p>
+                <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-2">
+                  <TrendUp className="h-3.5 w-3.5" weight="bold" /> 0% from last month
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/60 flex items-center justify-center shrink-0">
+                <Receipt className="h-6 w-6" weight="duotone" />
+              </div>
+            </div>
+
+            {/* Card 2: Total Quantity Returned */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Quantity Returned</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {formatMT(totalQuantityMT)} <span className="text-base font-bold text-slate-500">MT</span>
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/60 flex items-center justify-center shrink-0">
+                <Package className="h-6 w-6" weight="duotone" />
+              </div>
+            </div>
+
+            {/* Card 3: Total Return Value */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Return Value</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{formatCurrency(totalAmount)}</p>
+                <p className="text-xs font-normal text-slate-400 mt-2">Reflects auto-created credit notes</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 flex items-center justify-center shrink-0">
+                <Wallet className="h-6 w-6" weight="duotone" />
+              </div>
+            </div>
+          </div>
+
+          {/* List Register Container */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+            {/* Card Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0256e8] flex items-center justify-center">
+                  <Receipt className="h-5 w-5" weight="duotone" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Sales Return List</h2>
+              </div>
+              <Button onClick={handleOpenAdd} disabled={isLocked} className="bg-[#0256e8] hover:bg-[#0046cd] text-white font-semibold rounded-xl px-4 py-2.5 shadow-2xs flex items-center gap-2">
+                <Plus className="h-4 w-4" weight="bold" />
+                Add Sales Return
+              </Button>
+            </div>
+
+            {/* Filter Sub-bar */}
+            <div className="px-5 py-3.5 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                  <SlidersHorizontal className="h-4 w-4" weight="bold" />
+                  <span>Filters:</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Select value={selectedCustomerFilter} onValueChange={setSelectedCustomerFilter}>
+                    <SelectTrigger className="w-48 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
+                      <span className="text-slate-400 mr-1">Customer:</span>
+                      <SelectValue placeholder="All Customers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Customers</SelectItem>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
+                      <span className="text-slate-400 mr-1">Month:</span>
+                      <SelectValue placeholder="Jul 26" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Months</SelectItem>
+                      {fyMonths.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/60">
+                {filteredReturns.length} returns found
+              </span>
+            </div>
+
+            {/* Table */}
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Return / Ref No</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Return Items Summary</TableHead>
-                  <TableHead className="text-right">Quantity (MT)</TableHead>
-                  <TableHead className="text-right">Return Amount</TableHead>
-                  <TableHead>Remarks</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+              <TableHeader className="bg-[#edf3fc]">
+                <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">RETURN / REF NO</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">CUSTOMER</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">RETURN ITEMS SUMMARY</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">QUANTITY (MT)</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">RETURN AMOUNT</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredReturns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No sales returns recorded for this period.
+                    <TableCell colSpan={7} className="py-16 text-center">
+                      <div className="max-w-sm mx-auto space-y-3">
+                        <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
+                          <Receipt size={32} weight="duotone" />
+                        </div>
+                        <h3 className="text-base font-bold text-slate-900">No sales returns found</h3>
+                        <p className="text-xs text-slate-500">
+                          No sales returns recorded for this period. Add your first return to get started.
+                        </p>
+                        <button
+                          onClick={handleOpenAdd}
+                          disabled={isLocked}
+                          className="inline-flex items-center gap-1.5 text-sm font-bold text-[#0256e8] hover:underline pt-2"
+                        >
+                          <Plus className="h-4 w-4" weight="bold" />
+                          Create First Return
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredReturns.map(item => {
                     const customer = customers.find(c => c.id === item.customerId)
                     return (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.returnDate}</TableCell>
-                        <TableCell className="font-medium">{item.returnNo || item.invoiceRef || '-'}</TableCell>
-                        <TableCell className="font-semibold">{customer?.name || 'Unknown'}</TableCell>
+                      <TableRow key={item.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+                        <TableCell className="text-slate-600 text-xs font-medium">{item.returnDate}</TableCell>
+                        <TableCell className="font-mono font-bold text-slate-900 text-sm">{item.returnNo || item.invoiceRef || '-'}</TableCell>
+                        <TableCell className="font-semibold text-slate-800 text-sm">{customer?.name || 'Unknown'}</TableCell>
                         <TableCell>
                           {item.items && item.items.length > 0 ? (
-                            <div className="text-xs space-y-1">
+                            <div className="text-xs space-y-0.5">
                               {item.items.map((line, i) => {
                                 const itm = items.find(x => x.id === line.itemId)
                                 return (
-                                  <div key={i}>
-                                    {itm?.name || 'Item'} ({line.quantityMT} {itm?.unit || 'MT'} @ {formatCurrency(line.rate)})
+                                  <div key={i} className="text-slate-600">
+                                    <span className="font-medium text-slate-900">{itm?.name || 'Item'}</span>: {line.quantityMT} {itm?.unit || 'MT'} @ {formatCurrency(line.rate)}
                                   </div>
                                 )
                               })}
                             </div>
                           ) : (
-                            <span className="text-muted-foreground text-xs">Custom Return Amount</span>
+                            <span className="text-slate-400 text-xs">Custom Return Amount</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-medium">{formatMT(item.quantityMT || 0)}</TableCell>
-                        <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">
+                        <TableCell className="text-right font-mono font-medium text-slate-900">{formatMT(item.quantityMT || 0)}</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-emerald-600 text-sm">
                           {formatCurrency(item.amount)}
                         </TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">{item.remarks || '-'}</TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(item)} disabled={isLocked}>
-                            <PencilSimple className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => { setItemToDelete(item); setDeleteDialogOpen(true) }} disabled={isLocked}>
-                            <Trash className="h-4 w-4 text-destructive" />
-                          </Button>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(item)} disabled={isLocked} className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                              <PencilSimple className="h-4 w-4" weight="bold" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setItemToDelete(item); setDeleteDialogOpen(true) }} disabled={isLocked} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg">
+                              <Trash className="h-4 w-4" weight="bold" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
@@ -502,13 +550,32 @@ export default function SalesReturnPage({
                 )}
               </TableBody>
             </Table>
+
+            {/* Table Footer */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium bg-white">
+              <div>Showing 0 to {filteredReturns.length} of {filteredReturns.length} entries</div>
+              <div className="flex items-center gap-1">
+                <button className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50" disabled>‹</button>
+                <button className="h-7 w-7 rounded-lg bg-[#0256e8] text-white font-bold flex items-center justify-center">1</button>
+                <button className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50" disabled>›</button>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Floating Plus Button */}
+          <button
+            onClick={handleOpenAdd}
+            disabled={isLocked}
+            className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-[#0256e8] text-white shadow-lg flex items-center justify-center z-40 hover:scale-105 transition-transform"
+            title="Add Sales Return"
+          >
+            <Plus className="h-6 w-6" weight="bold" />
+          </button>
+        </>
       ) : (
         /* If form is OPEN, render FULL PAGE Shell view exactly like SalesInvoicesPage! */
         <div className="erp-invoice-page-shell">
           <form onSubmit={handleSubmit} className="erp-invoice-form erp-invoice-page-form">
-            {/* Top Bar Header */}
             <div className="erp-invoice-page-header">
               <div className="flex min-w-0 items-center gap-3">
                 <Button

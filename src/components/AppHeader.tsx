@@ -7,6 +7,9 @@ import {
   Keyboard,
   Lock,
   List,
+  User,
+  Gear,
+  Plus
 } from '@phosphor-icons/react'
 
 interface AppHeaderProps {
@@ -39,79 +42,97 @@ export function AppHeader({
   setShortcutsDialogOpen,
 }: AppHeaderProps) {
   return (
-    <header className="app-header h-16 border-b border-border header-spacing-responsive flex items-center justify-between">
-      <div className="flex items-center gap-responsive-md overflow-hidden">
-        <motion.button
+    <header className="app-header h-16 bg-white border-b border-slate-200/80 px-4 md:px-6 flex items-center justify-between z-30 shrink-0">
+      {/* Left side brand / collapse button */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          className="app-icon-button flex md:hidden"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.96 }}
-          aria-label="Open navigation menu"
-          title="Open navigation menu"
+          className="h-9 w-9 text-slate-600 md:hidden hover:bg-slate-100"
+          aria-label="Toggle navigation"
         >
           <List className="h-5 w-5" weight="bold" />
-        </motion.button>
-        <motion.button
-          onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className="app-icon-button hidden md:flex"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          title={sidebarExpanded ? "Collapse sidebar (Ctrl+B)" : "Expand sidebar (Ctrl+B)"}
-        >
-          {sidebarExpanded ? (
-            <CaretLeft className="h-4 w-4" weight="bold" />
-          ) : (
-            <CaretRight className="h-4 w-4" weight="bold" />
-          )}
-        </motion.button>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeView}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.25 }}
-            className="flex-1 min-w-0"
-          >
-            <h2 className="text-responsive-xl font-bold text-foreground truncate leading-tight tracking-tight">{safeBusinessName}</h2>
-            <p className="text-responsive-xs text-muted-foreground font-medium hidden sm:block">Source-Driven Financial Management</p>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      <div className="flex items-center gap-responsive-sm sm:gap-responsive-md flex-shrink-0">
+        </Button>
+
         <Button
           variant="ghost"
-          size="sm"
-          onClick={() => setShortcutsDialogOpen(true)}
-          className="app-soft-button gap-2 text-muted-foreground hover:text-foreground"
-          title="Keyboard shortcuts (Ctrl+K)"
+          size="icon"
+          onClick={() => setSidebarExpanded(!sidebarExpanded)}
+          className="h-9 w-9 text-slate-500 hidden md:flex hover:bg-slate-100 rounded-lg"
+          title={sidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
         >
-          <Keyboard className="h-4 w-4" weight="duotone" />
-          <span className="hidden sm:inline text-responsive-xs">Shortcuts</span>
+          <List className="h-5 w-5" weight="bold" />
         </Button>
+
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            SK ERP
+          </h1>
+          <div className="h-4 w-[1px] bg-slate-200 hidden sm:block" />
+          <button
+            onClick={() => setShortcutsDialogOpen(true)}
+            className="relative px-2 py-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hidden sm:flex items-center gap-1 group"
+          >
+            <span>Shortcuts</span>
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-full" />
+          </button>
+        </div>
+      </div>
+
+      {/* Right side controls */}
+      <div className="flex items-center gap-2 sm:gap-3">
         {safeIsLocked && (
-          <Badge variant="secondary" className="text-responsive-xs px-3 py-1.5 font-semibold gap-1.5 bg-amber-50 text-amber-900 border border-amber-200 shadow-sm hidden sm:inline-flex">
+          <span className="hidden sm:inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
             <Lock className="h-3.5 w-3.5" weight="fill" />
             Read Only
-          </Badge>
+          </span>
         )}
-        <Badge variant="secondary" className="hidden md:inline-flex max-w-[180px] gap-1.5 px-3 py-1.5 text-responsive-xs font-semibold">
-          <span className="truncate">{currentUserLabel}</span>
-          <span className="text-muted-foreground">· {currentUserRole}</span>
-        </Badge>
+
+        {/* FY Pill Badge */}
+        <span className="bg-blue-50 text-[#0256e8] font-bold px-3.5 py-1 rounded-full text-xs border border-blue-100/80 shadow-2xs font-mono">
+          {safeCurrentFY}
+        </span>
+
+        {/* User Profile Pill */}
+        <div className="hidden md:flex items-center gap-2 bg-slate-100/80 text-slate-800 px-3 py-1 rounded-full text-xs font-semibold border border-slate-200/60">
+          <div className="h-5 w-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
+            <User className="h-3 w-3" weight="bold" />
+          </div>
+          <span>{currentUserLabel || 'Master Admin'}</span>
+          <span className="text-slate-400 font-normal">· {currentUserRole}</span>
+        </div>
+
+        {/* Lock button */}
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={onLockApp}
-          className="app-soft-button gap-2 text-muted-foreground hover:text-foreground"
-          title="Lock app"
+          className="h-9 w-9 text-slate-600 hover:bg-slate-100 rounded-lg"
+          title="Lock session"
         >
-          <Lock className="h-4 w-4" weight="duotone" />
-          <span className="hidden lg:inline text-responsive-xs">Lock</span>
+          <Lock className="h-4 w-4" weight="bold" />
         </Button>
-        <Badge variant="outline" className="app-fy-badge text-responsive-xs px-3 py-1.5 font-mono font-semibold">
-          {safeCurrentFY}
-        </Badge>
+
+        {/* Settings button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShortcutsDialogOpen(true)}
+          className="h-9 w-9 text-slate-600 hover:bg-slate-100 rounded-lg"
+          title="Shortcuts & settings"
+        >
+          <Gear className="h-4 w-4" weight="bold" />
+        </Button>
+
+        {/* Header circular action button */}
+        <Button
+          size="icon"
+          className="h-9 w-9 rounded-full bg-[#0256e8] hover:bg-[#0046cd] text-white shadow-sm"
+          title="Quick action"
+        >
+          <Plus className="h-5 w-5" weight="bold" />
+        </Button>
       </div>
     </header>
   )

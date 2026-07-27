@@ -9,6 +9,7 @@
   body {
     font-family: 'Manrope', var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
     font-feature-settings: 'tnum' on, 'lnum' on;
+    background-color: #f6f9fc;
   }
   
   .font-mono {

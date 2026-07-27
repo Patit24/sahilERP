@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple , FileText, Wallet } from '@phosphor-icons/react'
+import { ArrowLeft, CaretLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple, FileText, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -649,61 +649,80 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {!open && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Total Sales Invoices</p>
-                  <p className="text-3xl font-semibold text-foreground">{fyInvoices.length}</p>
-                </div>
-                <Receipt size={40} weight="duotone" className="text-accent" />
-              </div>
-            </CardContent>
-          </Card>
+        <>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-slate-700 hover:bg-slate-200/60"
+              >
+                <CaretLeft className="h-5 w-5" weight="bold" />
+              </Button>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sales Invoices</h1>
+            </div>
+          </div>
 
-          <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Total Quantity Sold</p>
-                  <p className="text-3xl font-semibold text-foreground">{formatMT(totalMT)}</p>
-                </div>
-                <div className="text-success text-2xl font-mono">MT</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            {/* Card 1: Total Sales Invoices */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Sales Invoices</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{fyInvoices.length}</p>
+                <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-2">
+                  <TrendUp className="h-3.5 w-3.5" weight="bold" /> 0% from last month
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/60 flex items-center justify-center shrink-0">
+                <Receipt className="h-6 w-6" weight="duotone" />
+              </div>
+            </div>
 
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Total Sales Amount</p>
-                  <p className="text-3xl font-semibold text-foreground">{formatCurrency(totalAmount)}</p>
-                </div>
-                <div className="text-primary text-xl font-mono">₹</div>
+            {/* Card 2: Total Quantity Sold */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Quantity Sold</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {formatMT(totalMT)} <span className="text-base font-bold text-slate-500">MT</span>
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 flex items-center justify-center shrink-0">
+                <Package className="h-6 w-6" weight="duotone" />
+              </div>
+            </div>
+
+            {/* Card 3: Total Sales Amount */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Sales Amount</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{formatCurrency(totalAmount)}</p>
+                <p className="text-xs font-normal text-slate-400 mt-2">Reflects final settlement values</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/60 flex items-center justify-center shrink-0">
+                <Wallet className="h-6 w-6" weight="duotone" />
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
-      <Card className={open ? 'border-0 bg-transparent shadow-none' : undefined}>
-        <CardContent className={open ? 'p-0' : 'pt-6'}>
-          <div className={open ? 'hidden' : 'flex items-center justify-between mb-4'}>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Receipt size={22} weight="duotone" className="text-primary" />
-              Sales Invoice List
-            </h3>
-            {!open && (
-              <Button onClick={handleAdd}>
-                <Plus size={18} weight="bold" />
-                Add Sales Invoice
-              </Button>
-            )}
+      <div className={open ? 'w-full' : 'bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden'}>
+        {!open && (
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0256e8] flex items-center justify-center">
+                <Receipt className="h-5 w-5" weight="duotone" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-900">Sales Invoice List</h2>
+            </div>
+            <Button onClick={handleAdd} className="bg-[#0256e8] hover:bg-[#0046cd] text-white font-semibold rounded-xl px-4 py-2.5 shadow-2xs flex items-center gap-2">
+              <Plus className="h-4 w-4" weight="bold" />
+              Add Sales Invoice
+            </Button>
           </div>
+        )}
 
           {open ? (
             <div className="erp-invoice-page-shell">
@@ -1434,136 +1453,173 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
             />
           {!open && (
             <>
-              <div className="flex items-center gap-4 flex-wrap mb-4">
-                <div className="flex items-center gap-2">
-                  <FunnelSimple size={18} className="text-muted-foreground" />
-                  <Label htmlFor="customer-filter" className="text-sm font-medium">Customer:</Label>
-                  <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                    <SelectTrigger id="customer-filter" className="w-48 h-9">
-                      <SelectValue placeholder="All Customers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Customers</SelectItem>
-                      {customers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Filter Sub-bar */}
+              <div className="px-5 py-3.5 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <SlidersHorizontal className="h-4 w-4" weight="bold" />
+                    <span>Filters:</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                      <SelectTrigger className="w-48 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
+                        <span className="text-slate-400 mr-1">Customer:</span>
+                        <SelectValue placeholder="All Customers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Customers</SelectItem>
+                        {customers.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
+                        <span className="text-slate-400 mr-1">Month:</span>
+                        <SelectValue placeholder="Jul 26" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Months</SelectItem>
+                        {fyMonths.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="month-filter" className="text-sm font-medium">Month:</Label>
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger id="month-filter" className="w-48 h-9">
-                      <SelectValue placeholder="Select Month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
-                      {fyMonths.map((month) => (
-                        <SelectItem key={month.value} value={month.value}>
-                          {month.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Badge variant="secondary" className="gap-1.5 ml-auto">
-                  {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
-                </Badge>
+                <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/60">
+                  {filteredInvoices.length} invoices found
+                </span>
               </div>
 
-              <div className="rounded-lg border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold">Invoice No</TableHead>
-                      <TableHead className="font-semibold">Date</TableHead>
-                      <TableHead className="font-semibold">Customer</TableHead>
-                      <TableHead className="font-semibold">Items</TableHead>
-                      <TableHead className="font-semibold text-right">Quantity (MT)</TableHead>
-                      <TableHead className="font-semibold text-right">Amount</TableHead>
-                      <TableHead className="font-semibold text-right">Actions</TableHead>
+              {/* Table */}
+              <Table>
+                <TableHeader className="bg-[#edf3fc]">
+                  <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">INVOICE NO</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">CUSTOMER</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">ITEMS</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">QUANTITY (MT)</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">AMOUNT</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInvoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-16 text-center">
+                        <div className="max-w-sm mx-auto space-y-3">
+                          <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
+                            <Receipt size={32} weight="duotone" />
+                          </div>
+                          <h3 className="text-base font-bold text-slate-900">No invoices found</h3>
+                          <p className="text-xs text-slate-500">
+                            No sales invoices found for FY {currentFY}. Add your first invoice to get started.
+                          </p>
+                          <button
+                            onClick={handleAdd}
+                            className="inline-flex items-center gap-1.5 text-sm font-bold text-[#0256e8] hover:underline pt-2"
+                          >
+                            <Plus className="h-4 w-4" weight="bold" />
+                            Create First Invoice
+                          </button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fyInvoices.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No sales invoices found for FY {currentFY}. Add your first invoice to get started.
+                  ) : (
+                    filteredInvoices.map((invoice) => (
+                      <TableRow key={invoice.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+                        <TableCell className="font-mono font-bold text-slate-900 text-sm">{invoice.invoiceNo}</TableCell>
+                        <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
+                        <TableCell className="font-semibold text-slate-800 text-sm">{getCustomerName(invoice.customerId)}</TableCell>
+                        <TableCell>
+                          <div className="text-xs space-y-0.5">
+                            {(invoice.items || []).map((item, idx) => (
+                              <div key={idx} className="text-slate-600">
+                                <span className="font-medium text-slate-900">{getItemName(item.itemId)}</span>: {formatMT(item.quantityMT)} MT @ {formatCurrency(item.rate)}
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-medium text-slate-900">{formatMT(invoice.quantityMT)}</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPreviewInvoice(invoice)}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                              aria-label={`Preview invoice ${invoice.invoiceNo}`}
+                            >
+                              <Receipt size={16} weight="bold" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownloadInvoicePDF(invoice)}
+                              className="h-8 gap-1 px-2 text-xs font-semibold text-slate-700 border-slate-200 hover:bg-slate-100 rounded-lg"
+                              aria-label={`Download invoice ${invoice.invoiceNo} PDF`}
+                              title="Download PDF"
+                            >
+                              <DownloadSimple size={14} weight="bold" />
+                              PDF
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(invoice)}
+                              className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
+                              aria-label={`Edit invoice ${invoice.invoiceNo}`}
+                            >
+                              <PencilSimple size={16} weight="bold" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(invoice)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                              aria-label={`Delete invoice ${invoice.invoiceNo}`}
+                            >
+                              <Trash size={16} weight="bold" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      filteredInvoices.map((invoice) => (
-                        <TableRow key={invoice.id}>
-                          <TableCell className="font-mono font-medium">{invoice.invoiceNo}</TableCell>
-                          <TableCell>{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
-                          <TableCell className="font-medium">{getCustomerName(invoice.customerId)}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {(invoice.items || []).map((item, idx) => (
-                                <div key={idx} className="text-muted-foreground">
-                                  {getItemName(item.itemId)}: {formatMT(item.quantityMT)} @ {formatCurrency(item.rate)}/MT
-                                </div>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-mono">{formatMT(invoice.quantityMT)}</TableCell>
-                          <TableCell className="text-right font-mono font-medium">{formatCurrency(invoice.invoiceAmount)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setPreviewInvoice(invoice)}
-                                className="text-primary hover:text-primary hover:bg-primary/10"
-                                aria-label={`Preview invoice ${invoice.invoiceNo}`}
-                              >
-                                <Receipt size={16} weight="bold" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadInvoicePDF(invoice)}
-                                className="h-8 gap-1.5 px-2 text-xs"
-                                aria-label={`Download invoice ${invoice.invoiceNo} PDF`}
-                                title="Download PDF"
-                              >
-                                <DownloadSimple size={14} weight="bold" />
-                                PDF
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(invoice)}
-                                className="text-primary hover:text-primary hover:bg-primary/10"
-                                aria-label={`Edit invoice ${invoice.invoiceNo}`}
-                              >
-                                <PencilSimple size={16} weight="bold" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteClick(invoice)}
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                aria-label={`Delete invoice ${invoice.invoiceNo}`}
-                              >
-                                <Trash size={16} weight="bold" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+
+              {/* Table Footer */}
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium bg-white">
+                <div>Showing 0 to {filteredInvoices.length} of {filteredInvoices.length} entries</div>
+                <div className="flex items-center gap-1">
+                  <button className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50" disabled>‹</button>
+                  <button className="h-7 w-7 rounded-lg bg-[#0256e8] text-white font-bold flex items-center justify-center">1</button>
+                  <button className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50" disabled>›</button>
+                </div>
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+      {/* Floating Plus Button */}
+      {!open && (
+        <button
+          onClick={handleAdd}
+          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-[#0256e8] text-white shadow-lg flex items-center justify-center z-40 hover:scale-105 transition-transform"
+          title="Add Sales Invoice"
+        >
+          <Plus className="h-6 w-6" weight="bold" />
+        </button>
+      )}
 
       {previewInvoice && (
         <InvoicePreviewDialog
