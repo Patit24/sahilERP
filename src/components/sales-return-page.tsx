@@ -166,11 +166,16 @@ export default function SalesReturnPage({
       if (qty > 0) {
         const item = items.find(i => i.id === itemId)
         const rate = item?.salesPrice || 0
+        const defaultEntryUnit = item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : (item?.unit || 'MT')
+        const factor = item?.conversionFactor || 1000
+
         newItems.push({
           itemId,
           quantityMT: qty,
           rate,
-          amount: parseFloat((qty * rate).toFixed(2))
+          amount: parseFloat((qty * rate).toFixed(2)),
+          entryUnit: defaultEntryUnit,
+          entryQuantity: item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? qty * factor : qty
         })
       }
     })
@@ -235,20 +240,38 @@ export default function SalesReturnPage({
   }
 
   const handleUpdateLineItem = (index: number, field: keyof InvoiceItem, value: any) => {
-    setReturnItems(prev => prev.map((item, idx) => {
-      if (idx !== index) return item
-      const updated = { ...item, [field]: value }
+    setReturnItems(prev => prev.map((itemRow, idx) => {
+      if (idx !== index) return itemRow
+      const selectedDef = items.find(i => i.id === (field === 'itemId' ? value : itemRow.itemId))
+      const updated = { ...itemRow, [field]: value }
+      
       if (field === 'itemId') {
-        const selected = items.find(i => i.id === value)
-        if (selected && selected.salesPrice) {
-          updated.rate = selected.salesPrice
+        const defaultUnit = selectedDef?.alternativeUnit && selectedDef.alternativeUnit !== 'NONE' ? selectedDef.alternativeUnit : (selectedDef?.unit || 'MT')
+        updated.entryUnit = defaultUnit
+        if (selectedDef && selectedDef.salesPrice) {
+          updated.rate = selectedDef.salesPrice
         }
       }
-      if (field === 'quantityMT' || field === 'rate' || field === 'itemId') {
-        const qty = Number(updated.quantityMT) || 0
-        const rate = Number(updated.rate) || 0
-        updated.amount = parseFloat((qty * rate).toFixed(2))
+
+      if (field === 'entryQuantity' || field === 'quantityMT') {
+        const numVal = Number(value) || 0
+        updated.entryQuantity = numVal
+        if (selectedDef) {
+          const factor = selectedDef.conversionFactor || 1000
+          const activeUnit = updated.entryUnit || (selectedDef.alternativeUnit && selectedDef.alternativeUnit !== 'NONE' ? selectedDef.alternativeUnit : selectedDef.unit)
+          if (activeUnit === selectedDef.alternativeUnit) {
+            updated.quantityMT = numVal / factor
+          } else {
+            updated.quantityMT = numVal
+          }
+        } else {
+          updated.quantityMT = numVal
+        }
       }
+
+      const qty = Number(updated.quantityMT) || 0
+      const rate = Number(updated.rate) || 0
+      updated.amount = parseFloat((qty * rate).toFixed(2))
       return updated
     }))
   }

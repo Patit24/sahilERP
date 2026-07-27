@@ -1,15 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Item } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Package, Trash, Pencil, Warning, SquaresFour, Scales } from '@phosphor-icons/react'
+import { Plus, Package, Trash, Pencil, Warning, SquaresFour, Scales, Folder } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ItemEditorDialog } from '@/components/item-editor-dialog'
+import { getCustomCategories, saveCustomCategory, getCustomUnits, saveCustomUnit } from '@/lib/custom-data-store'
 
 interface ItemsPageProps {
   items: Item[]
@@ -24,6 +25,9 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
 
   // Direct Category & Unit Creation Modals
+  const [customCategories, setCustomCategories] = useState<string[]>(getCustomCategories)
+  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(getCustomUnits)
+
   const [addCatDialogOpen, setAddCatDialogOpen] = useState(false)
   const [newCatName, setNewCatName] = useState('')
 
@@ -31,7 +35,18 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
   const [newUnitCode, setNewUnitCode] = useState('')
   const [newUnitLabel, setNewUnitLabel] = useState('')
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all')
+
+  useEffect(() => {
+    const syncCategories = () => setCustomCategories(getCustomCategories())
+    const syncUnits = () => setCustomUnits(getCustomUnits())
+    window.addEventListener('custom-categories-updated', syncCategories)
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => {
+      window.removeEventListener('custom-categories-updated', syncCategories)
+      window.removeEventListener('custom-units-updated', syncUnits)
+    }
+  }, [])
 
   const handleDeleteClick = (item: Item) => {
     if (isLocked) {
@@ -96,12 +111,8 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
   const handleCreateCategory = () => {
     const clean = newCatName.trim()
     if (!clean) return
-    const saved = localStorage.getItem('custom_item_categories')
-    const current = saved ? JSON.parse(saved) : []
-    if (!current.includes(clean)) {
-      const updated = [...current, clean]
-      localStorage.setItem('custom_item_categories', JSON.stringify(updated))
-    }
+    const updated = saveCustomCategory(clean)
+    setCustomCategories(updated)
     setNewCatName('')
     setAddCatDialogOpen(false)
     toast.success(`Category "${clean}" created! You can now assign it to items.`)
@@ -111,31 +122,61 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
     const code = newUnitCode.trim().toUpperCase()
     const label = newUnitLabel.trim() || code
     if (!code) return
-    const saved = localStorage.getItem('custom_item_units')
-    const current = saved ? JSON.parse(saved) : []
-    if (!current.some((u: { value: string }) => u.value === code)) {
-      const updated = [...current, { value: code, label: `${label} (${code})` }]
-      localStorage.setItem('custom_item_units', JSON.stringify(updated))
-    }
+    const updated = saveCustomUnit(code, label)
+    setCustomUnits(updated)
     setNewUnitCode('')
     setNewUnitLabel('')
     setAddUnitDialogOpen(false)
     toast.success(`Unit "${code}" created! You can now assign it when creating items.`)
   }
 
-  const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean)))
+  // Categories list combined from customCategories + assigned items categories
+  const allCategoriesList = useMemo(() => {
+    const itemCats = items.map(i => i.category).filter((c): c is string => Boolean(c))
+    return Array.from(new Set([...customCategories, ...itemCats]))
+  }, [customCategories, items])
 
-  const filteredItems = selectedCategory === 'all'
-    ? items
-    : items.filter(i => i.category === selectedCategory)
+  // Group items by category (Items under Category)
+  const groupedItems = useMemo(() => {
+    const map: Record<string, Item[]> = {}
+
+    // First initialize empty arrays for all known categories
+    allCategoriesList.forEach(cat => {
+      map[cat] = []
+    })
+
+    // Assign items to their category
+    items.forEach(item => {
+      const cat = item.category || 'General'
+      if (!map[cat]) map[cat] = []
+      map[cat].push(item)
+    })
+
+    return map
+  }, [allCategoriesList, items])
+
+  // Filter categories to display
+  const displayCategoryKeys = useMemo(() => {
+    if (selectedCategoryFilter !== 'all') {
+      return [selectedCategoryFilter]
+    }
+    // Show categories that have items first, then empty custom categories
+    return Object.keys(groupedItems).sort((a, b) => {
+      const countA = groupedItems[a]?.length || 0
+      const countB = groupedItems[b]?.length || 0
+      if (countA > 0 && countB === 0) return -1
+      if (countA === 0 && countB > 0) return 1
+      return a.localeCompare(b)
+    })
+  }, [groupedItems, selectedCategoryFilter])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Item Master</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Manage all steel products, categories, pricing, and custom measuring units
+            Items organized under Categories with pricing, GST %, and custom measuring units
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -170,7 +211,7 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
         />
       </div>
 
-      {/* Category Filter Pills & Summary Cards */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-white border-slate-200">
           <CardContent className="p-5">
@@ -181,24 +222,24 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
 
         <Card className="bg-white border-slate-200">
           <CardContent className="p-5">
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Categories</div>
-            <div className="text-3xl font-extrabold text-blue-600 font-mono">{categories.length}</div>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Active Categories</div>
+            <div className="text-3xl font-extrabold text-blue-600 font-mono">{allCategoriesList.length}</div>
           </CardContent>
         </Card>
 
         <Card className="bg-white border-slate-200">
           <CardContent className="p-5 flex items-center justify-between">
-            <div>
+            <div className="w-full">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category Filter</div>
               <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="text-sm font-semibold bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none"
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                className="w-full text-sm font-semibold bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none"
               >
-                <option value="all">All Categories ({items.length})</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat!}>
-                    {cat} ({items.filter(i => i.category === cat).length})
+                <option value="all">All Categories ({items.length} items)</option>
+                {allCategoriesList.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat} ({(groupedItems[cat] || []).length} items)
                   </option>
                 ))}
               </select>
@@ -207,93 +248,135 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
         </Card>
       </div>
 
-      {filteredItems.length === 0 ? (
+      {/* SHOW ITEMS UNDER CATEGORY GROUPS */}
+      {items.length === 0 ? (
         <Card className="bg-white border-slate-200">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Package size={48} className="text-slate-300 mb-4" />
             <p className="text-slate-500 text-center font-medium">
-              No items found in this category. Click "+ Add Item" to create one.
+              No items yet. Click "+ Add Item" to create your first item.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card className="bg-white border-slate-200 overflow-hidden shadow-2xs">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-slate-50 border-b border-slate-200">
-                <TableRow>
-                  <TableHead className="font-bold text-slate-700">Item Name</TableHead>
-                  <TableHead className="font-bold text-slate-700">Category</TableHead>
-                  <TableHead className="font-bold text-slate-700">Measuring Unit & Conversion</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">Purchase Price</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">Sales Price</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">GST %</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">Opening Stock</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map(item => (
-                    <TableRow key={item.id} className="hover:bg-slate-50/80">
-                      <TableCell className="font-bold text-slate-900">{item.name}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 border border-blue-100">
-                          {item.category || 'General'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-mono text-xs font-bold text-slate-800">
-                            {item.unit}
-                            {item.alternativeUnit && item.alternativeUnit !== 'NONE' ? ` / ${item.alternativeUnit}` : ''}
-                          </span>
-                          {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              1 {item.unit} = {item.conversionFactor ? item.conversionFactor.toLocaleString() : (item.unit === 'MT' ? '1,000' : '1')} {item.alternativeUnit}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold">
-                        {item.purchasePrice ? `₹${item.purchasePrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold text-emerald-700">
-                        {item.salesPrice ? `₹${item.salesPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {item.gstRate ? `${item.gstRate}%` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold">
-                        {item.openingStock ? `${item.openingStock.toFixed(3)} ${item.unit}` : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEdit(item)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
-                          >
-                            <Pencil size={16} weight="bold" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleDeleteClick(item)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                          >
-                            <Trash size={16} weight="bold" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          {displayCategoryKeys.map((catName) => {
+            const categoryItems = groupedItems[catName] || []
+            if (selectedCategoryFilter === 'all' && categoryItems.length === 0) {
+              return null // Don't show empty categories when viewing 'all'
+            }
+
+            return (
+              <Card key={catName} className="bg-white border border-slate-200 overflow-hidden shadow-2xs">
+                {/* Category Header */}
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-3.5 px-5 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                      <Folder size={18} weight="duotone" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold text-slate-900">{catName}</CardTitle>
+                      <p className="text-xs text-slate-500 font-medium">
+                        {categoryItems.length} {categoryItems.length === 1 ? 'item' : 'items'} under this category
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingItem({
+                        id: '',
+                        name: '',
+                        unit: 'MT',
+                        category: catName
+                      })
+                      setOpen(true)
+                    }}
+                    className="text-xs font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <Plus size={14} className="mr-1" weight="bold" /> Add Item to {catName}
+                  </Button>
+                </CardHeader>
+
+                {/* Items under Category Table */}
+                <CardContent className="p-0">
+                  {categoryItems.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400 font-medium">
+                      No items under {catName} category yet.
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader className="bg-slate-50/50 text-[11px] uppercase tracking-wider text-slate-500">
+                        <TableRow>
+                          <TableHead className="font-bold text-slate-700">Item Name</TableHead>
+                          <TableHead className="font-bold text-slate-700">Measuring & Alternative Unit</TableHead>
+                          <TableHead className="text-right font-bold text-slate-700">Purchase Price</TableHead>
+                          <TableHead className="text-right font-bold text-slate-700">Sales Price</TableHead>
+                          <TableHead className="text-right font-bold text-slate-700">GST %</TableHead>
+                          <TableHead className="text-right font-bold text-slate-700">Opening Stock</TableHead>
+                          <TableHead className="w-[80px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {categoryItems.map(item => (
+                          <TableRow key={item.id} className="hover:bg-slate-50/80">
+                            <TableCell className="font-bold text-slate-900">{item.name}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-mono text-xs font-bold text-slate-800">
+                                  {item.unit}
+                                  {item.alternativeUnit && item.alternativeUnit !== 'NONE' ? ` / ${item.alternativeUnit}` : ''}
+                                </span>
+                                {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    1 {item.unit} = {item.conversionFactor ? item.conversionFactor.toLocaleString() : (item.unit === 'MT' ? '1,000' : '1')} {item.alternativeUnit}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm font-semibold">
+                              {item.purchasePrice ? `₹${item.purchasePrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm font-semibold text-emerald-700">
+                              {item.salesPrice ? `₹${item.salesPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {item.gstRate ? `${item.gstRate}%` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm font-semibold">
+                              {item.openingStock ? `${item.openingStock.toFixed(3)} ${item.unit}` : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleEdit(item)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
+                                >
+                                  <Pencil size={16} weight="bold" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleDeleteClick(item)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                                >
+                                  <Trash size={16} weight="bold" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
       )}
 
       {/* CREATE NEW CATEGORY DIALOG */}

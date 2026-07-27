@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import { CaretDown, Check, MagnifyingGlass, Package, Plus, Scales, SquaresFour } from '@phosphor-icons/react'
 import { toast } from 'sonner'
+import { getCustomCategories, saveCustomCategory, getCustomUnits, saveCustomUnit } from '@/lib/custom-data-store'
 
 interface ItemEditorDialogProps {
   open: boolean
@@ -18,28 +19,6 @@ interface ItemEditorDialogProps {
   existingItems?: Item[]
   onSave: (item: Item) => void
 }
-
-const DEFAULT_CATEGORIES = [
-  'TMT Bars',
-  'Steel Plates',
-  'Coils',
-  'Pipes & Tubes',
-  'Angles & Channels',
-  'Structural Steel',
-  'Sponge Iron',
-  'General'
-]
-
-const DEFAULT_UNITS = [
-  { value: 'MT', label: 'Metric Ton (MT)' },
-  { value: 'KG', label: 'Kilogram (KG)' },
-  { value: 'PCS', label: 'Pieces (PCS)' },
-  { value: 'TON', label: 'Ton (TON)' },
-  { value: 'BAG', label: 'Bag (BAG)' },
-  { value: 'BOX', label: 'Box (BOX)' },
-  { value: 'BUNDLE', label: 'Bundle (BUNDLE)' },
-  { value: 'LTR', label: 'Litre (LTR)' }
-]
 
 const GST_OPTIONS = [
   { label: 'None', value: 'none', rate: undefined },
@@ -82,15 +61,9 @@ export function ItemEditorDialog({
   const [alternativeUnitRatio, setAlternativeUnitRatio] = useState('1000')
   const [openingStock, setOpeningStock] = useState('')
 
-  // Custom Category & Unit Add Dialog state
-  const [customCategories, setCustomCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('custom_item_categories')
-    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES
-  })
-  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(() => {
-    const saved = localStorage.getItem('custom_item_units')
-    return saved ? JSON.parse(saved) : DEFAULT_UNITS
-  })
+  // Reactive Custom Categories & Units State
+  const [customCategories, setCustomCategories] = useState<string[]>(getCustomCategories)
+  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(getCustomUnits)
 
   const [addCatDialogOpen, setAddCatDialogOpen] = useState(false)
   const [newCatName, setNewCatName] = useState('')
@@ -100,7 +73,20 @@ export function ItemEditorDialog({
   const [newUnitLabel, setNewUnitLabel] = useState('')
 
   useEffect(() => {
+    const syncCategories = () => setCustomCategories(getCustomCategories())
+    const syncUnits = () => setCustomUnits(getCustomUnits())
+    window.addEventListener('custom-categories-updated', syncCategories)
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => {
+      window.removeEventListener('custom-categories-updated', syncCategories)
+      window.removeEventListener('custom-units-updated', syncUnits)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!open) return
+    setCustomCategories(getCustomCategories())
+    setCustomUnits(getCustomUnits())
     setName(item?.name || '')
     setCategory(item?.category || '')
     setGstRate(typeof item?.gstRate === 'number' ? item.gstRate.toString() : 'none')
@@ -124,11 +110,8 @@ export function ItemEditorDialog({
   const handleCreateCategory = () => {
     const clean = newCatName.trim()
     if (!clean) return
-    if (!customCategories.includes(clean)) {
-      const updated = [...customCategories, clean]
-      setCustomCategories(updated)
-      localStorage.setItem('custom_item_categories', JSON.stringify(updated))
-    }
+    const updated = saveCustomCategory(clean)
+    setCustomCategories(updated)
     setCategory(clean)
     setNewCatName('')
     setAddCatDialogOpen(false)
@@ -139,12 +122,8 @@ export function ItemEditorDialog({
     const code = newUnitCode.trim().toUpperCase()
     const label = newUnitLabel.trim() || code
     if (!code) return
-
-    if (!customUnits.some(u => u.value === code)) {
-      const updated = [...customUnits, { value: code, label: `${label} (${code})` }]
-      setCustomUnits(updated)
-      localStorage.setItem('custom_item_units', JSON.stringify(updated))
-    }
+    const updated = saveCustomUnit(code, label)
+    setCustomUnits(updated)
     setUnit(code)
     setNewUnitCode('')
     setNewUnitLabel('')

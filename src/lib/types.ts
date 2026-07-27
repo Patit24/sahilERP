@@ -142,6 +142,8 @@ export interface InvoiceItem {
   basicRate?: number
   rate: number
   amount: number
+  entryUnit?: string
+  entryQuantity?: number
 }
 
 export interface PurchaseInvoice {

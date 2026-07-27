@@ -250,6 +250,7 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const addInvoiceItemWithItem = (itemId: string, quantityMT = 0) => {
     const item = items.find((candidate) => candidate.id === itemId)
     const rate = item?.salesPrice || item?.purchasePrice || 0
+    const defaultEntryUnit = item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : (item?.unit || 'MT')
 
     setInvoiceItems(prev => {
       const existingIndex = prev.findIndex(existing => existing.itemId === itemId)
@@ -273,7 +274,9 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         itemId,
         quantityMT,
         rate,
-        amount: parseFloat((quantityMT * rate).toFixed(2))
+        amount: parseFloat((quantityMT * rate).toFixed(2)),
+        entryUnit: defaultEntryUnit,
+        entryQuantity: item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? quantityMT * (item.conversionFactor || 1000) : quantityMT
       }
 
       const emptyIndex = prev.findIndex(existing => !existing.itemId)
@@ -297,36 +300,69 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
   const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
     setInvoiceItems(prev => {
       const updated = [...prev]
-      const item = { ...updated[index] }
+      const itemRow = { ...updated[index] }
+      const selectedItemDef = items.find(i => i.id === itemRow.itemId)
       
       if (field === 'itemId') {
         const newItemId = value as string
+        const selectedDef = items.find(i => i.id === newItemId)
+        const defaultUnit = selectedDef?.alternativeUnit && selectedDef.alternativeUnit !== 'NONE' ? selectedDef.alternativeUnit : (selectedDef?.unit || 'MT')
+        
         const existingIndex = prev.findIndex((r, i) => r.itemId === newItemId && i !== index)
         
         if (existingIndex !== -1) {
           // Merge into existing row
           const existing = { ...updated[existingIndex] }
-          existing.quantityMT = (existing.quantityMT || 0) + (item.quantityMT || 0)
+          existing.quantityMT = (existing.quantityMT || 0) + (itemRow.quantityMT || 0)
           existing.amount = existing.quantityMT * existing.rate
           updated[existingIndex] = existing
           
           // Clear current row
-          item.itemId = ''
-          item.quantityMT = 0
-          item.rate = 0
-          item.amount = 0
+          itemRow.itemId = ''
+          itemRow.quantityMT = 0
+          itemRow.rate = 0
+          itemRow.amount = 0
+          itemRow.entryUnit = defaultUnit
+          itemRow.entryQuantity = 0
         } else {
-          item.itemId = newItemId
+          itemRow.itemId = newItemId
+          itemRow.rate = selectedDef?.salesPrice || selectedDef?.purchasePrice || 0
+          itemRow.entryUnit = defaultUnit
         }
-      } else if (field === 'quantityMT') {
-        item.quantityMT = parseFloat(value as string) || 0
-        item.amount = item.quantityMT * item.rate
+      } else if (field === 'entryUnit') {
+        itemRow.entryUnit = value as string
+        if (selectedItemDef) {
+          const factor = selectedItemDef.conversionFactor || 1000
+          if (value === selectedItemDef.alternativeUnit) {
+            itemRow.quantityMT = (itemRow.entryQuantity || 0) / factor
+          } else {
+            itemRow.quantityMT = itemRow.entryQuantity || 0
+          }
+          itemRow.amount = itemRow.quantityMT * itemRow.rate
+        }
+      } else if (field === 'entryQuantity' || field === 'quantityMT') {
+        const numVal = parseFloat(value as string) || 0
+        itemRow.entryQuantity = numVal
+        
+        if (selectedItemDef) {
+          const factor = selectedItemDef.conversionFactor || 1000
+          const activeUnit = itemRow.entryUnit || (selectedItemDef.alternativeUnit && selectedItemDef.alternativeUnit !== 'NONE' ? selectedItemDef.alternativeUnit : selectedItemDef.unit)
+          
+          if (activeUnit === selectedItemDef.alternativeUnit) {
+            itemRow.quantityMT = numVal / factor
+          } else {
+            itemRow.quantityMT = numVal
+          }
+        } else {
+          itemRow.quantityMT = numVal
+        }
+        itemRow.amount = itemRow.quantityMT * itemRow.rate
       } else if (field === 'rate') {
-        item.rate = parseFloat(value as string) || 0
-        item.amount = item.quantityMT * item.rate
+        itemRow.rate = parseFloat(value as string) || 0
+        itemRow.amount = itemRow.quantityMT * itemRow.rate
       }
       
-      updated[index] = item
+      updated[index] = itemRow
       return updated
     })
   }
