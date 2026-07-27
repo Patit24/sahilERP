@@ -161,6 +161,16 @@ export default function UserManagementPage({
         })
         onAccountsChange(nextAccounts)
         toast.success('Agent updated')
+      } else if (isServerMode && onCreateRemoteAgent) {
+        await onCreateRemoteAgent({
+          email: username.includes('@') ? username : `${username}@sktraders.local`,
+          displayName,
+          passcode,
+          permissions,
+          companyId: '',
+          allowedCounters
+        })
+        toast.success('Agent created in server mode')
       } else {
         const created = await createAgentAccount({
           username,
@@ -170,7 +180,7 @@ export default function UserManagementPage({
           allowedCounters
         })
         onAccountsChange([created, ...accounts])
-        toast.success('Agent created')
+        toast.success('Agent created successfully')
       }
       resetForm()
     } catch (error) {
@@ -256,13 +266,7 @@ export default function UserManagementPage({
                   value={passcode}
                   onChange={(event) => setPasscode(event.target.value)}
                   placeholder="Minimum 6 characters"
-                  disabled={isServerMode && Boolean(editingId)}
                 />
-                {isServerMode && (
-                  <p className="text-xs text-muted-foreground">
-                    Passwords can only be set during creation in Server Mode.
-                  </p>
-                )}
               </div>
 
 
@@ -301,7 +305,7 @@ export default function UserManagementPage({
               )}
 
               <div className="flex gap-2 pt-2">
-                <Button type="submit" className="flex-1" disabled={isServerMode && !editingId}>
+                <Button type="submit" className="flex-1">
                   {editingId ? 'Save Agent' : 'Create Agent'}
                 </Button>
                 {editingId && (

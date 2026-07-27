@@ -2286,7 +2286,7 @@ function App() {
               accounts={userAccounts}
               permissionOptions={permissionOptions}
               onAccountsChange={setUserAccounts}
-              counters={visibleCashBankCounters}
+              counters={cashBankCounters}
               securityMode={useServerAuth ? 'server' : 'local'}
               onSaveAgent={useServerAuth ? async (input) => updateRemoteUserProfile({
                 id: input.id,
