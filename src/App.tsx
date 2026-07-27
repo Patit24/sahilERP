@@ -214,7 +214,6 @@ import ExpenseTypesPage from '@/components/expense-types-page'
 import ExpenseEntriesPage from '@/components/expense-entries-page'
 import FixedSchemesPage from '@/components/fixed-schemes-page'
 import MTBookingsPage from '@/components/pages/MTBookingsPage'
-import AdvanceMTBookingsPage from '@/components/advance-mt-bookings-page'
 import InventoryReportPage from '@/components/inventory-report-page'
 import CDAtRiskReportPage from '@/components/cd-at-risk-report-page'
 import MasterDashboardPage from '@/components/master-dashboard-page'
@@ -369,12 +368,13 @@ type NavItem = {
 
 type NavGroup = {
   title: string
+  isSingle?: boolean
   items: NavItem[]
 }
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Sale Invoice',
+    title: 'Sales',
     items: [
       { id: 'sales-invoices', label: 'Sales Invoice', icon: Receipt },
       { id: 'customer-payments', label: 'Payment In', icon: CreditCard },
@@ -385,7 +385,7 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    title: 'Purchased',
+    title: 'Purchase',
     items: [
       { id: 'invoices', label: 'Purchased Invoice', icon: Receipt },
       { id: 'payments', label: 'Payment Out', icon: CreditCard },
@@ -397,19 +397,21 @@ const navGroups: NavGroup[] = [
   },
   {
     title: 'Expenses',
+    isSingle: true,
     items: [
-      { id: 'expense-entries', label: 'Expense Entries', icon: FileText },
-      { id: 'expense-types', label: 'Expense Types', icon: FileText },
+      { id: 'expense-entries', label: 'Expenses', icon: FileText },
     ]
   },
   {
     title: 'Items',
+    isSingle: true,
     items: [
       { id: 'items', label: 'Items', icon: Package },
     ]
   },
   {
     title: 'Cash & Bank',
+    isSingle: true,
     items: [
       { id: 'cash-bank-master', label: 'Cash & Bank', icon: Bank },
     ]
@@ -426,9 +428,8 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    title: 'Masters',
+    title: 'Discount Configuration',
     items: [
-      { id: 'advance-mt-bookings', label: 'Advance MT Booking', icon: Scales },
       { id: 'fixed-schemes', label: 'Fixed Schemes', icon: CalendarBlank },
       { id: 'mt-bookings', label: 'MT Booking Master', icon: BookBookmark },
     ]
@@ -458,7 +459,6 @@ const viewNames: Record<string, string> = {
   'items': 'Items',
   'invoices': 'Purchase Invoices',
   'payments': 'Supplier Payments',
-  'advance-mt-bookings': 'Advance MT Booking',
   'sales-invoices': 'Sales Invoices',
   'customer-payments': 'Customer Payments',
   'expense-entries': 'Expense Entries',
@@ -611,13 +611,13 @@ function App() {
   
   const [activeView, setActiveView] = useState('dashboard')
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    'Sale Invoice': true,
-    'Purchased': false,
+    'Sales': true,
+    'Purchase': false,
     'Expenses': false,
     'Items': false,
     'Cash & Bank': false,
     'Reports': false,
-    'Masters': false,
+    'Discount Configuration': false,
     'Admin': false
   })
   
@@ -1876,7 +1876,6 @@ function App() {
       case 'items':
       case 'invoices':
       case 'payments':
-      case 'advance-mt-bookings':
       case 'sales-invoices':
       case 'customer-payments':
       case 'expense-entries':
@@ -2011,21 +2010,6 @@ function App() {
                   return [...untouched, ...t]
                 })
               }}
-            />
-          )
-        case 'advance-mt-bookings':
-          return (
-            <AdvanceMTBookingsPage
-              suppliers={safeSuppliers}
-              activeCompanyId={metadata.activeCompanyId}
-              currentFY={safeCurrentFY}
-              isLocked={isViewReadOnly('advance-mt-bookings')}
-              advanceBookingPickups={advanceBookingPickups}
-              setAdvanceBookingPickups={setAdvanceBookingPickups}
-              discountLedgerEntries={discountLedgerEntries}
-              setDiscountLedgerEntries={setDiscountLedgerEntries}
-              payments={safePayments}
-              fixedSchemes={safeFixedSchemes}
             />
           )
         case 'sales-invoices':

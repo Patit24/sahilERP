@@ -28,6 +28,7 @@ type NavItem = {
 
 type NavGroup = {
   title: string
+  isSingle?: boolean
   items: NavItem[]
 }
 
@@ -201,6 +202,28 @@ export function AppSidebar({
                       </button>
                     )
                   })}
+                </div>
+              )
+            }
+
+            if (group.isSingle) {
+              const item = group.items[0]
+              const Icon = item.icon
+              const isActive = activeView === item.id
+              return (
+                <div key={group.title} className="py-0.5">
+                  <button
+                    onClick={() => handleNavigate(item.id, group.title)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all text-left",
+                      isActive
+                        ? "bg-[#0256e8] text-white font-semibold shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium"
+                    )}
+                  >
+                    <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-slate-500")} weight="duotone" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
                 </div>
               )
             }

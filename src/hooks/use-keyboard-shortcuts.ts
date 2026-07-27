@@ -10,7 +10,6 @@ export type ShortcutAction =
   | 'items'
   | 'invoices'
   | 'payments'
-  | 'advance-mt-bookings'
   | 'sales-invoices'
   | 'customer-payments'
   | 'expense-entries'
