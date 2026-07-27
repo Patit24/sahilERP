@@ -32,7 +32,8 @@ import {
   PlusCircle,
   Tag,
   ArrowsClockwise,
-  CalendarBlank
+  CalendarBlank,
+  FileText
 } from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
@@ -383,6 +384,28 @@ export default function SuppliersPage({
     setNewCloseMinDays(maxD.toString())
     setNewCloseMaxDays((maxD + 15).toString())
   }
+
+  // Derived audit versions list for history modal dialog (Full details version mapping)
+  const auditVersionsList = useMemo(() => {
+    if (!editingSupplier) return []
+    const versions = editingSupplier.cdRuleVersions || []
+    if (versions.length > 0) return versions
+
+    // Fallback initial baseline version if none exists
+    return [{
+      id: `v-baseline-${editingSupplier.id}`,
+      version: 1,
+      ruleName: 'Supplier CD Rules Baseline',
+      effectiveFrom: effectiveFromDate,
+      paymentCDRules: editingSupplier.paymentCDRules || [],
+      invoiceCloseCDRules: editingSupplier.invoiceCloseCDRules || [],
+      advanceCDPercentage: editingSupplier.advanceCDPercentage || 0,
+      changedBy: changedBy || 'Master Admin',
+      changedAt: new Date().toISOString(),
+      reason: 'Initial setup baseline',
+      approvalStatus: 'Approved' as const
+    }]
+  }, [editingSupplier, effectiveFromDate, changedBy])
 
   // ==================== VIEW 1: SUPPLIERS REGISTER LIST (SCREENSHOT 1) ====================
   if (viewMode === 'list') {
@@ -1058,8 +1081,8 @@ export default function SuppliersPage({
                 </div>
 
                 {/* 2. Prompt CD */}
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                  <span className="text-[10px] text-slate-500 uppercase font-extrabold">PROMPT CD</span>
+                <div className="flex items-start justify-between border-b border-slate-200/60 pb-1.5 gap-2">
+                  <span className="text-[10px] text-slate-500 uppercase font-extrabold shrink-0">PROMPT CD</span>
                   <span className="font-extrabold text-slate-900 text-right">
                     {paymentCDRules.length > 0
                       ? paymentCDRules.map((r) => `${r.minDays}-${r.maxDays}d: ${r.percentageRate}%`).join(', ')
@@ -1068,8 +1091,8 @@ export default function SuppliersPage({
                 </div>
 
                 {/* 3. Invoice Closed CD */}
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                  <span className="text-[10px] text-slate-500 uppercase font-extrabold">INVOICE CLOSED CD</span>
+                <div className="flex items-start justify-between border-b border-slate-200/60 pb-1.5 gap-2">
+                  <span className="text-[10px] text-slate-500 uppercase font-extrabold shrink-0">INVOICE CLOSED CD</span>
                   <span className="font-bold text-slate-800 text-right">
                     {invoiceCloseCDRules.length > 0
                       ? invoiceCloseCDRules.map((r) => `${r.minDays}-${r.maxDays}d: ₹${r.ratePerMT}/MT`).join(', ')
@@ -1173,33 +1196,118 @@ export default function SuppliersPage({
 
       </div>
 
-      {/* Full Audit History Dialog */}
+      {/* Full Audit History Dialog (Redesigned with ALL DETAILS as requested) */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-900">
-              <Clock className="h-5 w-5 text-[#0256e8]" />
-              CD Rules Change Log & Audit History
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="border-b border-slate-100 pb-3">
+            <DialogTitle className="flex items-center gap-2 text-slate-900 text-lg">
+              <Clock className="h-5 w-5 text-[#0256e8]" weight="bold" />
+              <span>CD Rules Change Log & Audit History</span>
             </DialogTitle>
+            <p className="text-xs text-slate-500 font-medium">
+              Showing complete breakdown of all historical CD rule versions for <span className="font-bold text-slate-800">{editingSupplier?.name || name}</span>
+            </p>
           </DialogHeader>
 
-          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 pt-2 text-xs">
-            {editingSupplier?.cdRuleChangeLog?.map((log) => (
-              <div key={log.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
-                <div className="flex items-center justify-between font-bold text-slate-900">
-                  <span>Version #{log.ruleVersion} - {log.ruleName}</span>
-                  <span className="text-slate-400 font-normal">{log.effectiveDate}</span>
+          <div className="space-y-4 pt-2 text-xs">
+            {auditVersionsList.map((ver) => {
+              const payRules = ver.paymentCDRules || []
+              const closeRules = ver.invoiceCloseCDRules || []
+              const advCD = ver.advanceCDPercentage || 0
+
+              return (
+                <div key={ver.id} className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-3">
+                  
+                  {/* Version Header Bar */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-[#0256e8] text-white font-mono font-bold text-xs px-2 py-0.5">
+                        Version #{ver.version}
+                      </Badge>
+                      <span className="font-bold text-slate-900 text-sm">{ver.ruleName}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                        <CalendarBlank className="h-3.5 w-3.5 text-slate-400" />
+                        Effective: <strong className="text-slate-800 font-mono">{ver.effectiveFrom}</strong>
+                      </span>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-extrabold uppercase">
+                        {ver.approvalStatus || 'Approved'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* ALL DETAILS Breakdown Box */}
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">CONFIGURED CD RULES BREAKDOWN</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {/* Advance CD */}
+                      <div className="p-2 rounded-lg bg-white border border-slate-200/70">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">1. ADVANCE CD</span>
+                        <span className="font-extrabold text-slate-900 text-sm">{advCD}%</span>
+                      </div>
+
+                      {/* Prompt CD */}
+                      <div className="p-2 rounded-lg bg-white border border-slate-200/70">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">2. PROMPT CD TIERS</span>
+                        {payRules.length === 0 ? (
+                          <span className="text-slate-500 italic">None configured</span>
+                        ) : (
+                          <div className="space-y-0.5 mt-0.5">
+                            {payRules.map((r, idx) => (
+                              <div key={idx} className="font-bold text-slate-800 text-[11px]">
+                                {r.minDays} to {r.maxDays} Days ➔ <span className="text-[#0256e8]">{r.percentageRate}% CD</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Invoice Closed CD */}
+                      <div className="p-2 rounded-lg bg-white border border-slate-200/70">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">3. INVOICE CLOSED CD RULES</span>
+                        {closeRules.length === 0 ? (
+                          <span className="text-slate-500 italic">None configured</span>
+                        ) : (
+                          <div className="space-y-0.5 mt-0.5">
+                            {closeRules.map((r, idx) => (
+                              <div key={idx} className="font-bold text-slate-800 text-[11px]">
+                                {r.minDays} to {r.maxDays} Days ➔ <span className="text-indigo-700">₹{r.ratePerMT} / MT</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Annual Target */}
+                      <div className="p-2 rounded-lg bg-white border border-slate-200/70">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">4. ANNUAL TARGET</span>
+                        <span className="font-bold text-emerald-700 text-[11px]">
+                          {parseFloat(targetMT) > 0 || parseFloat(targetRatePerMT) > 0
+                            ? `${targetMT} MT @ ₹${targetRatePerMT} / MT`
+                            : 'None configured'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Audit Metadata Footer */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 gap-1">
+                    <span><strong>Reason:</strong> {ver.reason}</span>
+                    <span>Changed by <strong className="text-slate-800">{ver.changedBy}</strong> at {new Date(ver.changedAt).toLocaleString()}</span>
+                  </div>
+
                 </div>
-                <p className="text-slate-600">Reason: {log.reason}</p>
-                <p className="text-slate-400 text-[10px]">Changed by: {log.changedBy} at {log.changedAt}</p>
-              </div>
-            )) || (
-              <p className="text-slate-500 text-center py-6">No historical rule changes logged yet.</p>
-            )}
+              )
+            })}
           </div>
 
-          <DialogFooter className="pt-2">
-            <Button onClick={() => setHistoryDialogOpen(false)} className="h-8 text-xs font-bold">Close</Button>
+          <DialogFooter className="border-t border-slate-100 pt-3">
+            <Button onClick={() => setHistoryDialogOpen(false)} className="h-9 px-6 bg-[#0256e8] hover:bg-[#0046cd] text-white text-xs font-bold rounded-xl">
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
