@@ -1949,7 +1949,16 @@ function App() {
             />
           )
         case 'suppliers':
-          return <SuppliersPage suppliers={safeSuppliers} setSuppliers={setSuppliers} isLocked={isViewReadOnly('suppliers')} changedBy={currentUser?.displayName || currentUser?.username || 'Master Admin'} />
+          return (
+            <SuppliersPage 
+              suppliers={safeSuppliers} 
+              setSuppliers={setSuppliers} 
+              invoices={safeInvoices}
+              payments={safePayments}
+              isLocked={isViewReadOnly('suppliers')} 
+              changedBy={currentUser?.displayName || currentUser?.username || 'Master Admin'} 
+            />
+          )
         case 'customers':
           return <CustomersPage customers={safeCustomers} setCustomers={setCustomers} isLocked={isViewReadOnly('customers')} />
         case 'items':

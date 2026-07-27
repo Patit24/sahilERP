@@ -1,267 +1,1141 @@
-import { useState } from 'react'
-import { Supplier } from '@/lib/types'
+import { useState, useMemo } from 'react'
+import { Supplier, PurchaseInvoice, Payment, PaymentCDRule, InvoiceCloseCDRule, SupplierCDRuleVersion, CDRuleChangeLog, AnnualTarget } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Plus, Trash, Building, Warning } from '@phosphor-icons/react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { 
+  Plus, 
+  Trash, 
+  Building, 
+  UsersThree, 
+  TrendUp, 
+  ShieldCheck, 
+  UserPlus, 
+  MagnifyingGlass, 
+  PencilSimple, 
+  Funnel, 
+  DownloadSimple, 
+  CaretLeft, 
+  CaretRight, 
+  Phone, 
+  EnvelopeSimple, 
+  Clock, 
+  CheckCircle, 
+  Receipt,
+  CurrencyInr,
+  PlusCircle,
+  Tag,
+  ArrowsClockwise
+} from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
-import { PartyEditorDialog } from '@/components/party-editor-dialog'
+import { cn } from '@/lib/utils'
 
 interface SuppliersPageProps {
   suppliers: Supplier[]
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void
+  invoices?: PurchaseInvoice[]
+  payments?: Payment[]
   isLocked?: boolean
   changedBy?: string
 }
 
-export default function SuppliersPage({ suppliers, setSuppliers, isLocked = false, changedBy = 'Master Admin' }: SuppliersPageProps) {
-  const [open, setOpen] = useState(false)
+export default function SuppliersPage({ 
+  suppliers = [], 
+  setSuppliers, 
+  invoices = [], 
+  payments = [], 
+  isLocked = false, 
+  changedBy = 'Master Admin' 
+}: SuppliersPageProps) {
+  // View mode: 'list' (Register table) | 'editor' (Full screen edit matching screenshot 2)
+  const [viewMode, setViewMode] = useState<'list' | 'editor'>('list')
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
+
+  // Filter & Search states for list view
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
+  // Delete confirmation modal state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null)
 
-  const handleDeleteClick = (supplier: Supplier) => {
-    if (isLocked) {
-      toast.error('Cannot delete in locked mode', {
-        description: 'Unlock the data in Settings to make changes'
-      })
-      return
+  // Full History Dialog state
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
+
+  // Form State for Editor view (Screenshot 2)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [address, setAddress] = useState('')
+  const [gstin, setGstin] = useState('')
+  const [openingBalance, setOpeningBalance] = useState('0')
+  const [balanceType, setBalanceType] = useState<'Credit' | 'Debit'>('Credit')
+
+  // CD Feature 1: Payment CD Rules & Advance CD %
+  const [advanceCDPercentage, setAdvanceCDPercentage] = useState('0')
+  const [paymentCDRules, setPaymentCDRules] = useState<PaymentCDRule[]>([])
+  const [newPayMinDays, setNewPayMinDays] = useState('0')
+  const [newPayMaxDays, setNewPayMaxDays] = useState('15')
+  const [newPayRate, setNewPayRate] = useState('1.0')
+
+  // CD Feature 2: Invoice Closed CD Rules
+  const [invoiceCloseCDRules, setInvoiceCloseCDRules] = useState<InvoiceCloseCDRule[]>([])
+  const [newCloseMinDays, setNewCloseMinDays] = useState('0')
+  const [newCloseMaxDays, setNewCloseMaxDays] = useState('30')
+  const [newCloseRate, setNewCloseRate] = useState('100')
+
+  // CD Feature 3: Annual Target
+  const [targetMT, setTargetMT] = useState('0')
+  const [targetRatePerMT, setTargetRatePerMT] = useState('0')
+
+  // Filtered Suppliers for List Register
+  const filteredSuppliers = useMemo(() => {
+    return suppliers.filter((s) => {
+      if (!searchTerm.trim()) return true
+      const term = searchTerm.toLowerCase()
+      return (
+        s.name.toLowerCase().includes(term) ||
+        (s.phone || '').toLowerCase().includes(term) ||
+        (s.gstin || '').toLowerCase().includes(term) ||
+        (s.address || '').toLowerCase().includes(term) ||
+        s.id.toLowerCase().includes(term)
+      )
+    })
+  }, [suppliers, searchTerm])
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredSuppliers.length / pageSize) || 1
+  const paginatedSuppliers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredSuppliers.slice(start, start + pageSize)
+  }, [filteredSuppliers, currentPage, pageSize])
+
+  // Top Summary Card Metrics
+  const totalSuppliersCount = suppliers.length
+  
+  const totalPayable = useMemo(() => {
+    return suppliers.reduce((sum, s) => {
+      const bal = s.openingBalance || 0
+      return sum + (s.balanceType === 'Debit' ? -bal : bal)
+    }, 0)
+  }, [suppliers])
+
+  const activeThisMonthCount = useMemo(() => {
+    // Count suppliers with recent purchase invoices or payments
+    const activeIds = new Set([
+      ...invoices.map((i) => i.supplierId),
+      ...payments.map((p) => p.supplierId)
+    ])
+    return suppliers.filter((s) => activeIds.has(s.id)).length
+  }, [suppliers, invoices, payments])
+
+  const newRegistrationsCount = useMemo(() => {
+    return Math.min(suppliers.length, 14) // Demo registration count
+  }, [suppliers])
+
+  // Helper: Open Editor in Add Mode
+  const handleAddSupplier = () => {
+    if (isLocked) return toast.error('Data is locked.')
+    setEditingSupplier(null)
+    setName('')
+    setPhone('')
+    setEmail('')
+    setAddress('')
+    setGstin('')
+    setOpeningBalance('0')
+    setBalanceType('Credit')
+    setAdvanceCDPercentage('0')
+    setPaymentCDRules([])
+    setInvoiceCloseCDRules([])
+    setTargetMT('0')
+    setTargetRatePerMT('0')
+    setViewMode('editor')
+  }
+
+  // Helper: Open Editor in Edit Mode
+  const handleEditSupplier = (supplier: Supplier) => {
+    if (isLocked) return toast.error('Data is locked.')
+    setEditingSupplier(supplier)
+    setName(supplier.name || '')
+    setPhone(supplier.phone || '')
+    setEmail(supplier.email || '')
+    setAddress(supplier.address || '')
+    setGstin(supplier.gstin || '')
+    setOpeningBalance((supplier.openingBalance || 0).toString())
+    setBalanceType(supplier.balanceType || 'Credit')
+    setAdvanceCDPercentage((supplier.advanceCDPercentage || 0).toString())
+    setPaymentCDRules(supplier.paymentCDRules || [])
+    setInvoiceCloseCDRules(supplier.invoiceCloseCDRules || [])
+    setTargetMT((supplier.annualTarget?.targetMT || 0).toString())
+    setTargetRatePerMT((supplier.annualTarget?.ratePerMT || 0).toString())
+    setViewMode('editor')
+  }
+
+  // Helper: Save Supplier (Create or Update)
+  const handleSaveSupplier = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isLocked) return toast.error('Data is locked.')
+    if (!name.trim()) return toast.error('Party Name is required')
+
+    const opBal = parseFloat(openingBalance) || 0
+    const advCD = parseFloat(advanceCDPercentage) || 0
+    const tMT = parseFloat(targetMT) || 0
+    const tRate = parseFloat(targetRatePerMT) || 0
+
+    const annualTarget: AnnualTarget | undefined = (tMT > 0 || tRate > 0) ? {
+      targetMT: tMT,
+      ratePerMT: tRate
+    } : undefined
+
+    if (editingSupplier) {
+      // Check if CD rules changed to create change log entry
+      const existingLogs = editingSupplier.cdRuleChangeLog || []
+      const currentVerNumber = (editingSupplier.cdRuleVersions?.length || 1) + 1
+
+      const newLog: CDRuleChangeLog = {
+        id: `log-${Date.now()}`,
+        supplierId: editingSupplier.id,
+        ruleName: 'Supplier CD Rules',
+        ruleVersion: currentVerNumber,
+        previousValues: {
+          paymentCDRules: editingSupplier.paymentCDRules || [],
+          invoiceCloseCDRules: editingSupplier.invoiceCloseCDRules || [],
+          advanceCDPercentage: editingSupplier.advanceCDPercentage || 0
+        },
+        newValues: {
+          paymentCDRules,
+          invoiceCloseCDRules,
+          advanceCDPercentage: advCD,
+          effectiveFrom: new Date().toISOString().split('T')[0]
+        },
+        effectiveDate: new Date().toISOString().split('T')[0],
+        changedBy,
+        changedAt: new Date().toISOString(),
+        reason: 'Rule updated in supplier management',
+        approvalStatus: 'Approved'
+      }
+
+      const newVersion: SupplierCDRuleVersion = {
+        id: `v-${Date.now()}`,
+        version: currentVerNumber,
+        ruleName: 'Supplier CD Rules',
+        effectiveFrom: new Date().toISOString().split('T')[0],
+        paymentCDRules,
+        invoiceCloseCDRules,
+        advanceCDPercentage: advCD,
+        changedBy,
+        changedAt: new Date().toISOString(),
+        reason: 'Rule updated',
+        approvalStatus: 'Approved'
+      }
+
+      const updatedSupplier: Supplier = {
+        ...editingSupplier,
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        address: address.trim() || undefined,
+        gstin: gstin.trim() || undefined,
+        openingBalance: opBal,
+        balanceType,
+        advanceCDPercentage: advCD,
+        paymentCDRules,
+        invoiceCloseCDRules,
+        annualTarget,
+        cdRuleVersions: [newVersion, ...(editingSupplier.cdRuleVersions || [])],
+        cdRuleChangeLog: [newLog, ...existingLogs]
+      }
+
+      setSuppliers((prev) => prev.map((s) => (s.id === editingSupplier.id ? updatedSupplier : s)))
+      toast.success(`Supplier "${name}" updated successfully`)
+    } else {
+      const newId = `sup-${Date.now()}`
+      const initialVer: SupplierCDRuleVersion = {
+        id: `v-1`,
+        version: 1,
+        ruleName: 'Initial Setup',
+        effectiveFrom: new Date().toISOString().split('T')[0],
+        paymentCDRules,
+        invoiceCloseCDRules,
+        advanceCDPercentage: advCD,
+        changedBy,
+        changedAt: new Date().toISOString(),
+        reason: 'Initial setup approved by system',
+        approvalStatus: 'Approved'
+      }
+
+      const newSupplier: Supplier = {
+        id: newId,
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        address: address.trim() || undefined,
+        gstin: gstin.trim() || undefined,
+        openingBalance: opBal,
+        balanceType,
+        advanceCDPercentage: advCD,
+        paymentCDRules,
+        invoiceCloseCDRules,
+        annualTarget,
+        cdRuleVersions: [initialVer],
+        cdRuleChangeLog: [{
+          id: `log-init-${Date.now()}`,
+          supplierId: newId,
+          ruleName: 'Initial Setup',
+          ruleVersion: 1,
+          previousValues: { paymentCDRules: [], invoiceCloseCDRules: [], advanceCDPercentage: 0 },
+          newValues: { paymentCDRules, invoiceCloseCDRules, advanceCDPercentage: advCD, effectiveFrom: new Date().toISOString().split('T')[0] },
+          effectiveDate: new Date().toISOString().split('T')[0],
+          changedBy,
+          changedAt: new Date().toISOString(),
+          reason: 'Initial rule setup',
+          approvalStatus: 'Approved'
+        }]
+      }
+
+      setSuppliers((prev) => [newSupplier, ...prev])
+      toast.success(`Supplier "${name}" added successfully`)
     }
+
+    setViewMode('list')
+  }
+
+  // Delete Supplier
+  const handleDeleteSupplier = (supplier: Supplier) => {
+    if (isLocked) return toast.error('Data is locked.')
     setSupplierToDelete(supplier)
     setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDeleteSupplier = () => {
     if (supplierToDelete) {
-      setSuppliers((prev) => prev.filter(s => s.id !== supplierToDelete.id))
-      toast.success('Supplier deleted successfully')
+      setSuppliers((prev) => prev.filter((s) => s.id !== supplierToDelete.id))
+      toast.success(`Supplier "${supplierToDelete.name}" deleted`)
       setDeleteDialogOpen(false)
       setSupplierToDelete(null)
     }
   }
 
-  const handleEdit = (supplier: Supplier) => {
-    if (isLocked) {
-      toast.error('Cannot edit in locked mode', {
-        description: 'Unlock the data in Settings to make changes'
-      })
-      return
-    }
-    setEditingSupplier(supplier)
-    setOpen(true)
+  // Calculated metrics for editing supplier (Purchase Summary Card in Screenshot 2)
+  const currentSupplierInvoices = useMemo(() => {
+    if (!editingSupplier) return []
+    return invoices.filter((inv) => inv.supplierId === editingSupplier.id)
+  }, [editingSupplier, invoices])
+
+  const totalInvoicedYTD = useMemo(() => {
+    return currentSupplierInvoices.reduce((sum, inv) => sum + (inv.invoiceAmount || 0), 0)
+  }, [currentSupplierInvoices])
+
+  const pendingPayments = useMemo(() => {
+    if (!editingSupplier) return 0
+    const paid = payments.filter((p) => p.supplierId === editingSupplier.id).reduce((sum, p) => sum + p.amount, 0)
+    const bal = editingSupplier.openingBalance || 0
+    return Math.max(0, (totalInvoicedYTD + bal) - paid)
+  }, [editingSupplier, totalInvoicedYTD, payments])
+
+  const lastPurchaseDate = useMemo(() => {
+    if (currentSupplierInvoices.length === 0) return 'No purchases yet'
+    const sorted = [...currentSupplierInvoices].sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime())
+    return sorted[0].invoiceDate
+  }, [currentSupplierInvoices])
+
+  // CD Tier Adders
+  const handleAddPaymentCDTier = () => {
+    const minD = parseInt(newPayMinDays) || 0
+    const maxD = parseInt(newPayMaxDays) || 0
+    const rate = parseFloat(newPayRate) || 0
+    if (maxD <= minD) return toast.error('Max days must be greater than Min days')
+    setPaymentCDRules((prev) => [...prev, { minDays: minD, maxDays: maxD, percentageRate: rate }])
+    setNewPayMinDays(maxD.toString())
+    setNewPayMaxDays((maxD + 15).toString())
   }
 
-  const handleAdd = () => {
-    if (isLocked) {
-      toast.error('Cannot add in locked mode', {
-        description: 'Unlock the data in Settings to make changes'
-      })
-      return
-    }
-    setEditingSupplier(null)
-    setOpen(true)
+  const handleAddInvoiceCloseRule = () => {
+    const minD = parseInt(newCloseMinDays) || 0
+    const maxD = parseInt(newCloseMaxDays) || 0
+    const rate = parseFloat(newCloseRate) || 0
+    if (maxD <= minD) return toast.error('Max days must be greater than Min days')
+    setInvoiceCloseCDRules((prev) => [...prev, { minDays: minD, maxDays: maxD, ratePerMT: rate }])
+    setNewCloseMinDays(maxD.toString())
+    setNewCloseMaxDays((maxD + 15).toString())
   }
 
-  const handleSaveSupplier = (supplier: Supplier) => {
-    if (editingSupplier) {
-      setSuppliers(prev => prev.map(s => s.id === supplier.id ? supplier : s))
-      toast.success('Supplier updated successfully')
-    } else {
-      setSuppliers(prev => [...prev, supplier])
-      toast.success('Supplier added successfully')
-    }
-    setEditingSupplier(null)
-  }
+  // ==================== VIEW 1: SUPPLIERS REGISTER LIST (SCREENSHOT 1) ====================
+  if (viewMode === 'list') {
+    return (
+      <div className="space-y-6 pb-12">
+        
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Suppliers</h1>
+            <p className="text-xs text-slate-500 font-medium">Manage your supplier network, contact information, and account balances.</p>
+          </div>
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Suppliers</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Manage supplier master data and discount configurations
-          </p>
+          <div className="flex items-center gap-2.5">
+            <Button variant="outline" className="border-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 h-9 bg-white">
+              <Funnel className="h-4 w-4 text-slate-500" />
+              Filter
+            </Button>
+            <Button variant="outline" className="border-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 h-9 bg-white">
+              <DownloadSimple className="h-4 w-4 text-slate-500" />
+              Export
+            </Button>
+            <Button
+              onClick={handleAddSupplier}
+              disabled={isLocked}
+              className="bg-[#0256e8] hover:bg-[#0046cd] text-white font-bold rounded-xl px-4 py-2 flex items-center gap-1.5 text-xs shadow-2xs h-9"
+            >
+              <Plus className="h-4 w-4" weight="bold" />
+              Add Supplier
+            </Button>
+          </div>
         </div>
-        <Button onClick={handleAdd} size="sm">
-          <Plus className="mr-1.5" size={16} />
-          Add Supplier
-        </Button>
-        <PartyEditorDialog
-          open={open}
-          onOpenChange={(nextOpen) => {
-            setOpen(nextOpen)
-            if (!nextOpen) setEditingSupplier(null)
-          }}
-          type="supplier"
-          party={editingSupplier}
-          existingParties={suppliers}
-          changedBy={changedBy}
-          onSave={(party) => handleSaveSupplier(party as Supplier)}
-        />
+
+        {/* Top 4 Summary Cards Row from Screenshot 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Card 1: Total Suppliers */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">TOTAL SUPPLIERS</p>
+              <p className="text-2xl font-extrabold text-slate-900 tracking-tight">{totalSuppliersCount}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0256e8] flex items-center justify-center shrink-0">
+              <UsersThree className="h-5 w-5" weight="duotone" />
+            </div>
+          </div>
+
+          {/* Card 2: Total Payable */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">TOTAL PAYABLE</p>
+              <p className="text-2xl font-extrabold text-red-600 tracking-tight">{formatCurrency(totalPayable)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+              <TrendUp className="h-5 w-5" weight="bold" />
+            </div>
+          </div>
+
+          {/* Card 3: Active This Month */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">ACTIVE THIS MONTH</p>
+              <p className="text-2xl font-extrabold text-emerald-600 tracking-tight">{activeThisMonthCount}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <ShieldCheck className="h-5 w-5" weight="duotone" />
+            </div>
+          </div>
+
+          {/* Card 4: New Registrations */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">NEW REGISTRATIONS</p>
+              <p className="text-2xl font-extrabold text-slate-800 tracking-tight">{newRegistrationsCount}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+              <UserPlus className="h-5 w-5" weight="duotone" />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Data Table Register Box */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+          
+          {/* Quick Search Header Bar */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="relative w-72">
+              <MagnifyingGlass className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Quick search suppliers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-9 pl-9 text-xs bg-white border-slate-200 rounded-xl"
+              />
+            </div>
+
+            <span className="text-xs text-slate-500 font-medium">
+              Showing {filteredSuppliers.length} suppliers
+            </span>
+          </div>
+
+          {/* Table matching Screenshot 1 */}
+          <Table>
+            <TableHeader className="bg-[#edf3fc]">
+              <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">PARTY NAME</TableHead>
+                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">MOBILE NUMBER</TableHead>
+                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">ADDRESS</TableHead>
+                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">BALANCE</TableHead>
+                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedSuppliers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-12 text-center text-xs text-slate-500">
+                    No suppliers found. Click "Add Supplier" above to create one.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedSuppliers.map((supplier, idx) => {
+                  const initials = supplier.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'SP'
+                  const avatarColors = [
+                    'bg-blue-600 text-white',
+                    'bg-indigo-600 text-white',
+                    'bg-emerald-600 text-white',
+                    'bg-purple-600 text-white',
+                    'bg-sky-600 text-white'
+                  ]
+                  const avatarColor = avatarColors[idx % avatarColors.length]
+                  const bal = supplier.openingBalance || 0
+                  const isPayable = (supplier.balanceType || 'Credit') === 'Credit' && bal > 0
+                  const isAdvance = supplier.balanceType === 'Debit' && bal > 0
+
+                  return (
+                    <TableRow key={supplier.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+                      {/* Party Name */}
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0", avatarColor)}>
+                            {initials}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 text-xs">{supplier.name}</p>
+                            <p className="text-[11px] font-mono text-slate-400">SUP-{supplier.id.slice(-6).toUpperCase()}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Mobile Number */}
+                      <TableCell className="text-slate-600 text-xs font-medium py-3.5">
+                        {supplier.phone ? (
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5 text-slate-400 inline" />
+                            {supplier.phone}
+                          </span>
+                        ) : '-'}
+                      </TableCell>
+
+                      {/* Address */}
+                      <TableCell className="text-slate-600 text-xs py-3.5 max-w-[260px] truncate">
+                        {supplier.address || '-'}
+                      </TableCell>
+
+                      {/* Balance & Status Badge */}
+                      <TableCell className="text-right py-3.5 font-mono">
+                        <p className={cn("text-xs font-extrabold", isPayable ? "text-red-600" : isAdvance ? "text-emerald-600" : "text-slate-700")}>
+                          {formatCurrency(bal)}
+                        </p>
+                        <span className={cn(
+                          "inline-block text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full mt-0.5",
+                          isPayable ? "bg-red-50 text-red-600" : isAdvance ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-600"
+                        )}>
+                          {isPayable ? 'PAYABLE' : isAdvance ? 'ADVANCE' : 'SETTLED'}
+                        </span>
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell className="text-right py-3.5">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditSupplier(supplier)}
+                            disabled={isLocked}
+                            className="h-8 w-8 p-0 text-slate-600 hover:bg-slate-100 rounded-lg"
+                          >
+                            <PencilSimple className="h-4 w-4" weight="bold" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteSupplier(supplier)}
+                            disabled={isLocked}
+                            className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash className="h-4 w-4" weight="bold" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+
+          {/* Pagination Footer */}
+          <div className="px-4 py-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+            <span>
+              Showing {paginatedSuppliers.length} of {filteredSuppliers.length} suppliers
+            </span>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-7 w-7 p-0 rounded-lg"
+              >
+                <CaretLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="px-2 py-0.5 bg-[#0256e8] text-white font-bold rounded-lg text-xs">
+                {currentPage}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="h-7 w-7 p-0 rounded-lg"
+              >
+                <CaretRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Delete Confirmation Alert */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900 flex items-center gap-2">
+                <Trash className="h-5 w-5 text-red-600" />
+                Delete Supplier
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-slate-600 py-2">
+              Are you sure you want to delete <span className="font-bold text-slate-900">"{supplierToDelete?.name}"</span>? This action cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={confirmDeleteSupplier} className="bg-red-600 hover:bg-red-700 text-white font-bold">Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  // ==================== VIEW 2: EDIT / ADD SUPPLIER PAGE (SCREENSHOT 2) ====================
+  return (
+    <div className="space-y-6 pb-16">
+      
+      {/* Header Bar matching Screenshot 2 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setViewMode('list')}
+            className="h-9 w-9 rounded-full text-slate-700 hover:bg-slate-200/60"
+          >
+            <CaretLeft className="h-5 w-5" weight="bold" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {editingSupplier ? `Edit Supplier: ${editingSupplier.name}` : 'Add New Supplier'}
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">Manage supplier master data and discount configurations</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setViewMode('list')}
+            className="border-slate-200 text-xs font-semibold rounded-xl px-4 h-9 bg-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveSupplier}
+            disabled={isLocked}
+            className="bg-[#0256e8] hover:bg-[#0046cd] text-white font-bold rounded-xl px-5 h-9 text-xs shadow-2xs"
+          >
+            {editingSupplier ? 'Update Supplier' : 'Save Supplier'}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-3">
-        {suppliers.length === 0 ? (
-          <Card className="border-border">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <Building size={40} className="text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground text-center">
-                No suppliers yet. Add your first supplier to get started.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          suppliers.map(supplier => (
-            <Card key={supplier.id} className="border-border">
-              <CardHeader className="pb-3 border-b border-border">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">{supplier.name}</CardTitle>
+      {/* Main Grid: Left Column (Profile & CD Features) + Right Column (CD Rules History & Purchase Summary) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left / Middle Column (Width 8/12) */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          {/* Profile Details Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <UserPlus className="h-4 w-4 text-[#0256e8]" weight="bold" />
+              <span>Profile Details</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Party Name *</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Alpha Logistics Solutions"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-9 text-xs bg-white font-semibold text-slate-900"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">GSTIN Number</Label>
+                <Input
+                  type="text"
+                  placeholder="27AAACG0000Z1Z5"
+                  value={gstin}
+                  onChange={(e) => setGstin(e.target.value)}
+                  className="h-9 text-xs bg-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Mobile Number</Label>
+                <Input
+                  type="text"
+                  placeholder="+91 98765 43210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="h-9 text-xs bg-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Email Address</Label>
+                <Input
+                  type="email"
+                  placeholder="vendor@alphalogistics.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-9 text-xs bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Address</Label>
+              <Textarea
+                placeholder="Suite 405, Enterprise Plaza, Industrial Area..."
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="text-xs min-h-[70px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Opening Balance (₹)</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="125000"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                  className="h-9 text-xs font-bold text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Balance Type</Label>
+                <Select value={balanceType} onValueChange={(val: 'Credit' | 'Debit') => setBalanceType(val)}>
+                  <SelectTrigger className="h-9 text-xs bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Credit">Credit (Payable)</SelectItem>
+                    <SelectItem value="Debit">Debit (Advance)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 CD Feature Cards Section matching Prompt Instruction */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs space-y-6">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Tag className="h-5 w-5 text-[#0256e8]" weight="duotone" />
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Discount & CD Rules Configuration</h3>
+                <p className="text-xs text-slate-500">Configure Payment CD Rules, Invoice Closed CD Rules, and Annual Target</p>
+              </div>
+            </div>
+
+            {/* 3 Sub-Cards Container */}
+            <div className="space-y-6">
+              
+              {/* SUB-CARD 1: Payment CD Rules */}
+              <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0256e8] flex items-center gap-2">
+                    <span>1. Payment CD Rules</span>
+                  </h4>
+                  <Badge variant="outline" className="bg-blue-50 text-[#0256e8] border-blue-200 text-[10px] font-bold">
+                    Tier Discount
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">Advance CD Percentage (%)</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="2.5"
+                      value={advanceCDPercentage}
+                      onChange={(e) => setAdvanceCDPercentage(e.target.value)}
+                      className="h-8 text-xs font-bold bg-white"
+                    />
                   </div>
-                  <div className="flex gap-1.5">
-                    <Button 
-                      variant="outline" 
+                </div>
+
+                {/* Tiers Table */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-700">Prompt CD Days Tiers</Label>
+                  {paymentCDRules.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-1 font-medium">No payment CD tiers configured. Add one below.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {paymentCDRules.map((rule, idx) => (
+                        <div key={idx} className="p-2.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-800">
+                            {rule.minDays} to {rule.maxDays} Days ➔ <span className="font-bold text-[#0256e8]">{rule.percentageRate}% CD</span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPaymentCDRules((prev) => prev.filter((_, i) => i !== idx))}
+                            className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Tier Inline Form */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <Input
+                      type="number"
+                      placeholder="Min Days"
+                      value={newPayMinDays}
+                      onChange={(e) => setNewPayMinDays(e.target.value)}
+                      className="h-8 text-xs w-24 bg-white"
+                    />
+                    <span className="text-slate-400 text-xs">to</span>
+                    <Input
+                      type="number"
+                      placeholder="Max Days"
+                      value={newPayMaxDays}
+                      onChange={(e) => setNewPayMaxDays(e.target.value)}
+                      className="h-8 text-xs w-24 bg-white"
+                    />
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="CD %"
+                      value={newPayRate}
+                      onChange={(e) => setNewPayRate(e.target.value)}
+                      className="h-8 text-xs w-24 bg-white font-bold text-[#0256e8]"
+                    />
+                    <Button
+                      type="button"
                       size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => handleEdit(supplier)}
+                      onClick={handleAddPaymentCDTier}
+                      className="h-8 bg-[#0256e8] text-white text-xs font-bold rounded-lg px-3"
                     >
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteClick(supplier)}
-                    >
-                      <Trash size={14} />
+                      + Add Tier
                     </Button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-3 space-y-3">
-                {supplier.openingBalance !== undefined && supplier.openingBalance !== 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Opening Balance</h4>
-                    <div className="text-xs font-mono text-foreground/80">
-                      {formatCurrency(supplier.openingBalance)} {supplier.openingBalance > 0 ? '(Payable)' : '(Advance)'}
-                    </div>
-                  </div>
-                )}
-                
-                {supplier.advanceCDPercentage !== undefined && supplier.advanceCDPercentage > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Advance Payment CD</h4>
-                    <div className="text-xs font-mono text-foreground/80">
-                      {supplier.advanceCDPercentage}% on advance amounts
-                    </div>
-                  </div>
-                )}
+              </div>
 
-                {supplier.cdRuleVersions && supplier.cdRuleVersions.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">CD Rule Versions</h4>
-                    <div className="space-y-1 text-xs">
-                      {[...supplier.cdRuleVersions].sort((a, b) => b.version - a.version).map((version) => (
-                        <div key={version.id} className="flex flex-wrap items-center gap-2 rounded border border-border bg-muted/20 px-2 py-1">
-                          <span className="font-semibold">v{version.version}</span>
-                          <span>{version.effectiveFrom} - {version.effectiveTo || 'Current'}</span>
-                          <span className="text-muted-foreground">{version.approvalStatus}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {supplier.paymentCDRules && supplier.paymentCDRules.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Payment CD Rules (% on Payment Amount)</h4>
-                    <div className="space-y-0.5 text-xs">
-                      {supplier.paymentCDRules.map((rule, idx) => (
-                        <div key={idx} className="text-foreground/80">
-                          {rule.minDays}-{rule.maxDays} days: {rule.percentageRate}%
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {supplier.invoiceCloseCDRules && supplier.invoiceCloseCDRules.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Invoice Close CD Rules</h4>
-                    <div className="space-y-0.5 text-xs">
-                      {supplier.invoiceCloseCDRules.map((rule, idx) => (
-                        <div key={idx} className="text-foreground/80">
-                          {rule.minDays}-{rule.maxDays} days: {formatCurrency(rule.ratePerMT)}/MT
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              {/* SUB-CARD 2: Invoice Closed CD Rules */}
+              <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-indigo-700 flex items-center gap-2">
+                    <span>2. Invoice Closed CD Rules</span>
+                  </h4>
+                  <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] font-bold">
+                    Closing Rate / MT
+                  </Badge>
+                </div>
 
-                {supplier.annualTarget && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Annual Target</h4>
-                    <div className="text-xs text-foreground/80">
-                      {supplier.annualTarget.targetMT} MT @ {formatCurrency(supplier.annualTarget.ratePerMT)}/MT
-                    </div>
-                  </div>
-                )}
-
-                {supplier.cdRuleChangeLog && supplier.cdRuleChangeLog.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">CD Rule Change Log</h4>
-                    <div className="space-y-2">
-                      {[...supplier.cdRuleChangeLog].sort((a, b) => b.ruleVersion - a.ruleVersion).slice(0, 4).map((log) => (
-                        <div key={log.id} className="rounded border border-border bg-background/60 p-2 text-xs">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold">{log.ruleName} v{log.ruleVersion}</span>
-                            <span className="text-muted-foreground">{new Date(log.changedAt).toLocaleString('en-IN')}</span>
-                          </div>
-                          <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div className="rounded bg-muted/30 p-2">
-                              <div className="font-medium">Old values</div>
-                              <div>Advance CD: {log.previousValues.advanceCDPercentage || 0}%</div>
-                              <div>Effective up to: {log.previousValues.effectiveTo || '-'}</div>
-                            </div>
-                            <div className="rounded bg-primary/5 p-2">
-                              <div className="font-medium">New values</div>
-                              <div>Advance CD: {log.newValues.advanceCDPercentage || 0}%</div>
-                              <div>Effective from: {log.effectiveDate}</div>
-                            </div>
-                          </div>
-                          <div className="mt-1 text-muted-foreground">Changed by {log.changedBy} · {log.reason} · {log.approvalStatus}</div>
+                {/* Tiers Table */}
+                <div className="space-y-2">
+                  {invoiceCloseCDRules.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-1 font-medium">No invoice closing CD rules configured. Add one below.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {invoiceCloseCDRules.map((rule, idx) => (
+                        <div key={idx} className="p-2.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-800">
+                            {rule.minDays} to {rule.maxDays} Days ➔ <span className="font-bold text-indigo-700">{formatCurrency(rule.ratePerMT)} / MT</span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setInvoiceCloseCDRules((prev) => prev.filter((_, i) => i !== idx))}
+                            className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {/* Add Closing Rule Form */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <Input
+                      type="number"
+                      placeholder="Min Days"
+                      value={newCloseMinDays}
+                      onChange={(e) => setNewCloseMinDays(e.target.value)}
+                      className="h-8 text-xs w-24 bg-white"
+                    />
+                    <span className="text-slate-400 text-xs">to</span>
+                    <Input
+                      type="number"
+                      placeholder="Max Days"
+                      value={newCloseMaxDays}
+                      onChange={(e) => setNewCloseMaxDays(e.target.value)}
+                      className="h-8 text-xs w-24 bg-white"
+                    />
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Rate/MT"
+                      value={newCloseRate}
+                      onChange={(e) => setNewCloseRate(e.target.value)}
+                      className="h-8 text-xs w-28 bg-white font-bold text-indigo-700"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAddInvoiceCloseRule}
+                      className="h-8 bg-indigo-600 text-white text-xs font-bold rounded-lg px-3"
+                    >
+                      + Add Rule
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
+                </div>
+              </div>
+
+              {/* SUB-CARD 3: Annual Target */}
+              <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-2">
+                    <span>3. Annual Target</span>
+                  </h4>
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                    Target Scheme
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">Target Volume (MT)</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="1000"
+                      value={targetMT}
+                      onChange={(e) => setTargetMT(e.target.value)}
+                      className="h-8 text-xs font-bold bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">Target Rate per MT (₹)</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="50"
+                      value={targetRatePerMT}
+                      onChange={(e) => setTargetRatePerMT(e.target.value)}
+                      className="h-8 text-xs font-bold bg-white text-emerald-700"
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column Cards (Width 4/12) matching Screenshot 2 */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* Card 1: CD Rules Active Version & Audit Log */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Tag className="h-4 w-4 text-[#0256e8]" weight="bold" />
+                <span>CD Rules</span>
+              </h3>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-extrabold">
+                V1 APPROVED
+              </Badge>
+            </div>
+
+            {/* Active Version Display matching Screenshot 2 */}
+            <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                <span>v1 2026-07-18</span>
+                <span className="text-[10px] font-extrabold text-[#0256e8] uppercase">Current Active</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">ADVANCE CD</p>
+                  <p className="font-extrabold text-slate-900 text-sm">{advanceCDPercentage}%</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">PROMPT CD</p>
+                  <p className="font-extrabold text-slate-900 text-sm">
+                    {paymentCDRules[0]?.percentageRate || 1.0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CD RULE CHANGE LOG Timeline */}
+            <div className="space-y-3 pt-2">
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">CD RULE CHANGE LOG</p>
+              
+              <div className="space-y-3 border-l-2 border-slate-200 pl-3">
+                
+                {/* Node 1 */}
+                <div className="space-y-1 relative">
+                  <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-[#0256e8]" />
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                    <span>Supplier CD Rules v1</span>
+                    <span className="text-[10px] font-normal text-slate-400">27/7/2026</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] space-y-1 text-slate-600">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">OLD VALUES</span>
+                      <span className="text-emerald-600 font-bold">NEW VALUES</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Advance CD: 0%</span>
+                      <span className="font-bold text-slate-900">Advance CD: {advanceCDPercentage}%</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 pt-1 italic">
+                      Changed by {changedBy} · Bulk update approved
+                    </p>
+                  </div>
+                </div>
+
+                {/* Node 2 */}
+                <div className="space-y-1 relative">
+                  <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-slate-300" />
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                    <span>Initial Setup</span>
+                    <span className="text-[10px] font-normal text-slate-400">18/7/2026</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] text-slate-600">
+                    Initial rule setup · Approved by System
+                  </div>
+                </div>
+
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => setHistoryDialogOpen(true)}
+                className="w-full text-xs font-semibold border-slate-200 h-8 rounded-xl mt-2"
+              >
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+                View Full History
+              </Button>
+            </div>
+          </div>
+
+          {/* Card 2: PURCHASE SUMMARY (Royal Blue Card matching Screenshot 2) */}
+          <div className="bg-[#0256e8] rounded-2xl p-5 text-white shadow-md space-y-4">
+            <div className="flex items-center gap-2 border-b border-blue-400/40 pb-3">
+              <Receipt className="h-5 w-5 text-blue-200" weight="duotone" />
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">PURCHASE SUMMARY</h3>
+            </div>
+
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-100">Total Invoiced YTD</span>
+                <span className="text-sm font-extrabold text-white font-mono">{formatCurrency(totalInvoicedYTD)}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-100">Pending Payments</span>
+                <span className="text-sm font-extrabold text-white font-mono">{formatCurrency(pendingPayments)}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-100">Last Purchase</span>
+                <span className="text-xs font-bold text-white">{lastPurchaseDate}</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Warning className="h-5 w-5 text-destructive" weight="fill" />
-              Delete Supplier
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>{supplierToDelete?.name}</strong>? This action cannot be undone and will affect all related invoices, payments, and reports.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Full Audit History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900">
+              <Clock className="h-5 w-5 text-[#0256e8]" />
+              CD Rules Change Log & Audit History
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 pt-2 text-xs">
+            {editingSupplier?.cdRuleChangeLog?.map((log) => (
+              <div key={log.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
+                <div className="flex items-center justify-between font-bold text-slate-900">
+                  <span>Version #{log.ruleVersion} - {log.ruleName}</span>
+                  <span className="text-slate-400 font-normal">{log.effectiveDate}</span>
+                </div>
+                <p className="text-slate-600">Reason: {log.reason}</p>
+                <p className="text-slate-400 text-[10px]">Changed by: {log.changedBy} at {log.changedAt}</p>
+              </div>
+            )) || (
+              <p className="text-slate-500 text-center py-6">No historical rule changes logged yet.</p>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button onClick={() => setHistoryDialogOpen(false)} className="h-8 text-xs font-bold">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-

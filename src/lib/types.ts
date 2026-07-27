@@ -16,6 +16,7 @@ export interface Supplier {
   id: string
   name: string
   phone?: string
+  email?: string
   address?: string
   state?: string
   pincode?: string
@@ -33,6 +34,7 @@ export interface Supplier {
   cdRuleChangeLog?: CDRuleChangeLog[]
   annualTarget?: AnnualTarget
   openingBalance?: number
+  balanceType?: 'Credit' | 'Debit'
 }
 
 export interface PaymentCDRule {
