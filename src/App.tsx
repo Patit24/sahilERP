@@ -377,19 +377,21 @@ const navGroups: NavGroup[] = [
     title: 'Sale Invoice',
     items: [
       { id: 'sales-invoices', label: 'Sales Invoice', icon: Receipt },
-      { id: 'customer-payments', label: 'Payment in', icon: CreditCard },
+      { id: 'customer-payments', label: 'Payment In', icon: CreditCard },
       { id: 'customer-credit-notes', label: 'Credit Note', icon: FileText },
       { id: 'sales-returns', label: 'Sales Return', icon: Receipt },
+      { id: 'customer-ledger', label: 'Customer Ledger', icon: FileText },
       { id: 'customers', label: 'Customer', icon: UsersThree },
     ]
   },
   {
-    title: 'Purchase Invoice',
+    title: 'Purchased',
     items: [
-      { id: 'invoices', label: 'Purchase Invoice', icon: Receipt },
+      { id: 'invoices', label: 'Purchased Invoice', icon: Receipt },
       { id: 'payments', label: 'Payment Out', icon: CreditCard },
       { id: 'supplier-debit-notes', label: 'Debit Note', icon: FileText },
-      { id: 'purchase-returns', label: 'Purchase Return', icon: Receipt },
+      { id: 'purchase-returns', label: 'Purchased Return', icon: Receipt },
+      { id: 'supplier-ledger', label: 'Supplier Ledger', icon: FileText },
       { id: 'suppliers', label: 'Supplier', icon: Users },
     ]
   },
@@ -401,7 +403,7 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    title: 'Item',
+    title: 'Items',
     items: [
       { id: 'items', label: 'Items', icon: Package },
     ]
@@ -409,8 +411,6 @@ const navGroups: NavGroup[] = [
   {
     title: 'Cash & Bank',
     items: [
-      { id: 'cash-bank-voucher', label: 'Cash/Bank Voucher', icon: Bank },
-      { id: 'cash-bank-ledger', label: 'Cash & Bank Ledger', icon: Bank },
       { id: 'cash-bank-master', label: 'Cash & Bank', icon: Bank },
     ]
   },
@@ -421,8 +421,6 @@ const navGroups: NavGroup[] = [
       { id: 'cd-risk', label: 'CD at Risk', icon: ChartBar },
       { id: 'wallet', label: 'Discount Wallet', icon: Wallet },
       { id: 'annual', label: 'Annual Discount', icon: ChartPie },
-      { id: 'supplier-ledger', label: 'Supplier Ledger', icon: FileText },
-      { id: 'customer-ledger', label: 'Customer Ledger', icon: FileText },
       { id: 'invoice-details', label: 'Invoice Details', icon: Receipt },
       { id: 'payment-details', label: 'Payment Details', icon: CreditCard },
     ]
@@ -614,9 +612,9 @@ function App() {
   const [activeView, setActiveView] = useState('dashboard')
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     'Sale Invoice': true,
-    'Purchase Invoice': false,
+    'Purchased': false,
     'Expenses': false,
-    'Item': false,
+    'Items': false,
     'Cash & Bank': false,
     'Reports': false,
     'Masters': false,
