@@ -32,6 +32,100 @@ type NavGroup = {
   items: NavItem[]
 }
 
+type ThemeConfig = {
+  badgeBg: string
+  badgeText: string
+  activeBg: string
+  activeText: string
+  iconBg: string
+  iconText: string
+  borderHover: string
+  dotBg: string
+}
+
+const GROUP_THEMES: Record<string, ThemeConfig> = {
+  Sales: {
+    badgeBg: 'bg-blue-50/90 text-blue-700 border-blue-200/80',
+    badgeText: 'text-blue-700',
+    activeBg: 'bg-[#0256e8] text-white shadow-blue-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-blue-100/80 text-blue-600',
+    iconText: 'text-blue-600',
+    borderHover: 'hover:border-blue-300 hover:bg-blue-50/50',
+    dotBg: 'bg-blue-500'
+  },
+  Purchase: {
+    badgeBg: 'bg-purple-50/90 text-purple-700 border-purple-200/80',
+    badgeText: 'text-purple-700',
+    activeBg: 'bg-purple-600 text-white shadow-purple-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-purple-100/80 text-purple-600',
+    iconText: 'text-purple-600',
+    borderHover: 'hover:border-purple-300 hover:bg-purple-50/50',
+    dotBg: 'bg-purple-500'
+  },
+  Expenses: {
+    badgeBg: 'bg-amber-50/90 text-amber-700 border-amber-200/80',
+    badgeText: 'text-amber-700',
+    activeBg: 'bg-amber-600 text-white shadow-amber-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-amber-100/80 text-amber-600',
+    iconText: 'text-amber-600',
+    borderHover: 'hover:border-amber-300 hover:bg-amber-50/50',
+    dotBg: 'bg-amber-500'
+  },
+  Items: {
+    badgeBg: 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80',
+    badgeText: 'text-emerald-700',
+    activeBg: 'bg-emerald-600 text-white shadow-emerald-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-emerald-100/80 text-emerald-600',
+    iconText: 'text-emerald-600',
+    borderHover: 'hover:border-emerald-300 hover:bg-emerald-50/50',
+    dotBg: 'bg-emerald-500'
+  },
+  'Cash & Bank': {
+    badgeBg: 'bg-cyan-50/90 text-cyan-700 border-cyan-200/80',
+    badgeText: 'text-cyan-700',
+    activeBg: 'bg-cyan-600 text-white shadow-cyan-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-cyan-100/80 text-cyan-600',
+    iconText: 'text-cyan-600',
+    borderHover: 'hover:border-cyan-300 hover:bg-cyan-50/50',
+    dotBg: 'bg-cyan-500'
+  },
+  Reports: {
+    badgeBg: 'bg-rose-50/90 text-rose-700 border-rose-200/80',
+    badgeText: 'text-rose-700',
+    activeBg: 'bg-rose-600 text-white shadow-rose-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-rose-100/80 text-rose-600',
+    iconText: 'text-rose-600',
+    borderHover: 'hover:border-rose-300 hover:bg-rose-50/50',
+    dotBg: 'bg-rose-500'
+  },
+  'Discount Configuration': {
+    badgeBg: 'bg-indigo-50/90 text-indigo-700 border-indigo-200/80',
+    badgeText: 'text-indigo-700',
+    activeBg: 'bg-indigo-600 text-white shadow-indigo-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-indigo-100/80 text-indigo-600',
+    iconText: 'text-indigo-600',
+    borderHover: 'hover:border-indigo-300 hover:bg-indigo-50/50',
+    dotBg: 'bg-indigo-500'
+  },
+  Admin: {
+    badgeBg: 'bg-slate-100 text-slate-700 border-slate-200',
+    badgeText: 'text-slate-700',
+    activeBg: 'bg-slate-800 text-white shadow-slate-500/20',
+    activeText: 'text-white',
+    iconBg: 'bg-slate-200/80 text-slate-700',
+    iconText: 'text-slate-700',
+    borderHover: 'hover:border-slate-300 hover:bg-slate-100/60',
+    dotBg: 'bg-slate-600'
+  }
+}
+
 interface AppSidebarProps {
   sidebarRef: React.RefObject<HTMLElement | null>
   sidebarExpanded: boolean
@@ -179,6 +273,7 @@ export function AppSidebar({
           {navGroups.map((group) => {
             const isGroupOpen = openGroups[group.title] ?? true
             const hasActiveChild = group.items.some(item => item.id === activeView)
+            const theme = GROUP_THEMES[group.title] || GROUP_THEMES.Sales
 
             if (!isVisuallyExpanded) {
               return (
@@ -191,10 +286,10 @@ export function AppSidebar({
                         key={item.id}
                         onClick={() => handleNavigate(item.id, group.title)}
                         className={cn(
-                          "w-full flex items-center justify-center p-2.5 rounded-xl transition-all",
+                          "w-full flex items-center justify-center p-2.5 rounded-xl transition-all border",
                           isActive
-                            ? "bg-[#0256e8] text-white shadow-sm"
-                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                            ? `${theme.activeBg} ${theme.activeText} border-transparent shadow-sm`
+                            : `bg-white/70 text-slate-600 border-slate-200/60 ${theme.borderHover}`
                         )}
                         title={item.label}
                       >
@@ -215,14 +310,21 @@ export function AppSidebar({
                   <button
                     onClick={() => handleNavigate(item.id, group.title)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all text-left",
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all text-left border shadow-2xs group/single",
                       isActive
-                        ? "bg-[#0256e8] text-white font-semibold shadow-sm"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium"
+                        ? `${theme.activeBg} ${theme.activeText} border-transparent font-bold shadow-sm`
+                        : `bg-white text-slate-700 border-slate-200/80 ${theme.borderHover} font-medium`
                     )}
                   >
-                    <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-slate-500")} weight="duotone" />
-                    <span className="truncate">{item.label}</span>
+                    <div className={cn(
+                      "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : `${theme.iconBg} ${theme.iconText}`
+                    )}>
+                      <Icon className="h-4 w-4" weight="duotone" />
+                    </div>
+                    <span className="truncate flex-1 text-[13px] font-semibold">{item.label}</span>
                   </button>
                 </div>
               )
@@ -233,31 +335,46 @@ export function AppSidebar({
                 key={group.title}
                 open={isGroupOpen}
                 onOpenChange={(isOpen) => handleGroupToggle(group.title, isOpen)}
-                className="space-y-1"
+                className="space-y-1.5 py-0.5"
               >
                 {group.title !== 'Primary' && (
-                  <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase hover:text-slate-600">
-                    <span>{group.title}</span>
-                    <CaretDown className={cn("h-3 w-3 transition-transform duration-200", isGroupOpen ? "rotate-0" : "-rotate-90")} />
+                  <CollapsibleTrigger className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold tracking-wider text-slate-500 uppercase hover:text-slate-900 group/trigger transition-colors">
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dotBg)} />
+                      <span>{group.title}</span>
+                      <span className={cn("text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold border ml-1", theme.badgeBg)}>
+                        {group.items.length}
+                      </span>
+                    </div>
+                    <CaretDown className={cn("h-3.5 w-3.5 text-slate-400 group-hover/trigger:text-slate-600 transition-transform duration-200", isGroupOpen ? "rotate-0" : "-rotate-90")} />
                   </CollapsibleTrigger>
                 )}
-                <CollapsibleContent className="space-y-1">
+
+                <CollapsibleContent className="mt-1 pl-2.5 space-y-1.5 border-l-2 border-slate-200/80 ml-3 py-0.5">
                   {group.items.map((item) => {
                     const Icon = item.icon
                     const isActive = activeView === item.id
+
                     return (
                       <button
                         key={item.id}
                         onClick={() => handleNavigate(item.id, group.title)}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all text-left",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all text-left border shadow-2xs group/item relative overflow-hidden",
                           isActive
-                            ? "bg-[#0256e8] text-white font-semibold shadow-sm"
-                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium"
+                            ? `${theme.activeBg} ${theme.activeText} border-transparent font-bold shadow-md`
+                            : `bg-white text-slate-700 border-slate-200/80 ${theme.borderHover} font-medium hover:shadow-xs`
                         )}
                       >
-                        <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-slate-500")} weight="duotone" />
-                        <span className="truncate">{item.label}</span>
+                        <div className={cn(
+                          "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : `${theme.iconBg} ${theme.iconText}`
+                        )}>
+                          <Icon className="h-4 w-4" weight="duotone" />
+                        </div>
+                        <span className="truncate flex-1 text-[13px] font-medium">{item.label}</span>
                       </button>
                     )
                   })}
