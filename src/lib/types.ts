@@ -1,7 +1,11 @@
 export interface Item {
   id: string
   name: string
-  unit: 'MT' | 'KG' | 'PCS' | 'TON'
+  unit: string
+  alternativeUnit?: string
+  primaryUnitRatio?: number
+  alternativeUnitRatio?: number
+  conversionFactor?: number
   description?: string
   openingStock?: number
   openingValue?: number

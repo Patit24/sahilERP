@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -132,24 +132,48 @@ export default function InventoryReportPage({
     toast.success('PDF exported successfully')
   }
 
+  const categories = useMemo(() => {
+    return Array.from(new Set(inventoryData.map(i => i.category || 'Uncategorized').filter(Boolean)))
+  }, [inventoryData])
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+
+  const filteredInventoryData = useMemo(() => {
+    if (selectedCategory === 'all') return inventoryData
+    return inventoryData.filter(i => (i.category || 'Uncategorized') === selectedCategory)
+  }, [inventoryData, selectedCategory])
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Inventory Report</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Current stock position and valuation
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Inventory Stock Report</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Category-wise inventory position, purchases (+), sales (-), and stock valuation
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="text-sm font-semibold bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none shadow-2xs"
+          >
+            <option value="all">All Categories ({inventoryData.length} items)</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat} ({inventoryData.filter(i => (i.category || 'Uncategorized') === cat).length})
+              </option>
+            ))}
+          </select>
+
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportPDF}
-            className="gap-2"
+            className="gap-2 font-semibold"
             disabled={inventoryData.length === 0}
           >
-            <FilePdf className="h-4 w-4" />
+            <FilePdf className="h-4 w-4 text-red-600" />
             Export PDF
           </Button>
           <Badge variant="outline" className="text-sm px-3 py-1.5 font-mono">
@@ -159,102 +183,104 @@ export default function InventoryReportPage({
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
-            <TrendUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Purchases</CardTitle>
+            <TrendUp className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold">{formatMT(totals.totalPurchaseMT)}</div>
+            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatMT(totals.totalPurchaseMT)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            <TrendDown className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Sales</CardTitle>
+            <TrendDown className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold">{formatMT(totals.totalSalesMT)}</div>
+            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatMT(totals.totalSalesMT)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Stock</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Closing Stock Balance</CardTitle>
+            <Package className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold">{formatMT(totals.balanceMT)}</div>
+            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatMT(totals.balanceMT)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stock Value</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Stock Value</CardTitle>
+            <Package className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold">{formatCurrency(totals.totalStockValue)}</div>
+            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatCurrency(totals.totalStockValue)}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Item-wise Stock Summary</CardTitle>
-          <CardDescription>Detailed inventory position by item</CardDescription>
+      <Card className="bg-white border-slate-200 shadow-2xs overflow-hidden">
+        <CardHeader className="bg-slate-50/80 border-b border-slate-200 py-4">
+          <CardTitle className="text-base font-bold text-slate-900">Category & Item-wise Inventory Report</CardTitle>
+          <CardDescription>Purchases (+), Sales (-), and remaining balance grouped by item & category</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Item Name</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Opening Stock</TableHead>
-                <TableHead className="text-right">Purchased</TableHead>
-                <TableHead className="text-right">Sold</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-right">Avg Purchase Rate</TableHead>
-                <TableHead className="text-right">Avg Sales Rate</TableHead>
-                <TableHead className="text-right">Stock Value</TableHead>
+                <TableHead className="font-bold text-slate-700">Item Name</TableHead>
+                <TableHead className="font-bold text-slate-700">Category</TableHead>
+                <TableHead className="font-bold text-slate-700">Unit</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Opening Stock</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Purchased (+)</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Sold (-)</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Balance Stock</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Avg Purchase Rate</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Stock Value</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inventoryData.length === 0 ? (
+              {filteredInventoryData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                    No inventory data available
+                  <TableCell colSpan={9} className="text-center text-slate-400 py-8 font-medium">
+                    No inventory data available for this category
                   </TableCell>
                 </TableRow>
               ) : (
-                inventoryData.map((item) => (
-                  <TableRow key={item.itemId}>
-                    <TableCell className="font-medium">{item.itemName}</TableCell>
+                filteredInventoryData.map((item) => (
+                  <TableRow key={item.itemId} className="hover:bg-slate-50/80">
+                    <TableCell className="font-bold text-slate-900">{item.itemName}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{item.unit}</Badge>
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
+                        {item.category || 'General'}
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs">{item.unit}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-medium">
                       {item.openingStockMT > 0 ? formatMT(item.openingStockMT) : '-'}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatMT(item.totalPurchaseMT)}
+                    <TableCell className="text-right font-mono text-emerald-700 font-bold">
+                      +{formatMT(item.totalPurchaseMT)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatMT(item.totalSalesMT)}
+                    <TableCell className="text-right font-mono text-blue-700 font-bold">
+                      -{formatMT(item.totalSalesMT)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      <span className={item.balanceMT < 0 ? 'text-destructive' : ''}>
+                    <TableCell className="text-right font-mono font-bold">
+                      <span className={item.balanceMT < 0 ? 'text-red-600' : 'text-slate-900'}>
                         {formatMT(item.balanceMT)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(item.avgPurchaseRate)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatCurrency(item.avgSalesRate)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">
+                    <TableCell className="text-right font-mono font-bold text-slate-900">
                       {formatCurrency(item.currentStockValue)}
                     </TableCell>
                   </TableRow>

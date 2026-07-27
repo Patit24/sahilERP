@@ -57,6 +57,7 @@ import {
 export interface InventoryData {
   itemId: string
   itemName: string
+  category?: string
   unit: string
   openingStockMT: number
   openingStockValue: number
@@ -211,6 +212,7 @@ export function calculateInventoryReport(
     inventory.push({
       itemId: item.id,
       itemName: item.name,
+      category: item.category || 'Uncategorized',
       unit: item.unit,
       openingStockMT,
       openingStockValue,

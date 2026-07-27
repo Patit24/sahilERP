@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Item } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { CaretDown, Check, MagnifyingGlass, Package } from '@phosphor-icons/react'
+import { CaretDown, Check, MagnifyingGlass, Package, Plus, Scales, SquaresFour } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 interface ItemEditorDialogProps {
@@ -18,6 +18,28 @@ interface ItemEditorDialogProps {
   existingItems?: Item[]
   onSave: (item: Item) => void
 }
+
+const DEFAULT_CATEGORIES = [
+  'TMT Bars',
+  'Steel Plates',
+  'Coils',
+  'Pipes & Tubes',
+  'Angles & Channels',
+  'Structural Steel',
+  'Sponge Iron',
+  'General'
+]
+
+const DEFAULT_UNITS = [
+  { value: 'MT', label: 'Metric Ton (MT)' },
+  { value: 'KG', label: 'Kilogram (KG)' },
+  { value: 'PCS', label: 'Pieces (PCS)' },
+  { value: 'TON', label: 'Ton (TON)' },
+  { value: 'BAG', label: 'Bag (BAG)' },
+  { value: 'BOX', label: 'Box (BOX)' },
+  { value: 'BUNDLE', label: 'Bundle (BUNDLE)' },
+  { value: 'LTR', label: 'Litre (LTR)' }
+]
 
 const GST_OPTIONS = [
   { label: 'None', value: 'none', rate: undefined },
@@ -38,7 +60,7 @@ const GST_OPTIONS = [
   { label: 'GST @ 28% + Cess @ 5%', value: '28-cess-5', rate: 28 },
   { label: 'GST @ 40%', value: '40', rate: 40 },
   { label: 'GST @ 28% + Cess @ 36%', value: '28-cess-36', rate: 28 },
-  { label: 'GST @ 28% + Cess @ 60%', value: '28-cess-60', rate: 28 },
+  { label: 'GST @ 28% + Cess @ 60%', value: '28-cess-60', rate: 28 }
 ]
 
 export function ItemEditorDialog({
@@ -54,8 +76,28 @@ export function ItemEditorDialog({
   const [gstDropdownOpen, setGstDropdownOpen] = useState(false)
   const [purchasePrice, setPurchasePrice] = useState('')
   const [salesPrice, setSalesPrice] = useState('')
-  const [unit, setUnit] = useState<Item['unit']>('MT')
+  const [unit, setUnit] = useState('MT')
+  const [alternativeUnit, setAlternativeUnit] = useState('KG')
+  const [primaryUnitRatio, setPrimaryUnitRatio] = useState('1')
+  const [alternativeUnitRatio, setAlternativeUnitRatio] = useState('1000')
   const [openingStock, setOpeningStock] = useState('')
+
+  // Custom Category & Unit Add Dialog state
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('custom_item_categories')
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES
+  })
+  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(() => {
+    const saved = localStorage.getItem('custom_item_units')
+    return saved ? JSON.parse(saved) : DEFAULT_UNITS
+  })
+
+  const [addCatDialogOpen, setAddCatDialogOpen] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+
+  const [addUnitDialogOpen, setAddUnitDialogOpen] = useState(false)
+  const [newUnitCode, setNewUnitCode] = useState('')
+  const [newUnitLabel, setNewUnitLabel] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -65,11 +107,70 @@ export function ItemEditorDialog({
     setPurchasePrice(item?.purchasePrice?.toString() || '')
     setSalesPrice(item?.salesPrice?.toString() || '')
     setUnit(item?.unit || 'MT')
+    setAlternativeUnit(item?.alternativeUnit || (item?.unit === 'MT' || !item ? 'KG' : 'NONE'))
+    setPrimaryUnitRatio(item?.primaryUnitRatio?.toString() || '1')
+    setAlternativeUnitRatio(item?.alternativeUnitRatio?.toString() || (item?.unit === 'MT' || !item ? '1000' : '1'))
     setOpeningStock(item?.openingStock?.toString() || '')
   }, [open, item])
 
+  // Combine items categories & units
+  const availableCategories = Array.from(
+    new Set([
+      ...customCategories,
+      ...existingItems.map(i => i.category).filter((c): c is string => Boolean(c))
+    ])
+  )
+
+  const handleCreateCategory = () => {
+    const clean = newCatName.trim()
+    if (!clean) return
+    if (!customCategories.includes(clean)) {
+      const updated = [...customCategories, clean]
+      setCustomCategories(updated)
+      localStorage.setItem('custom_item_categories', JSON.stringify(updated))
+    }
+    setCategory(clean)
+    setNewCatName('')
+    setAddCatDialogOpen(false)
+    toast.success(`Category "${clean}" created`)
+  }
+
+  const handleCreateUnit = () => {
+    const code = newUnitCode.trim().toUpperCase()
+    const label = newUnitLabel.trim() || code
+    if (!code) return
+
+    if (!customUnits.some(u => u.value === code)) {
+      const updated = [...customUnits, { value: code, label: `${label} (${code})` }]
+      setCustomUnits(updated)
+      localStorage.setItem('custom_item_units', JSON.stringify(updated))
+    }
+    setUnit(code)
+    setNewUnitCode('')
+    setNewUnitLabel('')
+    setAddUnitDialogOpen(false)
+    toast.success(`Unit "${code}" added successfully`)
+  }
+
   const selectedGstOption = GST_OPTIONS.find((option) => option.value === gstRate) || GST_OPTIONS[0]
   const parsedGstRate = selectedGstOption.rate
+
+  const handleUnitChange = (newUnit: string) => {
+    setUnit(newUnit)
+    if (newUnit === 'MT') {
+      setAlternativeUnit('KG')
+      setPrimaryUnitRatio('1')
+      setAlternativeUnitRatio('1000')
+    } else if (newUnit === 'KG') {
+      setAlternativeUnit('MT')
+      setPrimaryUnitRatio('1000')
+      setAlternativeUnitRatio('1')
+    } else {
+      if (alternativeUnit === newUnit) {
+        setAlternativeUnit('NONE')
+      }
+    }
+  }
 
   const handleSave = () => {
     const cleanName = name.trim()
@@ -89,11 +190,19 @@ export function ItemEditorDialog({
       return
     }
 
+    const primRatio = parseFloat(primaryUnitRatio) || 1
+    const altRatio = parseFloat(alternativeUnitRatio) || 1
+    const conversionFactor = altRatio > 0 && primRatio > 0 ? altRatio / primRatio : 1
+
     onSave({
       ...(item || {}),
       id: item?.id || `item-${Date.now()}`,
       name: cleanName,
       unit,
+      alternativeUnit: alternativeUnit === 'NONE' ? undefined : alternativeUnit,
+      primaryUnitRatio: primRatio,
+      alternativeUnitRatio: altRatio,
+      conversionFactor,
       category: category.trim() || undefined,
       purchasePrice: parseFloat(purchasePrice) || undefined,
       salesPrice: parseFloat(salesPrice) || undefined,
@@ -105,167 +214,370 @@ export function ItemEditorDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[min(720px,calc(100vw-2rem))] max-h-[82dvh] overflow-y-auto p-0">
-        <DialogHeader className="border-b border-border px-6 py-5">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <Package size={22} className="text-primary" weight="duotone" />
-            {item ? 'Edit Item' : 'Create New Item'}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[min(760px,calc(100vw-2rem))] max-h-[85dvh] overflow-y-auto p-0">
+          <DialogHeader className="border-b border-border px-6 py-4 bg-slate-50/50">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-800">
+              <Package size={24} className="text-blue-600" weight="duotone" />
+              {item ? 'Edit Item' : 'Create New Items'}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="border-b border-border p-6">
-          <div className="mb-4 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
-            Basic Details *
-          </div>
-          <div className="rounded-xl border border-border p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemCategory">Category</Label>
-                <Input
-                  id="sharedItemCategory"
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  placeholder="Search Categories"
-                  className="h-11"
-                />
-              </div>
+          <div className="p-6 space-y-5">
+            {/* Header Badge */}
+            <div className="flex items-center justify-between rounded-lg bg-blue-50/80 border border-blue-100 px-4 py-2.5">
+              <span className="text-sm font-bold text-blue-800">Basic Details *</span>
+              <span className="text-xs text-blue-600 font-medium">Configure pricing, GST, categories & measuring units</span>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemName">Item Name <span className="text-destructive">*</span></Label>
-                <Input
-                  id="sharedItemName"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="ex: TMT Bar"
-                  className="h-11"
-                />
-              </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+              
+              {/* ROW 1: Item Name & Category (Show Category in dropdown) */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sharedItemName" className="font-semibold text-slate-700">
+                    Items Names <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="sharedItemName"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="ex: TMT Bar 12mm"
+                    className="h-11 border-slate-300 font-medium"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemGstRate">GST Tax Rate(%)</Label>
-                <Popover open={gstDropdownOpen} onOpenChange={setGstDropdownOpen}>
-                  <PopoverTrigger asChild>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="sharedItemCategory" className="font-semibold text-slate-700">
+                      Show Category in dropdown
+                    </Label>
                     <Button
-                      id="sharedItemGstRate"
                       type="button"
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={gstDropdownOpen}
-                      className="h-11 w-full justify-between rounded-xl border-border bg-background px-3 text-left font-normal shadow-sm hover:bg-background"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAddCatDialogOpen(true)}
+                      className="h-6 px-2 text-xs font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <MagnifyingGlass size={18} className="shrink-0 text-muted-foreground" />
-                        <span className="truncate text-base text-foreground">{selectedGstOption.label}</span>
-                      </span>
-                      <CaretDown size={18} className="shrink-0 text-muted-foreground" />
+                      <Plus size={12} className="mr-1" weight="bold" /> Add Category
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border-border p-0 shadow-xl"
+                  </div>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger id="sharedItemCategory" className="h-11 border-slate-300">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {availableCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* ROW 2: Purchased Prices & Sales Price */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sharedItemPurchasePrice" className="font-semibold text-slate-700">
+                    Purchased Prices
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-slate-400 font-mono">₹</span>
+                    <Input
+                      id="sharedItemPurchasePrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={purchasePrice}
+                      onChange={(event) => setPurchasePrice(event.target.value)}
+                      placeholder="ex: 200"
+                      className="h-11 pl-7 font-mono border-slate-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sharedItemSalesPrice" className="font-semibold text-slate-700">
+                    Sales Price
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-slate-400 font-mono">₹</span>
+                    <Input
+                      id="sharedItemSalesPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={salesPrice}
+                      onChange={(event) => setSalesPrice(event.target.value)}
+                      placeholder="ex: 250"
+                      className="h-11 pl-7 font-mono border-slate-300"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ROW 3: GST Rates % & Opening Stocks */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sharedItemGstRate" className="font-semibold text-slate-700">
+                    GST Rates %
+                  </Label>
+                  <Popover open={gstDropdownOpen} onOpenChange={setGstDropdownOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="sharedItemGstRate"
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={gstDropdownOpen}
+                        className="h-11 w-full justify-between rounded-xl border-slate-300 bg-background px-3 text-left font-normal shadow-2xs hover:bg-background"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <MagnifyingGlass size={16} className="shrink-0 text-slate-400" />
+                          <span className="truncate text-sm font-medium text-slate-800">{selectedGstOption.label}</span>
+                        </span>
+                        <CaretDown size={16} className="shrink-0 text-slate-400" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border-slate-200 p-0 shadow-xl"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Search GST rate..." className="text-sm" />
+                        <CommandList className="max-h-[260px]">
+                          <CommandEmpty>No GST rate found.</CommandEmpty>
+                          <CommandGroup className="p-0">
+                            {GST_OPTIONS.map((option) => (
+                              <CommandItem
+                                key={option.value}
+                                value={option.label}
+                                onSelect={() => {
+                                  setGstRate(option.value)
+                                  setGstDropdownOpen(false)
+                                }}
+                                className="rounded-none border-b border-slate-100 px-4 py-3 text-sm text-slate-600 last:border-b-0 data-[selected=true]:bg-blue-50 data-[selected=true]:text-blue-900"
+                              >
+                                <Check
+                                  size={16}
+                                  className={cn(
+                                    'mr-1 text-blue-600',
+                                    option.value === selectedGstOption.value ? 'opacity-100' : 'opacity-0'
+                                  )}
+                                />
+                                {option.label}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sharedItemOpeningStock" className="font-semibold text-slate-700">
+                    Opening Stocks
+                  </Label>
+                  <Input
+                    id="sharedItemOpeningStock"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={openingStock}
+                    onChange={(event) => setOpeningStock(event.target.value)}
+                    placeholder={`ex: 150 ${unit}`}
+                    className="h-11 font-mono border-slate-300"
+                  />
+                </div>
+              </div>
+
+              {/* ROW 4: ADD UNIT BTN Section (Measuring Unit & Alternate Unit) */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Scales size={18} className="text-emerald-600" weight="bold" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">ADD UNIT BTN</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddUnitDialogOpen(true)}
+                    className="h-7 border-emerald-300 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 text-xs font-bold rounded-lg"
                   >
-                    <Command>
-                      <CommandInput placeholder="Search GST rate..." className="text-base" />
-                      <CommandList className="max-h-[320px]">
-                        <CommandEmpty>No GST rate found.</CommandEmpty>
-                        <CommandGroup className="p-0">
-                          {GST_OPTIONS.map((option) => (
-                            <CommandItem
-                              key={option.value}
-                              value={option.label}
-                              onSelect={() => {
-                                setGstRate(option.value)
-                                setGstDropdownOpen(false)
-                              }}
-                              className="rounded-none border-b border-border px-5 py-4 text-base text-muted-foreground last:border-b-0 data-[selected=true]:bg-primary/10 data-[selected=true]:text-foreground"
-                            >
-                              <Check
-                                size={16}
-                                className={cn(
-                                  'mr-1 text-primary',
-                                  option.value === selectedGstOption.value ? 'opacity-100' : 'opacity-0'
-                                )}
-                              />
-                              {option.label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                    <Plus size={13} className="mr-1" weight="bold" /> Add Custom Unit
+                  </Button>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="sharedItemUnit" className="font-semibold text-slate-700">
+                      Measuring Unit
+                    </Label>
+                    <Select value={unit} onValueChange={handleUnitChange}>
+                      <SelectTrigger id="sharedItemUnit" className="h-11 border-slate-300">
+                        <SelectValue placeholder="Select measuring unit" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {customUnits.map((u) => (
+                          <SelectItem key={u.value} value={u.value}>
+                            {u.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sharedItemAltUnit" className="font-semibold text-slate-700">
+                      Alternate Unit
+                    </Label>
+                    <Select value={alternativeUnit} onValueChange={setAlternativeUnit}>
+                      <SelectTrigger id="sharedItemAltUnit" className="h-11 border-slate-300">
+                        <SelectValue placeholder="Select alternate unit" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="NONE">None</SelectItem>
+                        {customUnits.map((u) => (
+                          <SelectItem key={u.value} value={u.value}>
+                            {u.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemPurchasePrice">Purchase Price</Label>
-                <Input
-                  id="sharedItemPurchasePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={purchasePrice}
-                  onChange={(event) => setPurchasePrice(event.target.value)}
-                  placeholder="ex: ₹200"
-                  className="h-11 font-mono"
-                />
-              </div>
+              {/* ROW 5: INPUT UNIT beside UNIT Name from selected & alternate UNIT */}
+              {alternativeUnit !== 'NONE' && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+                    <span>Unit Conversion Ratio</span>
+                    <span className="text-[11px] font-mono text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-semibold">
+                      1 {unit} = {((parseFloat(alternativeUnitRatio) || 1) / (parseFloat(primaryUnitRatio) || 1)).toLocaleString()} {alternativeUnit}
+                    </span>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemSalesPrice">Sales Price</Label>
-                <Input
-                  id="sharedItemSalesPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={salesPrice}
-                  onChange={(event) => setSalesPrice(event.target.value)}
-                  placeholder="ex: ₹250"
-                  className="h-11 font-mono"
-                />
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    {/* Primary Unit Quantity Input */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-600">INPUT UNIT beside {unit}</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0.001"
+                          value={primaryUnitRatio}
+                          onChange={(e) => setPrimaryUnitRatio(e.target.value)}
+                          className="h-10 font-mono text-right border-slate-300"
+                        />
+                        <span className="font-bold text-sm text-slate-700 min-w-[40px]">{unit}</span>
+                      </div>
+                    </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemUnit">Measuring Unit</Label>
-                <Select value={unit} onValueChange={(value) => setUnit(value as Item['unit'])}>
-                  <SelectTrigger id="sharedItemUnit" className="h-11">
-                    <SelectValue placeholder="Select unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PCS">Pieces(PCS)</SelectItem>
-                    <SelectItem value="MT">Metric Ton(MT)</SelectItem>
-                    <SelectItem value="KG">Kilogram(KG)</SelectItem>
-                    <SelectItem value="TON">Ton(TON)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                    {/* Alternate Unit Quantity Input */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-600">INPUT UNIT beside {alternativeUnit}</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-400">=</span>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0.001"
+                          value={alternativeUnitRatio}
+                          onChange={(e) => setAlternativeUnitRatio(e.target.value)}
+                          className="h-10 font-mono text-right border-slate-300"
+                        />
+                        <span className="font-bold text-sm text-slate-700 min-w-[40px]">{alternativeUnit}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="sharedItemOpeningStock">Opening Stock</Label>
-                <Input
-                  id="sharedItemOpeningStock"
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={openingStock}
-                  onChange={(event) => setOpeningStock(event.target.value)}
-                  placeholder={`ex: 150 ${unit}`}
-                  className="h-11 font-mono"
-                />
-              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex justify-end gap-3 px-6 py-4">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSave}>
-            {item ? 'Update Item' : 'Save Item'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6">
+              {item ? 'Update Item' : 'Save Item'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE NEW CATEGORY DIALOG */}
+      <Dialog open={addCatDialogOpen} onOpenChange={setAddCatDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SquaresFour size={20} className="text-blue-600" />
+              Add New Category
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="newCategoryName">Category Name</Label>
+            <Input
+              id="newCategoryName"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              placeholder="ex: Structural Steel"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateCategory()
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddCatDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateCategory} className="bg-blue-600 text-white font-bold">Add Category</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE NEW UNIT DIALOG */}
+      <Dialog open={addUnitDialogOpen} onOpenChange={setAddUnitDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scales size={20} className="text-emerald-600" />
+              Add Custom Measuring Unit
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label htmlFor="newUnitCode">Unit Code (Short symbol) *</Label>
+              <Input
+                id="newUnitCode"
+                value={newUnitCode}
+                onChange={(e) => setNewUnitCode(e.target.value)}
+                placeholder="ex: BAG, BUNDLE, BOX, LTR"
+                className="font-mono uppercase"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newUnitLabel">Unit Display Name</Label>
+              <Input
+                id="newUnitLabel"
+                value={newUnitLabel}
+                onChange={(e) => setNewUnitLabel(e.target.value)}
+                placeholder="ex: Cement Bag, Steel Bundle"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddUnitDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateUnit} className="bg-emerald-600 text-white font-bold">Add Unit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
