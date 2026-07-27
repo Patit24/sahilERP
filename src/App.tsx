@@ -2616,7 +2616,7 @@ function App() {
           handleClearAllData={handleClearAllData}
         />
 
-        <div className="flex-1 overflow-auto app-workspace bg-[#f6f9fc] p-4 md:p-6">
+        <div className="flex-1 overflow-auto app-workspace bg-[#f6f9fc]">
           <motion.div 
             className="px-responsive-xl py-responsive-lg app-content-frame"
             initial={{ opacity: 0 }}
