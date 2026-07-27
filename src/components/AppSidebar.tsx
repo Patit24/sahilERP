@@ -152,24 +152,6 @@ export function AppSidebar({
                 </div>
               )}
             </div>
-
-            <select
-              value={activeFY}
-              onChange={(e) => setActiveFY(e.target.value)}
-              disabled={!canManageSystem}
-              className="w-full text-[11px] font-medium text-slate-600 bg-white/80 border border-slate-200/80 rounded-lg px-2 py-0.5"
-            >
-              {Array.from({ length: 19 }, (_, i) => {
-                const startYear = 2021 + i
-                const endYear = startYear + 1
-                const fy = `FY${startYear}-${endYear.toString().slice(2)}`
-                return (
-                  <option key={fy} value={fy}>
-                    {fy}
-                  </option>
-                )
-              })}
-            </select>
           </div>
         )}
       </div>

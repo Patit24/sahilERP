@@ -578,7 +578,11 @@ function App() {
       setDebitNotes([])
       setSalesReturns([])
       setPurchaseReturns([])
-      setMetadata(prev => ({ ...prev, activeCompanyId: business.id }))
+      setMetadata(prev => ({
+        ...prev,
+        activeCompanyId: business.id,
+        activeFY: business.startFY || prev.activeFY || getCurrentFY()
+      }))
     }
   }
   
@@ -635,8 +639,9 @@ function App() {
   const [newBusinessStartFY, setNewBusinessStartFY] = useState(getCurrentFY())
   const [editBusinessName, setEditBusinessName] = useState('')
 
-  const activeCompany = metadata.businesses.find(b => b.id === metadata.activeCompanyId)?.name || 'SK TRADERS'
-  const activeFY = metadata.activeFY || getCurrentFY()
+  const currentActiveBusiness = metadata.businesses.find(b => b.id === metadata.activeCompanyId)
+  const activeCompany = currentActiveBusiness?.name || 'SK TRADERS'
+  const activeFY = currentActiveBusiness?.startFY || metadata.activeFY || getCurrentFY()
   const tenantKey = `data_v3_${metadata.activeCompanyId}_${activeFY}`
   const cashBankKey = `cashbank_${metadata.activeCompanyId}_${activeFY}`
   const storedCompanies = metadata.businesses.map(b => b.name)
