@@ -43,6 +43,8 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
   })
   const [applyInMTBooking, setApplyInMTBooking] = useState<boolean>(true)
 
+  const [schemeUnit, setSchemeUnit] = useState<string>('MT')
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
@@ -58,6 +60,7 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
     const supplierId = formData.get('supplierId') as string
     const schemeName = formData.get('schemeName') as string
     const ratePerMT = parseFloat(formData.get('ratePerMT') as string)
+    const unit = schemeUnit || 'MT'
     const fromDate = formData.get('fromDate') as string
     const toDate = formData.get('toDate') as string
     const changeReason = ((formData.get('changeReason') as string) || '').trim() || (editingScheme ? 'Fixed scheme revision' : 'Initial fixed scheme setup')
@@ -79,6 +82,7 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
       supplierId,
       schemeName,
       ratePerMT,
+      unit,
       fromDate,
       toDate,
       applyInMTBooking,
@@ -138,6 +142,7 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
       return
     }
     setEditingScheme(scheme)
+    setSchemeUnit(scheme.unit || 'MT')
     setApplyInMTBooking(scheme.applyInMTBooking !== false)
     setOpen(true)
   }
@@ -150,6 +155,7 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
       return
     }
     setEditingScheme(null)
+    setSchemeUnit('MT')
     setApplyInMTBooking(true)
     setOpen(true)
   }
@@ -297,21 +303,39 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="ratePerMT">Discount Rate (₹/MT) *</Label>
-                <Input 
-                  id="ratePerMT" 
-                  name="ratePerMT" 
-                  type="number"
-                  step="0.01"
-                  defaultValue={editingScheme?.ratePerMT}
-                  placeholder="0.00"
-                  required 
-                />
-                <p className="text-xs text-muted-foreground">
-                  Fixed schemes apply based on Invoice Date for eligibility and month-wise reports
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="schemeUnit">Discount Unit *</Label>
+                  <Select value={schemeUnit} onValueChange={setSchemeUnit}>
+                    <SelectTrigger id="schemeUnit">
+                      <SelectValue placeholder="Select Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MT">MT</SelectItem>
+                      <SelectItem value="PCS">PCS</SelectItem>
+                      <SelectItem value="BOX">BOX</SelectItem>
+                      <SelectItem value="BAG">BAG</SelectItem>
+                      <SelectItem value="KG">KG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ratePerMT">Discount Rate (₹/{schemeUnit}) *</Label>
+                  <Input 
+                    id="ratePerMT" 
+                    name="ratePerMT" 
+                    type="number"
+                    step="0.01"
+                    defaultValue={editingScheme?.ratePerMT}
+                    placeholder="0.00"
+                    required 
+                  />
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Fixed scheme discount applies ONLY to items purchased in the selected unit ({schemeUnit}).
+              </p>
 
               <div className="space-y-2">
                 <Label htmlFor="changeReason">Reason for Change</Label>
@@ -433,7 +457,8 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                     <TableHead>Version</TableHead>
                     <TableHead>From Date</TableHead>
                     <TableHead>To Date</TableHead>
-                    <TableHead className="text-right">Rate/MT</TableHead>
+                    <TableHead>Unit</TableHead>
+                    <TableHead className="text-right">Discount Rate</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -457,8 +482,11 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                       </TableCell>
                       <TableCell>{scheme.fromDate}</TableCell>
                       <TableCell>{scheme.toDate}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(scheme.ratePerMT)}
+                      <TableCell>
+                        <Badge variant="secondary" className="font-mono text-xs">{scheme.unit || 'MT'}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">
+                        {formatCurrency(scheme.ratePerMT)} / {scheme.unit || 'MT'}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">

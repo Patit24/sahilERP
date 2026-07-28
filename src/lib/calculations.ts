@@ -698,32 +698,30 @@ export function calculateExpectedDiscounts(
     
     const excludedFromBookingSchemes = getApplicableFixedSchemes(fixedSchemes, supplier.id, invoice.invoiceDate, false)
     
-    for (const scheme of excludedFromBookingSchemes) {
-      expectedDiscounts.push({
-        id: `fixedScheme-${invoice.id}-${scheme.id}-booking-excluded`,
-        supplierId: supplier.id,
-        invoiceId: invoice.id,
-        schemeId: scheme.id,
-        ruleVersionId: scheme.id,
-        ruleVersion: scheme.version || 1,
-        ruleName: scheme.schemeName,
-        type: 'fixedScheme',
-        earnedDate: invoice.invoiceDate,
-        invoiceDate: invoice.invoiceDate,
-        eligibleQuantityMT: invoice.quantityMT,
-        ratePerMT: scheme.ratePerMT,
-        expectedAmount: invoice.quantityMT * scheme.ratePerMT,
-        invoiceNo: invoice.invoiceNo,
-        schemeName: scheme.schemeName
-      })
+    const getInvoiceQtyForUnit = (inv: PurchaseInvoice, targetUnit: string): number => {
+      if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
+        let matchQty = 0
+        inv.items.forEach(invItem => {
+          const itemUnit = invItem.entryUnit || 'MT'
+          if (itemUnit === targetUnit) {
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            matchQty += qty
+          }
+        })
+        return matchQty
+      }
+      return targetUnit === 'MT' ? (inv.quantityMT || 0) : 0
     }
-    
-    if (remainingInvoiceMT > 0) {
-      const applicableSchemes = currentMTBookingSchemes
-      
-      for (const scheme of applicableSchemes) {
+
+    for (const scheme of excludedFromBookingSchemes) {
+      const schemeUnit = scheme.unit || 'MT'
+      const eligibleQty = getInvoiceQtyForUnit(invoice, schemeUnit)
+
+      if (eligibleQty > 0) {
         expectedDiscounts.push({
-          id: `fixedScheme-${invoice.id}-${scheme.id}`,
+          id: `fixedScheme-${invoice.id}-${scheme.id}-booking-excluded`,
           supplierId: supplier.id,
           invoiceId: invoice.id,
           schemeId: scheme.id,
@@ -733,12 +731,43 @@ export function calculateExpectedDiscounts(
           type: 'fixedScheme',
           earnedDate: invoice.invoiceDate,
           invoiceDate: invoice.invoiceDate,
-          eligibleQuantityMT: remainingInvoiceMT,
+          eligibleQuantityMT: eligibleQty,
           ratePerMT: scheme.ratePerMT,
-          expectedAmount: remainingInvoiceMT * scheme.ratePerMT,
+          expectedAmount: eligibleQty * scheme.ratePerMT,
+          unit: schemeUnit,
           invoiceNo: invoice.invoiceNo,
           schemeName: scheme.schemeName
         })
+      }
+    }
+    
+    if (remainingInvoiceMT > 0) {
+      const applicableSchemes = currentMTBookingSchemes
+      
+      for (const scheme of applicableSchemes) {
+        const schemeUnit = scheme.unit || 'MT'
+        const eligibleQty = getInvoiceQtyForUnit(invoice, schemeUnit)
+
+        if (eligibleQty > 0) {
+          expectedDiscounts.push({
+            id: `fixedScheme-${invoice.id}-${scheme.id}`,
+            supplierId: supplier.id,
+            invoiceId: invoice.id,
+            schemeId: scheme.id,
+            ruleVersionId: scheme.id,
+            ruleVersion: scheme.version || 1,
+            ruleName: scheme.schemeName,
+            type: 'fixedScheme',
+            earnedDate: invoice.invoiceDate,
+            invoiceDate: invoice.invoiceDate,
+            eligibleQuantityMT: eligibleQty,
+            ratePerMT: scheme.ratePerMT,
+            expectedAmount: eligibleQty * scheme.ratePerMT,
+            unit: schemeUnit,
+            invoiceNo: invoice.invoiceNo,
+            schemeName: scheme.schemeName
+          })
+        }
       }
     }
   }

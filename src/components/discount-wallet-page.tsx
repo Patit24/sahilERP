@@ -1758,8 +1758,8 @@ export default function DiscountWalletPage({
                                               {group.invoiceDetails
                                                 .sort((a, b) => new Date(a.earnedDate).getTime() - new Date(b.earnedDate).getTime())
                                                 .map((invoice, idx) => {
-                                                  const actualInvoice = invoice.invoiceId ? fyInvoices.find(inv => inv.id === invoice.invoiceId) : null
-                                                  const displayMT = actualInvoice ? actualInvoice.quantityMT : invoice.eligibleQuantityMT
+                                                  const displayQty = invoice.eligibleQuantityMT
+                                                  const unit = invoice.unit || 'MT'
                                                   
                                                   return (
                                                     <motion.tr
@@ -1778,7 +1778,7 @@ export default function DiscountWalletPage({
                                                     >
                                                       <TableCell className="text-sm font-mono">{invoice.invoiceNo}</TableCell>
                                                       <TableCell className="text-sm">{invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN') : '-'}</TableCell>
-                                                      <TableCell className="text-sm text-right font-mono">{displayMT.toFixed(3)}</TableCell>
+                                                      <TableCell className="text-sm text-right font-mono">{displayQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {unit}</TableCell>
                                                       <TableCell className="text-sm text-right font-mono">{formatCurrency(invoice.expectedAmount)}</TableCell>
                                                       <TableCell className="text-sm text-right font-mono text-success">{formatCurrency(invoice.receivedAmount)}</TableCell>
                                                       <TableCell className="text-sm text-right font-mono text-warning">{formatCurrency(invoice.pendingAmount)}</TableCell>

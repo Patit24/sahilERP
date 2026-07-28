@@ -101,6 +101,7 @@ export interface FixedScheme {
   supplierId: string
   schemeName: string
   ratePerMT: number
+  unit?: string
   fromDate: string
   toDate: string
   applyInMTBooking?: boolean
@@ -233,6 +234,7 @@ export interface ExpectedDiscount {
   eligibleQuantityMT: number
   ratePerMT: number
   expectedAmount: number
+  unit?: string
   invoiceNo?: string
   schemeName?: string
   mtBookingId?: string
