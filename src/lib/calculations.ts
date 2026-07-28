@@ -596,7 +596,7 @@ export function calculateExpectedDiscounts(
             
             if (eligibleQuantity > 0) {
               expectedDiscounts.push({
-                id: `invoiceCloseCD-${invoice.id}-${targetUnit}`,
+                id: `invoiceCloseCD-${invoice.id}-${targetUnit}-${invoiceCloseCDRule.ratePerMT}`,
                 supplierId: supplier.id,
                 invoiceId: invoice.id,
                 type: 'invoiceCloseCD',
