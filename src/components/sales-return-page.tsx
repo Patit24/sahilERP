@@ -68,6 +68,7 @@ export default function SalesReturnPage({
   const [itemSearch, setItemSearch] = useState('')
   const [selectedItemCategory, setSelectedItemCategory] = useState('all')
   const [pickerQuantities, setPickerQuantities] = useState<Record<string, number>>({})
+  const [pickerUnits, setPickerUnits] = useState<Record<string, string>>({})
 
   // Quick party/item dialogs
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
@@ -153,29 +154,46 @@ export default function SalesReturnPage({
     })
   }
 
+  const updatePickerUnit = (itemId: string, unit: string) => {
+    setPickerUnits((prev) => ({ ...prev, [itemId]: unit }))
+  }
+
   const resetItemPicker = () => {
     setItemSearch('')
     setSelectedItemCategory('all')
     setPickerQuantities({})
+    setPickerUnits({})
   }
 
   const handleAddSelectedItemToBill = () => {
     const newItems: InvoiceItem[] = []
 
-    Object.entries(pickerQuantities).forEach(([itemId, qty]) => {
-      if (qty > 0) {
+    Object.entries(pickerQuantities).forEach(([itemId, rawQty]) => {
+      if (rawQty > 0) {
         const item = items.find(i => i.id === itemId)
         const rate = item?.salesPrice || 0
         const defaultEntryUnit = item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : (item?.unit || 'MT')
+        const activeUnit = pickerUnits[itemId] || defaultEntryUnit
         const factor = item?.conversionFactor || 1000
+
+        let quantityMT = rawQty
+        let entryQuantity = rawQty
+
+        if (item) {
+          if (activeUnit === item.alternativeUnit) {
+            quantityMT = rawQty / factor
+          } else {
+            quantityMT = rawQty
+          }
+        }
 
         newItems.push({
           itemId,
-          quantityMT: qty,
+          quantityMT,
+          entryQuantity,
+          entryUnit: activeUnit,
           rate,
-          amount: parseFloat((qty * rate).toFixed(2)),
-          entryUnit: defaultEntryUnit,
-          entryQuantity: item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? qty * factor : qty
+          amount: parseFloat((quantityMT * rate).toFixed(2))
         })
       }
     })
@@ -187,11 +205,14 @@ export default function SalesReturnPage({
           const idx = prevCopy.findIndex(x => x.itemId === newItem.itemId)
           if (idx !== -1) {
             const existing = prevCopy[idx]
-            const updatedQty = (existing.quantityMT || 0) + newItem.quantityMT
+            const updatedQtyMT = (existing.quantityMT || 0) + newItem.quantityMT
+            const updatedEntryQty = (existing.entryQuantity || 0) + (newItem.entryQuantity || 0)
             prevCopy[idx] = {
               ...existing,
-              quantityMT: updatedQty,
-              amount: parseFloat((updatedQty * existing.rate).toFixed(2))
+              quantityMT: updatedQtyMT,
+              entryQuantity: updatedEntryQty,
+              entryUnit: newItem.entryUnit,
+              amount: parseFloat((updatedQtyMT * existing.rate).toFixed(2))
             }
           } else {
             prevCopy.push(newItem)
@@ -1020,7 +1041,7 @@ export default function SalesReturnPage({
                                     step="0.001"
                                     value={pickerQuantity}
                                     onChange={(event) => updatePickerQuantity(item.id, event.target.value === '' ? 0 : parseFloat(event.target.value))}
-                                    className="h-7 w-16 px-1 text-center font-mono"
+                                    className="h-7 w-16 px-1 text-center font-mono text-xs"
                                   />
                                   <Button
                                     type="button"
@@ -1031,17 +1052,52 @@ export default function SalesReturnPage({
                                   >
                                     +
                                   </Button>
-                                  <span className="erp-picker-unit text-xs ml-1 font-medium">{item.unit}</span>
+                                  {(() => {
+                                    const defaultAlt = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : item.unit
+                                    const activeUnit = pickerUnits[item.id] || defaultAlt
+                                    return (
+                                      <select
+                                        value={activeUnit}
+                                        onChange={(e) => updatePickerUnit(item.id, e.target.value)}
+                                        className="h-7 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 text-slate-800 focus:outline-none cursor-pointer"
+                                      >
+                                        {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
+                                          <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
+                                        )}
+                                        <option value={item.unit}>{item.unit}</option>
+                                      </select>
+                                    )
+                                  })()}
                                 </div>
                               ) : (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="h-8 border-primary/20 bg-primary/10 text-primary hover:bg-primary/15"
-                                  onClick={() => updatePickerQuantity(item.id, 1)}
-                                >
-                                  + Add
-                                </Button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-9 min-w-24 border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                                    onClick={() => {
+                                      updatePickerQuantity(item.id, 1)
+                                    }}
+                                  >
+                                    + Add
+                                  </Button>
+                                  {(() => {
+                                    const defaultAlt = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : item.unit
+                                    const activeUnit = pickerUnits[item.id] || defaultAlt
+                                    return (
+                                      <select
+                                        value={activeUnit}
+                                        onChange={(e) => updatePickerUnit(item.id, e.target.value)}
+                                        className="h-9 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1.5 text-slate-800 focus:outline-none cursor-pointer"
+                                      >
+                                        {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
+                                          <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
+                                        )}
+                                        <option value={item.unit}>{item.unit}</option>
+                                      </select>
+                                    )
+                                  })()}
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>

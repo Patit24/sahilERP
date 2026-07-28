@@ -71,6 +71,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const [selectedItemCategory, setSelectedItemCategory] = useState('all')
   const [selectedPickerItemId, setSelectedPickerItemId] = useState('')
   const [pickerQuantities, setPickerQuantities] = useState<Record<string, number>>({})
+  const [pickerUnits, setPickerUnits] = useState<Record<string, string>>({})
   const [showAdditionalCharge, setShowAdditionalCharge] = useState(false)
   const [showInvoiceNotes, setShowInvoiceNotes] = useState(false)
   const [invoiceNotes, setInvoiceNotes] = useState('')
@@ -214,18 +215,36 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     })
   }
 
+  const updatePickerUnit = (itemId: string, unit: string) => {
+    setPickerUnits((prev) => ({ ...prev, [itemId]: unit }))
+  }
+
   const resetItemPicker = () => {
     setSelectedPickerItemId('')
     setItemSearch('')
     setSelectedItemCategory('all')
     setPickerQuantities({})
+    setPickerUnits({})
   }
 
-  const addInvoiceItemWithItem = (itemId: string, quantityMT = 0) => {
+  const addInvoiceItemWithItem = (itemId: string, rawQuantity = 0, chosenUnit?: string) => {
     const item = items.find((candidate) => candidate.id === itemId)
     const basicRate = item?.purchasePrice || 0
     const rate = calculateRateWithItemGst(basicRate, itemId)
     const defaultEntryUnit = item?.unit || 'MT'
+    const activeUnit = chosenUnit || defaultEntryUnit
+
+    let quantityMT = rawQuantity
+    let entryQuantity = rawQuantity
+
+    if (item) {
+      const factor = item.conversionFactor || 1000
+      if (activeUnit === item.alternativeUnit) {
+        quantityMT = rawQuantity / factor
+      } else {
+        quantityMT = rawQuantity
+      }
+    }
 
     setInvoiceItems(prev => {
       const existingIndex = prev.findIndex(existing => existing.itemId === itemId)
@@ -234,12 +253,15 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         // Item already exists, merge quantities
         const updated = [...prev]
         const existing = updated[existingIndex]
-        const newQuantity = (existing.quantityMT || 0) + quantityMT
+        const newQuantityMT = (existing.quantityMT || 0) + quantityMT
+        const newEntryQuantity = (existing.entryQuantity || 0) + entryQuantity
         
         updated[existingIndex] = {
           ...existing,
-          quantityMT: newQuantity,
-          amount: parseFloat((newQuantity * existing.rate).toFixed(2))
+          quantityMT: newQuantityMT,
+          entryQuantity: newEntryQuantity,
+          entryUnit: activeUnit,
+          amount: parseFloat((newQuantityMT * existing.rate).toFixed(2))
         }
         return updated
       }
@@ -251,8 +273,8 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         basicRate,
         rate,
         amount: parseFloat((quantityMT * rate).toFixed(2)),
-        entryUnit: defaultEntryUnit,
-        entryQuantity: quantityMT
+        entryUnit: activeUnit,
+        entryQuantity
       }
 
       const emptyIndex = prev.findIndex(existing => !existing.itemId)
@@ -268,7 +290,10 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
       return
     }
 
-    selectedEntries.forEach(([itemId, quantity]) => addInvoiceItemWithItem(itemId, quantity))
+    selectedEntries.forEach(([itemId, rawQty]) => {
+      const chosenUnit = pickerUnits[itemId]
+      addInvoiceItemWithItem(itemId, rawQty, chosenUnit)
+    })
     setItemPickerOpen(false)
     resetItemPicker()
   }
@@ -1439,7 +1464,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                               <TableCell className="text-right font-mono">{item.purchasePrice ? formatCurrency(item.purchasePrice) : '-'}</TableCell>
                               <TableCell className="text-right">
                                 {isSelected ? (
-                                  <div className="erp-picker-stepper">
+                                  <div className="erp-picker-stepper flex items-center justify-end gap-1">
                                     <Button
                                       type="button"
                                       variant="outline"
@@ -1455,7 +1480,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                                       step="0.001"
                                       value={pickerQuantity}
                                       onChange={(event) => updatePickerQuantity(item.id, event.target.value === '' ? 0 : parseFloat(event.target.value))}
-                                      className="h-7 w-14 px-1 text-center font-mono"
+                                      className="h-7 w-16 px-1 text-center font-mono text-xs"
                                     />
                                     <Button
                                       type="button"
@@ -1466,20 +1491,53 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                                     >
                                       +
                                     </Button>
-                                    <span className="erp-picker-unit">{item.unit}</span>
+                                    {(() => {
+                                      const defaultUnit = item.unit || 'MT'
+                                      const activeUnit = pickerUnits[item.id] || defaultUnit
+                                      return (
+                                        <select
+                                          value={activeUnit}
+                                          onChange={(e) => updatePickerUnit(item.id, e.target.value)}
+                                          className="h-7 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 text-slate-800 focus:outline-none cursor-pointer"
+                                        >
+                                          <option value={item.unit}>{item.unit}</option>
+                                          {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
+                                            <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
+                                          )}
+                                        </select>
+                                      )
+                                    })()}
                                   </div>
                                 ) : (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="h-9 min-w-32 border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
-                                    onClick={() => {
-                                      setSelectedPickerItemId(item.id)
-                                      updatePickerQuantity(item.id, 1)
-                                    }}
-                                  >
-                                    + Add
-                                  </Button>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className="h-9 min-w-24 border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                                      onClick={() => {
+                                        setSelectedPickerItemId(item.id)
+                                        updatePickerQuantity(item.id, 1)
+                                      }}
+                                    >
+                                      + Add
+                                    </Button>
+                                    {(() => {
+                                      const defaultUnit = item.unit || 'MT'
+                                      const activeUnit = pickerUnits[item.id] || defaultUnit
+                                      return (
+                                        <select
+                                          value={activeUnit}
+                                          onChange={(e) => updatePickerUnit(item.id, e.target.value)}
+                                          className="h-9 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1.5 text-slate-800 focus:outline-none cursor-pointer"
+                                        >
+                                          <option value={item.unit}>{item.unit}</option>
+                                          {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
+                                            <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
+                                          )}
+                                        </select>
+                                      )
+                                    })()}
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
