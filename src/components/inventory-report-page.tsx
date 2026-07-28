@@ -39,6 +39,7 @@ export default function InventoryReportPage({
     const balanceGrouped: Record<string, number> = {}
     let totalPurchaseValue = 0
     let totalSalesValue = 0
+    let totalStockValue = 0
 
     inventoryData.forEach(item => {
       const bUnit = item.unit
@@ -47,6 +48,7 @@ export default function InventoryReportPage({
       
       totalPurchaseValue += item.totalPurchaseAmount || 0
       totalSalesValue += item.totalSalesAmount || 0
+      totalStockValue += item.currentStockValue || 0
     })
 
     const formatGrouped = (grouped: Record<string, number>) => {
@@ -58,7 +60,8 @@ export default function InventoryReportPage({
     return { 
       totalPurchaseValue,
       totalSalesValue,
-      balanceFormatted: formatGrouped(balanceGrouped)
+      balanceFormatted: formatGrouped(balanceGrouped),
+      totalStockValue
     }
   }, [inventoryData])
 
@@ -102,9 +105,9 @@ export default function InventoryReportPage({
     doc.text(formatAmount(totals.totalSalesValue), 90, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
-    doc.text('Closing Stock:', 160, yPos + 11)
+    doc.text('Closing Stock Value:', 160, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(totals.balanceFormatted, 160, yPos + 15)
+    doc.text(formatAmount(totals.totalStockValue), 160, yPos + 15)
 
     const tableData = inventoryData.map(item => {
       const secUnit = item.secondaryUnit
@@ -233,11 +236,11 @@ export default function InventoryReportPage({
 
         <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Closing Stock Balance</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Closing Stock Value</CardTitle>
             <Package className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.balanceFormatted}</div>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{formatCurrency(totals.totalStockValue)}</div>
           </CardContent>
         </Card>
       </div>
