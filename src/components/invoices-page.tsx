@@ -255,24 +255,26 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         const existing = updated[existingIndex]
         const newQuantityMT = (existing.quantityMT || 0) + quantityMT
         const newEntryQuantity = (existing.entryQuantity || 0) + entryQuantity
+        const qtyForAmount = newEntryQuantity > 0 ? newEntryQuantity : newQuantityMT
         
         updated[existingIndex] = {
           ...existing,
           quantityMT: newQuantityMT,
           entryQuantity: newEntryQuantity,
           entryUnit: activeUnit,
-          amount: parseFloat((newQuantityMT * existing.rate).toFixed(2))
+          amount: parseFloat((qtyForAmount * existing.rate).toFixed(2))
         }
         return updated
       }
 
       // If it doesn't exist, create a new row or fill an empty one
+      const qtyForAmount = entryQuantity > 0 ? entryQuantity : quantityMT
       const row = {
         itemId,
         quantityMT,
         basicRate,
         rate,
-        amount: parseFloat((quantityMT * rate).toFixed(2)),
+        amount: parseFloat((qtyForAmount * rate).toFixed(2)),
         entryUnit: activeUnit,
         entryQuantity
       }
@@ -315,7 +317,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           // Merge into existing row
           const existing = { ...updated[existingIndex] }
           existing.quantityMT = (existing.quantityMT || 0) + (itemRow.quantityMT || 0)
-          existing.amount = parseFloat((existing.quantityMT * existing.rate).toFixed(2))
+          existing.entryQuantity = (existing.entryQuantity || 0) + (itemRow.entryQuantity || 0)
+          const qtyForAmount = (existing.entryQuantity || 0) > 0 ? existing.entryQuantity : existing.quantityMT
+          existing.amount = parseFloat((qtyForAmount * existing.rate).toFixed(2))
           updated[existingIndex] = existing
           
           // Clear current row
@@ -332,7 +336,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           itemRow.basicRate = basicRate
           itemRow.rate = calculateRateWithItemGst(basicRate, itemRow.itemId)
           itemRow.entryUnit = defaultUnit
-          itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
         }
       } else if (field === 'entryUnit') {
         itemRow.entryUnit = value as string
@@ -343,7 +346,6 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
           } else {
             itemRow.quantityMT = itemRow.entryQuantity || 0
           }
-          itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
         }
       } else if (field === 'entryQuantity' || field === 'quantityMT') {
         const numVal = parseFloat(value as string) || 0
@@ -360,21 +362,23 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         } else {
           itemRow.quantityMT = numVal
         }
-        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       } else if (field === 'basicRate') {
         const basicRate = parseFloat(value as string) || 0
         const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
         itemRow.basicRate = basicRate
         itemRow.rate = parseFloat((basicRate * (1 + itemGstPct / 100)).toFixed(2))
-        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       } else if (field === 'rate') {
         const rateWithTax = parseFloat(value as string) || 0
         const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
         itemRow.rate = rateWithTax
         itemRow.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
-        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       }
       
+      const qtyForAmount = (itemRow.entryQuantity !== undefined && itemRow.entryQuantity !== null && itemRow.entryQuantity > 0)
+        ? itemRow.entryQuantity
+        : (itemRow.quantityMT || 0)
+      itemRow.amount = parseFloat((qtyForAmount * (itemRow.rate || 0)).toFixed(2))
+
       updated[index] = itemRow
       return updated
     })

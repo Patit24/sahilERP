@@ -187,13 +187,14 @@ export default function PurchaseReturnPage({
           }
         }
 
+        const qtyForAmt = entryQuantity > 0 ? entryQuantity : quantityMT
         newItems.push({
           itemId,
           quantityMT,
           entryQuantity,
           entryUnit: activeUnit,
           rate,
-          amount: parseFloat((quantityMT * rate).toFixed(2))
+          amount: parseFloat((qtyForAmt * rate).toFixed(2))
         })
       }
     })
@@ -207,12 +208,13 @@ export default function PurchaseReturnPage({
             const existing = prevCopy[idx]
             const updatedQtyMT = (existing.quantityMT || 0) + newItem.quantityMT
             const updatedEntryQty = (existing.entryQuantity || 0) + (newItem.entryQuantity || 0)
+            const qtyForAmt = updatedEntryQty > 0 ? updatedEntryQty : updatedQtyMT
             prevCopy[idx] = {
               ...existing,
               quantityMT: updatedQtyMT,
               entryQuantity: updatedEntryQty,
               entryUnit: newItem.entryUnit,
-              amount: parseFloat((updatedQtyMT * existing.rate).toFixed(2))
+              amount: parseFloat((qtyForAmt * existing.rate).toFixed(2))
             }
           } else {
             prevCopy.push(newItem)
@@ -300,7 +302,7 @@ export default function PurchaseReturnPage({
         updated.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
       }
 
-      const qty = Number(updated.quantityMT) || 0
+      const qty = (updated.entryQuantity !== undefined && updated.entryQuantity !== null && updated.entryQuantity > 0) ? updated.entryQuantity : (Number(updated.quantityMT) || 0)
       const rate = Number(updated.rate) || 0
       updated.amount = parseFloat((qty * rate).toFixed(2))
       return updated
