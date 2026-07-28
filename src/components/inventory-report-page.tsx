@@ -262,13 +262,14 @@ export default function InventoryReportPage({
                 <TableHead className="text-right font-bold text-slate-700">Sold (-)</TableHead>
                 <TableHead className="text-right font-bold text-slate-700">Balance Stock</TableHead>
                 <TableHead className="text-right font-bold text-slate-700">Avg Purchase Rate</TableHead>
+                <TableHead className="text-right font-bold text-slate-700">Avg Selling Price</TableHead>
                 <TableHead className="text-right font-bold text-slate-700">Stock Value</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredInventoryData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-slate-400 py-8 font-medium">
+                  <TableCell colSpan={10} className="text-center text-slate-400 py-8 font-medium">
                     No inventory data available for this category
                   </TableCell>
                 </TableRow>
@@ -335,6 +336,9 @@ export default function InventoryReportPage({
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(item.avgPurchaseRate)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-emerald-700">
+                      {formatCurrency(item.avgSalesRate)}
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold text-slate-900">
                       {formatCurrency(item.currentStockValue)}
