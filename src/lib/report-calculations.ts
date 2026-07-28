@@ -64,7 +64,9 @@ export interface InventoryData {
   openingStockMT: number
   openingStockValue: number
   totalPurchaseMT: number
+  totalPurchaseAmount: number
   totalSalesMT: number
+  totalSalesAmount: number
   balanceMT: number
   avgPurchaseRate: number
   avgSalesRate: number
@@ -340,7 +342,9 @@ export function calculateInventoryReport(
       openingStockMT,
       openingStockValue,
       totalPurchaseMT,
+      totalPurchaseAmount,
       totalSalesMT,
+      totalSalesAmount,
       balanceMT,
       avgPurchaseRate,
       avgSalesRate,

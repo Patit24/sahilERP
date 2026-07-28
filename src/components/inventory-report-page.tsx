@@ -36,25 +36,17 @@ export default function InventoryReportPage({
 
 
   const totals = useMemo(() => {
-    const purchaseGrouped: Record<string, number> = {}
-    const salesGrouped: Record<string, number> = {}
     const balanceGrouped: Record<string, number> = {}
-    let totalStockValue = 0
+    let totalPurchaseValue = 0
+    let totalSalesValue = 0
 
     inventoryData.forEach(item => {
-      const pUnit = item.preferAltPurchase && item.secondaryUnit ? item.secondaryUnit : item.unit
-      const pQty = item.preferAltPurchase && item.secondaryTotalPurchase !== undefined ? item.secondaryTotalPurchase : item.totalPurchaseMT
-      purchaseGrouped[pUnit] = (purchaseGrouped[pUnit] || 0) + pQty
-
-      const sUnit = item.preferAltSale && item.secondaryUnit ? item.secondaryUnit : item.unit
-      const sQty = item.preferAltSale && item.secondaryTotalSales !== undefined ? item.secondaryTotalSales : item.totalSalesMT
-      salesGrouped[sUnit] = (salesGrouped[sUnit] || 0) + sQty
-
       const bUnit = item.unit
       const bQty = item.balanceMT
       balanceGrouped[bUnit] = (balanceGrouped[bUnit] || 0) + bQty
       
-      totalStockValue += item.currentStockValue
+      totalPurchaseValue += item.totalPurchaseAmount || 0
+      totalSalesValue += item.totalSalesAmount || 0
     })
 
     const formatGrouped = (grouped: Record<string, number>) => {
@@ -64,10 +56,9 @@ export default function InventoryReportPage({
     }
 
     return { 
-      totalPurchaseFormatted: formatGrouped(purchaseGrouped),
-      totalSalesFormatted: formatGrouped(salesGrouped),
-      balanceFormatted: formatGrouped(balanceGrouped),
-      totalStockValue 
+      totalPurchaseValue,
+      totalSalesValue,
+      balanceFormatted: formatGrouped(balanceGrouped)
     }
   }, [inventoryData])
 
@@ -103,22 +94,17 @@ export default function InventoryReportPage({
     doc.setFontSize(10)
     doc.text('Total Purchase:', 16, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(totals.totalPurchaseFormatted, 16, yPos + 15)
+    doc.text(formatAmount(totals.totalPurchaseValue), 16, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
     doc.text('Total Sales:', 90, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(totals.totalSalesFormatted, 90, yPos + 15)
+    doc.text(formatAmount(totals.totalSalesValue), 90, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
     doc.text('Closing Stock:', 160, yPos + 11)
     doc.setFont('helvetica', 'normal')
     doc.text(totals.balanceFormatted, 160, yPos + 15)
-    
-    doc.setFont('helvetica', 'bold')
-    doc.text('Stock Value:', 230, yPos + 11)
-    doc.setFont('helvetica', 'normal')
-    doc.text(formatAmount(totals.totalStockValue), 230, yPos + 15)
 
     const tableData = inventoryData.map(item => {
       const secUnit = item.secondaryUnit
@@ -224,24 +210,24 @@ export default function InventoryReportPage({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Purchases</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Purchase Value</CardTitle>
             <TrendUp className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.totalPurchaseFormatted}</div>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{formatCurrency(totals.totalPurchaseValue)}</div>
           </CardContent>
         </Card>
 
         <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Sales</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Sales Value</CardTitle>
             <TrendDown className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.totalSalesFormatted}</div>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{formatCurrency(totals.totalSalesValue)}</div>
           </CardContent>
         </Card>
 
@@ -252,16 +238,6 @@ export default function InventoryReportPage({
           </CardHeader>
           <CardContent>
             <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.balanceFormatted}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-slate-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Stock Value</CardTitle>
-            <Package className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatCurrency(totals.totalStockValue)}</div>
           </CardContent>
         </Card>
       </div>
