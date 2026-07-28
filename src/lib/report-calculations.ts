@@ -75,6 +75,8 @@ export interface InventoryData {
   secondaryTotalSales?: number
   secondaryBalance?: number
   primaryUnit?: string
+  preferAltPurchase?: boolean
+  preferAltSale?: boolean
 }
 
 export interface CDAtRisk {
@@ -168,8 +170,11 @@ export function calculateInventoryReport(
     let totalSalesAlt = 0
     let totalSalesAmount = 0
 
-    let usedAltUnitCount = 0
-    let usedPrimaryUnitCount = 0
+    let purchaseAltUnitCount = 0
+    let purchasePrimaryUnitCount = 0
+    
+    let saleAltUnitCount = 0
+    let salePrimaryUnitCount = 0
 
     const purchaseBatches: { date: Date; quantityPrimary: number; rate: number; amount: number }[] = []
 
@@ -191,8 +196,8 @@ export function calculateInventoryReport(
             totalPurchaseAlt += altQty
             totalPurchaseAmount += invItem.amount || 0
 
-            if (altUnit && usedUnit === altUnit) usedAltUnitCount++
-            else usedPrimaryUnitCount++
+            if (altUnit && usedUnit === altUnit) purchaseAltUnitCount++
+            else purchasePrimaryUnitCount++
 
             purchaseBatches.push({
               date: new Date(invoice.invoiceDate),
@@ -227,8 +232,8 @@ export function calculateInventoryReport(
             totalSalesAlt += altQty
             totalSalesAmount += invItem.amount || 0
 
-            if (altUnit && usedUnit === altUnit) usedAltUnitCount++
-            else usedPrimaryUnitCount++
+            if (altUnit && usedUnit === altUnit) saleAltUnitCount++
+            else salePrimaryUnitCount++
           }
         })
       }
@@ -250,29 +255,36 @@ export function calculateInventoryReport(
     const balancePrimary = (openingPrimary + totalPurchasePrimary) - totalSalesPrimary
     const balanceAlt = (openingAlt + totalPurchaseAlt) - totalSalesAlt
 
-    // Prefer Alt unit display if altUnit is defined AND user has transacted in altUnit
-    const preferAlt = Boolean(altUnit && usedAltUnitCount > 0 && usedAltUnitCount >= usedPrimaryUnitCount)
+    // Determine preferred units based on actual usage
+    const preferAltPurchase = Boolean(altUnit && purchaseAltUnitCount > 0 && purchaseAltUnitCount >= purchasePrimaryUnitCount)
+    const preferAltSale = Boolean(altUnit && saleAltUnitCount > 0 && saleAltUnitCount >= salePrimaryUnitCount)
 
-    const mainUnit = preferAlt ? (altUnit!) : primaryUnit
-    const secUnit = preferAlt ? primaryUnit : altUnit
+    // For the main row unit, we can just use primaryUnit by default 
+    // unless all transactions (purchase + sales) predominantly use altUnit
+    const totalAltCount = purchaseAltUnitCount + saleAltUnitCount
+    const totalPrimaryCount = purchasePrimaryUnitCount + salePrimaryUnitCount
+    const preferAltOverall = Boolean(altUnit && totalAltCount > 0 && totalAltCount >= totalPrimaryCount)
 
-    const openingStockMT = preferAlt ? openingAlt : openingPrimary
-    const totalPurchaseMT = preferAlt ? totalPurchaseAlt : totalPurchasePrimary
-    const totalSalesMT = preferAlt ? totalSalesAlt : totalSalesPrimary
-    const balanceMT = preferAlt ? balanceAlt : balancePrimary
+    const mainUnit = preferAltOverall ? (altUnit!) : primaryUnit
+    const secUnit = preferAltOverall ? primaryUnit : altUnit
 
-    const secOpeningStock = preferAlt ? openingPrimary : openingAlt
-    const secTotalPurchase = preferAlt ? totalPurchasePrimary : totalPurchaseAlt
-    const secTotalSales = preferAlt ? totalSalesPrimary : totalSalesAlt
-    const secBalance = preferAlt ? balancePrimary : balanceAlt
+    const openingStockMT = preferAltOverall ? openingAlt : openingPrimary
+    const totalPurchaseMT = preferAltOverall ? totalPurchaseAlt : totalPurchasePrimary
+    const totalSalesMT = preferAltOverall ? totalSalesAlt : totalSalesPrimary
+    const balanceMT = preferAltOverall ? balanceAlt : balancePrimary
+
+    const secOpeningStock = preferAltOverall ? openingPrimary : openingAlt
+    const secTotalPurchase = preferAltOverall ? totalPurchasePrimary : totalPurchaseAlt
+    const secTotalSales = preferAltOverall ? totalSalesPrimary : totalSalesAlt
+    const secBalance = preferAltOverall ? balancePrimary : balanceAlt
 
     const totalAvailablePrimary = openingPrimary + totalPurchasePrimary
     const totalAvailableAmount = openingStockValue + totalPurchaseAmount
     const avgPurchaseRatePrimary = totalAvailablePrimary > 0 ? totalAvailableAmount / totalAvailablePrimary : 0
     const avgSalesRatePrimary = totalSalesPrimary > 0 ? totalSalesAmount / totalSalesPrimary : 0
 
-    const avgPurchaseRate = preferAlt ? (factor >= 1 ? avgPurchaseRatePrimary / factor : avgPurchaseRatePrimary * factor) : avgPurchaseRatePrimary
-    const avgSalesRate = preferAlt ? (factor >= 1 ? avgSalesRatePrimary / factor : avgSalesRatePrimary * factor) : avgSalesRatePrimary
+    const avgPurchaseRate = preferAltOverall ? (factor >= 1 ? avgPurchaseRatePrimary / factor : avgPurchaseRatePrimary * factor) : avgPurchaseRatePrimary
+    const avgSalesRate = preferAltOverall ? (factor >= 1 ? avgSalesRatePrimary / factor : avgSalesRatePrimary * factor) : avgSalesRatePrimary
 
     let currentStockValue = 0
     if (balancePrimary > 0 && purchaseBatches.length > 0) {
@@ -321,7 +333,9 @@ export function calculateInventoryReport(
       secondaryTotalPurchase: secTotalPurchase,
       secondaryTotalSales: secTotalSales,
       secondaryBalance: secBalance,
-      primaryUnit
+      primaryUnit,
+      preferAltPurchase,
+      preferAltSale
     })
   })
 

@@ -36,15 +36,39 @@ export default function InventoryReportPage({
 
 
   const totals = useMemo(() => {
-    return inventoryData.reduce(
-      (acc, item) => ({
-        totalPurchaseMT: acc.totalPurchaseMT + item.totalPurchaseMT,
-        totalSalesMT: acc.totalSalesMT + item.totalSalesMT,
-        balanceMT: acc.balanceMT + item.balanceMT,
-        totalStockValue: acc.totalStockValue + item.currentStockValue
-      }),
-      { totalPurchaseMT: 0, totalSalesMT: 0, balanceMT: 0, totalStockValue: 0 }
-    )
+    const purchaseGrouped: Record<string, number> = {}
+    const salesGrouped: Record<string, number> = {}
+    const balanceGrouped: Record<string, number> = {}
+    let totalStockValue = 0
+
+    inventoryData.forEach(item => {
+      const pUnit = item.preferAltPurchase && item.secondaryUnit ? item.secondaryUnit : item.unit
+      const pQty = item.preferAltPurchase && item.secondaryTotalPurchase !== undefined ? item.secondaryTotalPurchase : item.totalPurchaseMT
+      purchaseGrouped[pUnit] = (purchaseGrouped[pUnit] || 0) + pQty
+
+      const sUnit = item.preferAltSale && item.secondaryUnit ? item.secondaryUnit : item.unit
+      const sQty = item.preferAltSale && item.secondaryTotalSales !== undefined ? item.secondaryTotalSales : item.totalSalesMT
+      salesGrouped[sUnit] = (salesGrouped[sUnit] || 0) + sQty
+
+      const bUnit = item.unit
+      const bQty = item.balanceMT
+      balanceGrouped[bUnit] = (balanceGrouped[bUnit] || 0) + bQty
+      
+      totalStockValue += item.currentStockValue
+    })
+
+    const formatGrouped = (grouped: Record<string, number>) => {
+      const entries = Object.entries(grouped).filter(([_, v]) => v !== 0)
+      if (entries.length === 0) return '0 MT'
+      return entries.map(([u, v]) => `${v.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${u}`).join(' | ')
+    }
+
+    return { 
+      totalPurchaseFormatted: formatGrouped(purchaseGrouped),
+      totalSalesFormatted: formatGrouped(salesGrouped),
+      balanceFormatted: formatGrouped(balanceGrouped),
+      totalStockValue 
+    }
   }, [inventoryData])
 
   const handleExportPDF = () => {
@@ -79,41 +103,47 @@ export default function InventoryReportPage({
     doc.setFontSize(10)
     doc.text('Total Purchase:', 16, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatMT(totals.totalPurchaseMT), 16, yPos + 15)
+    doc.text(totals.totalPurchaseFormatted, 16, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
-    doc.text('Total Sales:', 70, yPos + 11)
+    doc.text('Total Sales:', 90, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatMT(totals.totalSalesMT), 70, yPos + 15)
+    doc.text(totals.totalSalesFormatted, 90, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
-    doc.text('Closing Stock:', 120, yPos + 11)
+    doc.text('Closing Stock:', 160, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatMT(totals.balanceMT), 120, yPos + 15)
+    doc.text(totals.balanceFormatted, 160, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
-    doc.text('Stock Value:', 180, yPos + 11)
+    doc.text('Stock Value:', 230, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatAmount(totals.totalStockValue), 180, yPos + 15)
+    doc.text(formatAmount(totals.totalStockValue), 230, yPos + 15)
 
     const tableData = inventoryData.map(item => {
       const secUnit = item.secondaryUnit
-      const fmt = (primaryQty: number, secQty?: number) => {
-        const prim = `${primaryQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
-        if (secUnit && secUnit !== item.unit && typeof secQty === 'number') {
-          const sec = secQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })
-          return `${prim} (${sec} ${secUnit})`
+      const fmt = (primaryQty: number, secQty?: number, preferAlt?: boolean) => {
+        const mainU = preferAlt && secUnit ? secUnit : item.unit
+        const mainQ = preferAlt && typeof secQty === 'number' ? secQty : primaryQty
+        
+        const secU = preferAlt && secUnit ? item.unit : secUnit
+        const secQ = preferAlt && typeof secQty === 'number' ? primaryQty : secQty
+
+        const primStr = `${mainQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${mainU}`
+        if (secU && secU !== mainU && typeof secQ === 'number') {
+          const secStr = secQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+          return `${primStr} (${secStr} ${secU})`
         }
-        return prim
+        return primStr
       }
 
       return [
         item.itemName,
         secUnit && secUnit !== item.unit ? `${item.unit} / ${secUnit}` : item.unit,
-        item.openingStockMT > 0 ? fmt(item.openingStockMT, item.secondaryOpeningStock) : '-',
-        fmt(item.totalPurchaseMT, item.secondaryTotalPurchase),
-        fmt(item.totalSalesMT, item.secondaryTotalSales),
-        fmt(item.balanceMT, item.secondaryBalance),
+        item.openingStockMT > 0 ? fmt(item.openingStockMT, item.secondaryOpeningStock, false) : '-',
+        fmt(item.totalPurchaseMT, item.secondaryTotalPurchase, item.preferAltPurchase),
+        fmt(item.totalSalesMT, item.secondaryTotalSales, item.preferAltSale),
+        fmt(item.balanceMT, item.secondaryBalance, false),
         formatAmount(item.avgPurchaseRate),
         formatAmount(item.avgSalesRate),
         formatAmount(item.currentStockValue)
@@ -201,7 +231,7 @@ export default function InventoryReportPage({
             <TrendUp className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatMT(totals.totalPurchaseMT)}</div>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.totalPurchaseFormatted}</div>
           </CardContent>
         </Card>
 
@@ -211,7 +241,7 @@ export default function InventoryReportPage({
             <TrendDown className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatMT(totals.totalSalesMT)}</div>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.totalSalesFormatted}</div>
           </CardContent>
         </Card>
 
@@ -221,7 +251,7 @@ export default function InventoryReportPage({
             <Package className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-extrabold text-slate-900">{formatMT(totals.balanceMT)}</div>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{totals.balanceFormatted}</div>
           </CardContent>
         </Card>
 
@@ -266,67 +296,73 @@ export default function InventoryReportPage({
               ) : (
                 filteredInventoryData.map((item) => {
                   const secUnit = item.secondaryUnit
+                
+                const renderQtyWithAlt = (primaryQty: number, secQty?: number, preferAlt?: boolean, colorClass?: string, prefix: string = '') => {
+                  const mainU = preferAlt && secUnit ? secUnit : item.unit
+                  const mainQ = preferAlt && typeof secQty === 'number' ? secQty : primaryQty
                   
-                  const renderQtyWithAlt = (primaryQty: number, secQty?: number, colorClass?: string, prefix: string = '') => {
-                    if (primaryQty === 0 && prefix === '') return '-'
-                    const primaryStr = `${prefix}${primaryQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
-                    let secStr: string | null = null
+                  const secU = preferAlt && secUnit ? item.unit : secUnit
+                  const secQ = preferAlt && typeof secQty === 'number' ? primaryQty : secQty
 
-                    if (secUnit && secUnit !== item.unit && typeof secQty === 'number') {
-                      secStr = `${prefix}${secQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${secUnit}`
-                    }
+                  if (mainQ === 0 && prefix === '') return '-'
+                  const primaryStr = `${prefix}${mainQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${mainU}`
+                  let secStr: string | null = null
 
-                    return (
-                      <div className="flex flex-col items-end">
-                        <span className={`font-mono ${colorClass || 'text-slate-900 font-semibold'}`}>
-                          {primaryStr}
-                        </span>
-                        {secStr && (
-                          <span className="font-mono text-[10px] text-slate-500 font-medium">
-                            ({secStr})
-                          </span>
-                        )}
-                      </div>
-                    )
+                  if (secU && secU !== mainU && typeof secQ === 'number') {
+                    secStr = `${prefix}${secQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${secU}`
                   }
 
                   return (
-                    <TableRow key={item.itemId} className="hover:bg-slate-50/80">
-                      <TableCell className="font-bold text-slate-900">{item.itemName}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
-                          {item.category || 'General'}
+                    <div className="flex flex-col items-end">
+                      <span className={`font-mono ${colorClass || 'text-slate-900 font-semibold'}`}>
+                        {primaryStr}
+                      </span>
+                      {secStr && (
+                        <span className="font-mono text-[10px] text-slate-500 font-medium">
+                          ({secStr})
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          <Badge variant="outline" className="font-mono text-xs w-fit">{item.unit}</Badge>
-                          {secUnit && secUnit !== item.unit && (
-                            <span className="text-[10px] text-slate-500 font-mono">Alt: {secUnit}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {renderQtyWithAlt(item.openingStockMT, item.secondaryOpeningStock)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {renderQtyWithAlt(item.totalPurchaseMT, item.secondaryTotalPurchase, 'text-emerald-700 font-bold', '+')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {renderQtyWithAlt(item.totalSalesMT, item.secondaryTotalSales, 'text-blue-700 font-bold', '-')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {renderQtyWithAlt(item.balanceMT, item.secondaryBalance, item.balanceMT < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold')}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(item.avgPurchaseRate)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-bold text-slate-900">
-                        {formatCurrency(item.currentStockValue)}
-                      </TableCell>
-                    </TableRow>
+                      )}
+                    </div>
                   )
-                })
+                }
+
+                return (
+                  <TableRow key={item.itemId} className="hover:bg-slate-50/80">
+                    <TableCell className="font-bold text-slate-900">{item.itemName}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
+                        {item.category || 'General'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <Badge variant="outline" className="font-mono text-xs w-fit">{item.unit}</Badge>
+                        {secUnit && secUnit !== item.unit && (
+                          <span className="text-[10px] text-slate-500 font-mono">Alt: {secUnit}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {renderQtyWithAlt(item.openingStockMT, item.secondaryOpeningStock, false, 'text-slate-600')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {renderQtyWithAlt(item.totalPurchaseMT, item.secondaryTotalPurchase, item.preferAltPurchase, 'text-emerald-700 font-bold', '+')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {renderQtyWithAlt(item.totalSalesMT, item.secondaryTotalSales, item.preferAltSale, 'text-blue-700 font-bold', '-')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {renderQtyWithAlt(item.balanceMT, item.secondaryBalance, false, item.balanceMT < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold')}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency(item.avgPurchaseRate)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-slate-900">
+                      {formatCurrency(item.currentStockValue)}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
               )}
             </TableBody>
           </Table>

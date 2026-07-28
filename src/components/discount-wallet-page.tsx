@@ -631,7 +631,8 @@ export default function DiscountWalletPage({
                          'Partially Received'
         }
       } else {
-        const key = `${pd.supplierId}-${normalizedType}-${normalizedType === 'paymentCD' ? 'Payment CD' : schemeName}`
+        const pdUnit = 'unit' in pd ? pd.unit : 'MT'
+        const key = `${pd.supplierId}-${normalizedType}-${normalizedType === 'paymentCD' ? 'Payment CD' : schemeName}-${pdUnit || 'MT'}`
         
         if (!groups.has(key)) {
           const invoice = fyInvoices.find(inv => inv.id === pd.invoiceId)
@@ -752,7 +753,7 @@ export default function DiscountWalletPage({
                       const invoiceDate = new Date(invoice.invoiceDate)
                       const daysDiff = Math.floor((paymentDate.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24))
                       
-                      for (const rule of supplier.paymentCDRules) {
+                      for (const rule of supplier.paymentCDRules || []) {
                         if (daysDiff >= rule.minDays && daysDiff <= rule.maxDays) {
                           cdPercentage = rule.percentageRate
                           break
@@ -1747,7 +1748,7 @@ export default function DiscountWalletPage({
                                               <TableRow>
                                                 <TableHead className="text-xs">Invoice No</TableHead>
                                                 <TableHead className="text-xs">Invoice Date</TableHead>
-                                                <TableHead className="text-xs text-right">Qty (MT)</TableHead>
+                                                <TableHead className="text-xs text-right">Qty</TableHead>
                                                 <TableHead className="text-xs text-right">Expected</TableHead>
                                                 <TableHead className="text-xs text-right">Received</TableHead>
                                                 <TableHead className="text-xs text-right">Pending</TableHead>
