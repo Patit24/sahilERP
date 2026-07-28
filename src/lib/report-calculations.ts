@@ -59,6 +59,8 @@ export interface InventoryData {
   itemName: string
   category?: string
   unit: string
+  alternativeUnit?: string
+  conversionFactor?: number
   openingStockMT: number
   openingStockValue: number
   totalPurchaseMT: number
@@ -226,6 +228,8 @@ export function calculateInventoryReport(
       itemName: item.name,
       category: item.category || 'Uncategorized',
       unit: item.unit || 'MT',
+      alternativeUnit: item.alternativeUnit,
+      conversionFactor: item.conversionFactor,
       openingStockMT,
       openingStockValue,
       totalPurchaseMT,

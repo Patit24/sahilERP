@@ -96,17 +96,36 @@ export default function InventoryReportPage({
     doc.setFont('helvetica', 'normal')
     doc.text(formatAmount(totals.totalStockValue), 180, yPos + 15)
 
-    const tableData = inventoryData.map(item => [
-      item.itemName,
-      item.unit,
-      item.openingStockMT > 0 ? `${item.openingStockMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}` : '-',
-      `${item.totalPurchaseMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`,
-      `${item.totalSalesMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`,
-      `${item.balanceMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`,
-      formatAmount(item.avgPurchaseRate),
-      formatAmount(item.avgSalesRate),
-      formatAmount(item.currentStockValue)
-    ])
+    const tableData = inventoryData.map(item => {
+      const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE'
+        ? item.alternativeUnit
+        : (item.unit !== 'MT' ? 'MT' : undefined)
+      
+      const factor = item.conversionFactor 
+        ? item.conversionFactor 
+        : (item.unit === 'KG' && altUnit === 'MT' ? 0.001 : item.unit === 'MT' && altUnit === 'KG' ? 1000 : null)
+
+      const fmt = (qty: number) => {
+        const prim = `${qty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
+        if (altUnit && altUnit !== item.unit && factor && factor > 0) {
+          const alt = (qty * factor).toLocaleString('en-IN', { maximumFractionDigits: 3 })
+          return `${prim} (${alt} ${altUnit})`
+        }
+        return prim
+      }
+
+      return [
+        item.itemName,
+        altUnit && altUnit !== item.unit ? `${item.unit} / ${altUnit}` : item.unit,
+        item.openingStockMT > 0 ? fmt(item.openingStockMT) : '-',
+        fmt(item.totalPurchaseMT),
+        fmt(item.totalSalesMT),
+        fmt(item.balanceMT),
+        formatAmount(item.avgPurchaseRate),
+        formatAmount(item.avgSalesRate),
+        formatAmount(item.currentStockValue)
+      ]
+    })
 
     autoTable(doc, {
       startY: yPos + 24,
@@ -252,39 +271,76 @@ export default function InventoryReportPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInventoryData.map((item) => (
-                  <TableRow key={item.itemId} className="hover:bg-slate-50/80">
-                    <TableCell className="font-bold text-slate-900">{item.itemName}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
-                        {item.category || 'General'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono text-xs">{item.unit}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                      {item.openingStockMT > 0 ? `${item.openingStockMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-emerald-700 font-bold">
-                      +{item.totalPurchaseMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-blue-700 font-bold">
-                      -{item.totalSalesMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold">
-                      <span className={item.balanceMT < 0 ? 'text-red-600' : 'text-slate-900'}>
-                        {item.balanceMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatCurrency(item.avgPurchaseRate)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold text-slate-900">
-                      {formatCurrency(item.currentStockValue)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredInventoryData.map((item) => {
+                  const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE'
+                    ? item.alternativeUnit
+                    : (item.unit !== 'MT' ? 'MT' : undefined)
+                  
+                  const factor = item.conversionFactor 
+                    ? item.conversionFactor 
+                    : (item.unit === 'KG' && altUnit === 'MT' ? 0.001 : item.unit === 'MT' && altUnit === 'KG' ? 1000 : null)
+
+                  const renderQtyWithAlt = (qty: number, colorClass?: string, prefix: string = '') => {
+                    if (qty === 0 && prefix === '') return '-'
+                    const primaryStr = `${prefix}${qty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
+                    let altStr: string | null = null
+
+                    if (altUnit && altUnit !== item.unit && factor && factor > 0) {
+                      const altQty = qty * factor
+                      altStr = `${prefix}${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit}`
+                    }
+
+                    return (
+                      <div className="flex flex-col items-end">
+                        <span className={`font-mono ${colorClass || 'text-slate-900 font-semibold'}`}>
+                          {primaryStr}
+                        </span>
+                        {altStr && (
+                          <span className="font-mono text-[10px] text-slate-500 font-medium">
+                            ({altStr})
+                          </span>
+                        )}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <TableRow key={item.itemId} className="hover:bg-slate-50/80">
+                      <TableCell className="font-bold text-slate-900">{item.itemName}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
+                          {item.category || 'General'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <Badge variant="outline" className="font-mono text-xs w-fit">{item.unit}</Badge>
+                          {altUnit && altUnit !== item.unit && (
+                            <span className="text-[10px] text-slate-500 font-mono">Alt: {altUnit}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {renderQtyWithAlt(item.openingStockMT)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {renderQtyWithAlt(item.totalPurchaseMT, 'text-emerald-700 font-bold', '+')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {renderQtyWithAlt(item.totalSalesMT, 'text-blue-700 font-bold', '-')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {renderQtyWithAlt(item.balanceMT, item.balanceMT < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold')}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(item.avgPurchaseRate)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-slate-900">
+                        {formatCurrency(item.currentStockValue)}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
