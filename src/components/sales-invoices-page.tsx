@@ -381,10 +381,19 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
         } else {
           itemRow.quantityMT = numVal
         }
-        itemRow.amount = itemRow.quantityMT * itemRow.rate
+        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
+      } else if (field === 'basicRate') {
+        const basicRate = parseFloat(value as string) || 0
+        const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
+        itemRow.basicRate = basicRate
+        itemRow.rate = parseFloat((basicRate * (1 + itemGstPct / 100)).toFixed(2))
+        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       } else if (field === 'rate') {
-        itemRow.rate = parseFloat(value as string) || 0
-        itemRow.amount = itemRow.quantityMT * itemRow.rate
+        const rateWithTax = parseFloat(value as string) || 0
+        const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
+        itemRow.rate = rateWithTax
+        itemRow.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
+        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       }
       
       updated[index] = itemRow
@@ -965,7 +974,8 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                   <span>Items</span>
                                   <span>HSN/ SAC</span>
                                   <span>Qty</span>
-                                  <span>Price/Item (₹)</span>
+                                  <span>Price (excl. Tax)</span>
+                                  <span>Price (incl. Tax)</span>
                                   <span>Discount</span>
                                   <span>Tax</span>
                                   <span>Amount (₹)</span>
@@ -1022,10 +1032,19 @@ export default function SalesInvoicesPage({ salesInvoices, setSalesInvoices, cus
                                       type="number"
                                       step="0.01"
                                       min="0"
+                                      value={item.basicRate || ''}
+                                      onChange={(e) => updateInvoiceItem(index, 'basicRate', e.target.value)}
+                                      placeholder="Excl. Tax"
+                                      className="erp-reference-cell-input font-mono text-right"
+                                    />
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
                                       value={item.rate || ''}
                                       onChange={(e) => updateInvoiceItem(index, 'rate', e.target.value)}
-                                      placeholder="0"
-                                      className="erp-reference-cell-input font-mono text-right"
+                                      placeholder="Incl. Tax"
+                                      className="erp-reference-cell-input font-mono text-right font-bold text-blue-900 bg-blue-50/50 border-blue-200"
                                     />
                                     <Input value="-" disabled className="erp-reference-cell-input text-center" />
                                     <Input value={`GST @ ${getInvoiceItemGstRate(item.itemId)}%`} disabled className="erp-reference-cell-input text-center" />

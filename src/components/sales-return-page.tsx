@@ -288,6 +288,16 @@ export default function SalesReturnPage({
         } else {
           updated.quantityMT = numVal
         }
+      } else if (field === 'basicRate') {
+        const basicRate = Number(value) || 0
+        const itemGstPct = selectedDef?.gstRate || gstPercentage
+        updated.basicRate = basicRate
+        updated.rate = parseFloat((basicRate * (1 + itemGstPct / 100)).toFixed(2))
+      } else if (field === 'rate') {
+        const rateWithTax = Number(value) || 0
+        const itemGstPct = selectedDef?.gstRate || gstPercentage
+        updated.rate = rateWithTax
+        updated.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
       }
 
       const qty = Number(updated.quantityMT) || 0
@@ -771,8 +781,9 @@ export default function SalesReturnPage({
                       <span>No</span>
                       <span>Items</span>
                       <span>HSN/ SAC</span>
-                      <span>Qty (MT)</span>
-                      <span>Price/Item (₹)</span>
+                      <span>Qty</span>
+                      <span>Price (excl. Tax)</span>
+                      <span>Price (incl. Tax)</span>
                       <span>Discount</span>
                       <span>Tax</span>
                       <span>Amount (₹)</span>
@@ -831,10 +842,19 @@ export default function SalesReturnPage({
                             type="number"
                             step="0.01"
                             min="0"
+                            value={lineItem.basicRate || ''}
+                            onChange={(e) => handleUpdateLineItem(index, 'basicRate', e.target.value)}
+                            placeholder="Excl. Tax"
+                            className="erp-reference-cell-input font-mono text-right"
+                          />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
                             value={lineItem.rate || ''}
                             onChange={(e) => handleUpdateLineItem(index, 'rate', e.target.value)}
-                            placeholder="0"
-                            className="erp-reference-cell-input font-mono text-right"
+                            placeholder="Incl. Tax"
+                            className="erp-reference-cell-input font-mono text-right font-bold text-blue-900 bg-blue-50/50 border-blue-200"
                           />
                           <Input value="-" disabled className="erp-reference-cell-input text-center" />
                           <Input value={`GST @ ${selectedItem?.gstRate || gstPercentage}%`} disabled className="erp-reference-cell-input text-center" />
