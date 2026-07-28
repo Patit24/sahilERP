@@ -69,6 +69,12 @@ export interface InventoryData {
   avgPurchaseRate: number
   avgSalesRate: number
   currentStockValue: number
+  secondaryUnit?: string
+  secondaryOpeningStock?: number
+  secondaryTotalPurchase?: number
+  secondaryTotalSales?: number
+  secondaryBalance?: number
+  primaryUnit?: string
 }
 
 export interface CDAtRisk {
@@ -94,6 +100,42 @@ export interface CDAtRisk {
   totalPaymentCDAtCurrentSlab: number
 }
 
+export function getItemNormalizedQty(
+  invItem: { entryQuantity?: number; quantityMT?: number; entryUnit?: string },
+  item: Item,
+  conversionFactor?: number
+): { primaryQty: number; altQty: number; usedUnit: string } {
+  const primaryUnit = item.unit || 'MT'
+  const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : undefined
+
+  let factor = conversionFactor || item.conversionFactor
+  if (!factor || factor <= 0) {
+    if (primaryUnit === 'MT' && altUnit === 'KG') factor = 1000
+    else if (primaryUnit === 'KG' && altUnit === 'MT') factor = 0.001
+    else factor = 1
+  }
+
+  const entryUnit = invItem.entryUnit || primaryUnit
+  let primaryQty = 0
+  let altQty = 0
+
+  if (altUnit && entryUnit === altUnit) {
+    const rawQty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+      ? invItem.entryQuantity
+      : (invItem.quantityMT ? invItem.quantityMT * factor : 0)
+    altQty = rawQty
+    primaryQty = factor >= 1 ? rawQty / factor : rawQty * factor
+  } else {
+    const rawQty = (invItem.quantityMT !== undefined && invItem.quantityMT !== null && invItem.quantityMT > 0)
+      ? invItem.quantityMT
+      : (invItem.entryQuantity || 0)
+    primaryQty = rawQty
+    altQty = factor >= 1 ? rawQty * factor : rawQty / factor
+  }
+
+  return { primaryQty, altQty, usedUnit: entryUnit }
+}
+
 export function calculateInventoryReport(
   items: Item[],
   purchaseInvoices: PurchaseInvoice[],
@@ -104,21 +146,38 @@ export function calculateInventoryReport(
   const inventory: InventoryData[] = []
 
   items.forEach(item => {
-    const openingStockMT = item.openingStock || 0
+    const primaryUnit = item.unit || 'MT'
+    const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : undefined
+
+    let factor = item.conversionFactor
+    if (!factor || factor <= 0) {
+      if (primaryUnit === 'MT' && altUnit === 'KG') factor = 1000
+      else if (primaryUnit === 'KG' && altUnit === 'MT') factor = 0.001
+      else factor = 1
+    }
+
+    const openingPrimary = item.openingStock || 0
     const openingStockValue = item.openingValue || 0
-    
-    let totalPurchaseMT = 0
+    const openingAlt = factor >= 1 ? openingPrimary * factor : openingPrimary / factor
+
+    let totalPurchasePrimary = 0
+    let totalPurchaseAlt = 0
     let totalPurchaseAmount = 0
-    let totalSalesMT = 0
+
+    let totalSalesPrimary = 0
+    let totalSalesAlt = 0
     let totalSalesAmount = 0
 
-    const purchaseBatches: { date: Date; quantityMT: number; rate: number; amount: number }[] = []
+    let usedAltUnitCount = 0
+    let usedPrimaryUnitCount = 0
 
-    if (openingStockMT > 0 && openingStockValue > 0) {
+    const purchaseBatches: { date: Date; quantityPrimary: number; rate: number; amount: number }[] = []
+
+    if (openingPrimary > 0 && openingStockValue > 0) {
       purchaseBatches.push({
         date: new Date('1900-01-01'),
-        quantityMT: openingStockMT,
-        rate: openingStockValue / openingStockMT,
+        quantityPrimary: openingPrimary,
+        rate: openingStockValue / openingPrimary,
         amount: openingStockValue
       })
     }
@@ -127,32 +186,33 @@ export function calculateInventoryReport(
       if (invoice.items && Array.isArray(invoice.items)) {
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            totalPurchaseMT += qty
-            totalPurchaseAmount += invItem.amount
+            const { primaryQty, altQty, usedUnit } = getItemNormalizedQty(invItem, item, factor)
+            totalPurchasePrimary += primaryQty
+            totalPurchaseAlt += altQty
+            totalPurchaseAmount += invItem.amount || 0
+
+            if (altUnit && usedUnit === altUnit) usedAltUnitCount++
+            else usedPrimaryUnitCount++
+
             purchaseBatches.push({
               date: new Date(invoice.invoiceDate),
-              quantityMT: qty,
-              rate: invItem.rate,
-              amount: invItem.amount
+              quantityPrimary: primaryQty,
+              rate: primaryQty > 0 ? (invItem.amount || 0) / primaryQty : 0,
+              amount: invItem.amount || 0
             })
           }
         })
       }
     })
 
-    // Subtract Purchase Returns (Items go back to supplier -> MINUS from inventory)
     purchaseReturns.forEach(ret => {
       if (ret.items && Array.isArray(ret.items)) {
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            totalPurchaseMT -= qty
-            totalPurchaseAmount -= invItem.amount
+            const { primaryQty, altQty } = getItemNormalizedQty(invItem, item, factor)
+            totalPurchasePrimary -= primaryQty
+            totalPurchaseAlt -= altQty
+            totalPurchaseAmount -= invItem.amount || 0
           }
         })
       }
@@ -162,64 +222,82 @@ export function calculateInventoryReport(
       if (invoice.items && Array.isArray(invoice.items)) {
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            totalSalesMT += qty
-            totalSalesAmount += invItem.amount
+            const { primaryQty, altQty, usedUnit } = getItemNormalizedQty(invItem, item, factor)
+            totalSalesPrimary += primaryQty
+            totalSalesAlt += altQty
+            totalSalesAmount += invItem.amount || 0
+
+            if (altUnit && usedUnit === altUnit) usedAltUnitCount++
+            else usedPrimaryUnitCount++
           }
         })
       }
     })
 
-    // Subtract Sales Returns (Items come back from customer -> PLUS in inventory)
     salesReturns.forEach(ret => {
       if (ret.items && Array.isArray(ret.items)) {
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            totalSalesMT -= qty
-            totalSalesAmount -= invItem.amount
+            const { primaryQty, altQty } = getItemNormalizedQty(invItem, item, factor)
+            totalSalesPrimary -= primaryQty
+            totalSalesAlt -= altQty
+            totalSalesAmount -= invItem.amount || 0
           }
         })
       }
     })
 
+    const balancePrimary = (openingPrimary + totalPurchasePrimary) - totalSalesPrimary
+    const balanceAlt = (openingAlt + totalPurchaseAlt) - totalSalesAlt
 
-    const totalAvailableMT = openingStockMT + totalPurchaseMT
-    const balanceMT = totalAvailableMT - totalSalesMT
+    // Prefer Alt unit display if altUnit is defined AND user has transacted in altUnit
+    const preferAlt = Boolean(altUnit && usedAltUnitCount > 0 && usedAltUnitCount >= usedPrimaryUnitCount)
+
+    const mainUnit = preferAlt ? (altUnit!) : primaryUnit
+    const secUnit = preferAlt ? primaryUnit : altUnit
+
+    const openingStockMT = preferAlt ? openingAlt : openingPrimary
+    const totalPurchaseMT = preferAlt ? totalPurchaseAlt : totalPurchasePrimary
+    const totalSalesMT = preferAlt ? totalSalesAlt : totalSalesPrimary
+    const balanceMT = preferAlt ? balanceAlt : balancePrimary
+
+    const secOpeningStock = preferAlt ? openingPrimary : openingAlt
+    const secTotalPurchase = preferAlt ? totalPurchasePrimary : totalPurchaseAlt
+    const secTotalSales = preferAlt ? totalSalesPrimary : totalSalesAlt
+    const secBalance = preferAlt ? balancePrimary : balanceAlt
+
+    const totalAvailablePrimary = openingPrimary + totalPurchasePrimary
     const totalAvailableAmount = openingStockValue + totalPurchaseAmount
-    const avgPurchaseRate = totalAvailableMT > 0 ? totalAvailableAmount / totalAvailableMT : 0
-    const avgSalesRate = totalSalesMT > 0 ? totalSalesAmount / totalSalesMT : 0
-    
+    const avgPurchaseRatePrimary = totalAvailablePrimary > 0 ? totalAvailableAmount / totalAvailablePrimary : 0
+    const avgSalesRatePrimary = totalSalesPrimary > 0 ? totalSalesAmount / totalSalesPrimary : 0
+
+    const avgPurchaseRate = preferAlt ? (factor >= 1 ? avgPurchaseRatePrimary / factor : avgPurchaseRatePrimary * factor) : avgPurchaseRatePrimary
+    const avgSalesRate = preferAlt ? (factor >= 1 ? avgSalesRatePrimary / factor : avgSalesRatePrimary * factor) : avgSalesRatePrimary
+
     let currentStockValue = 0
-    
-    if (balanceMT > 0 && purchaseBatches.length > 0) {
+    if (balancePrimary > 0 && purchaseBatches.length > 0) {
       purchaseBatches.sort((a, b) => a.date.getTime() - b.date.getTime())
-      
-      let remainingSalesMT = totalSalesMT
+      let remainingSales = totalSalesPrimary
       let calculatedBalance = 0
-      
+
       for (const batch of purchaseBatches) {
-        if (remainingSalesMT >= batch.quantityMT) {
-          remainingSalesMT -= batch.quantityMT
-        } else if (remainingSalesMT > 0) {
-          const remainingQty = batch.quantityMT - remainingSalesMT
+        if (remainingSales >= batch.quantityPrimary) {
+          remainingSales -= batch.quantityPrimary
+        } else if (remainingSales > 0) {
+          const remainingQty = batch.quantityPrimary - remainingSales
           currentStockValue += remainingQty * batch.rate
           calculatedBalance += remainingQty
-          remainingSalesMT = 0
+          remainingSales = 0
         } else {
-          currentStockValue += batch.quantityMT * batch.rate
-          calculatedBalance += batch.quantityMT
+          currentStockValue += batch.quantityPrimary * batch.rate
+          calculatedBalance += batch.quantityPrimary
         }
       }
-      
-      if (calculatedBalance !== balanceMT && Math.abs(calculatedBalance - balanceMT) > 0.01) {
-        currentStockValue = balanceMT * avgPurchaseRate
+
+      if (calculatedBalance !== balancePrimary && Math.abs(calculatedBalance - balancePrimary) > 0.01) {
+        currentStockValue = balancePrimary * avgPurchaseRatePrimary
       }
-    } else if (balanceMT <= 0) {
+    } else if (balancePrimary <= 0) {
       currentStockValue = 0
     }
 
@@ -227,9 +305,9 @@ export function calculateInventoryReport(
       itemId: item.id,
       itemName: item.name,
       category: item.category || 'Uncategorized',
-      unit: item.unit || 'MT',
-      alternativeUnit: item.alternativeUnit,
-      conversionFactor: item.conversionFactor,
+      unit: mainUnit,
+      alternativeUnit: secUnit,
+      conversionFactor: factor,
       openingStockMT,
       openingStockValue,
       totalPurchaseMT,
@@ -237,11 +315,17 @@ export function calculateInventoryReport(
       balanceMT,
       avgPurchaseRate,
       avgSalesRate,
-      currentStockValue: isNaN(currentStockValue) || !isFinite(currentStockValue) ? 0 : Math.max(0, currentStockValue)
+      currentStockValue: isNaN(currentStockValue) || !isFinite(currentStockValue) ? 0 : Math.max(0, currentStockValue),
+      secondaryUnit: secUnit,
+      secondaryOpeningStock: secOpeningStock,
+      secondaryTotalPurchase: secTotalPurchase,
+      secondaryTotalSales: secTotalSales,
+      secondaryBalance: secBalance,
+      primaryUnit
     })
   })
 
-  return inventory.filter(inv => inv.openingStockMT > 0 || inv.totalPurchaseMT > 0 || inv.totalSalesMT > 0)
+  return inventory
 }
 
 export function calculateItemStockMap(
@@ -252,63 +336,13 @@ export function calculateItemStockMap(
   salesReturns: SalesReturn[] = []
 ): Map<string, { currentStock: number; unit: string }> {
   const stockMap = new Map<string, { currentStock: number; unit: string }>()
+  const inventory = calculateInventoryReport(items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns)
 
-  items.forEach(item => {
-    let currentStock = item.openingStock || 0
-
-    purchaseInvoices.forEach(inv => {
-      if (inv.items && Array.isArray(inv.items)) {
-        inv.items.forEach(invItem => {
-          if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            currentStock += qty
-          }
-        })
-      }
+  inventory.forEach(inv => {
+    stockMap.set(inv.itemId, {
+      currentStock: inv.balanceMT,
+      unit: inv.unit
     })
-
-    purchaseReturns.forEach(ret => {
-      if (ret.items && Array.isArray(ret.items)) {
-        ret.items.forEach(invItem => {
-          if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            currentStock -= qty
-          }
-        })
-      }
-    })
-
-    salesInvoices.forEach(inv => {
-      if (inv.items && Array.isArray(inv.items)) {
-        inv.items.forEach(invItem => {
-          if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            currentStock -= qty
-          }
-        })
-      }
-    })
-
-    salesReturns.forEach(ret => {
-      if (ret.items && Array.isArray(ret.items)) {
-        ret.items.forEach(invItem => {
-          if (invItem.itemId === item.id) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            currentStock += qty
-          }
-        })
-      }
-    })
-
-    stockMap.set(item.id, { currentStock, unit: item.unit || 'MT' })
   })
 
   return stockMap

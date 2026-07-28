@@ -97,30 +97,23 @@ export default function InventoryReportPage({
     doc.text(formatAmount(totals.totalStockValue), 180, yPos + 15)
 
     const tableData = inventoryData.map(item => {
-      const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE'
-        ? item.alternativeUnit
-        : (item.unit !== 'MT' ? 'MT' : undefined)
-      
-      const factor = item.conversionFactor 
-        ? item.conversionFactor 
-        : (item.unit === 'KG' && altUnit === 'MT' ? 0.001 : item.unit === 'MT' && altUnit === 'KG' ? 1000 : null)
-
-      const fmt = (qty: number) => {
-        const prim = `${qty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
-        if (altUnit && altUnit !== item.unit && factor && factor > 0) {
-          const alt = (qty * factor).toLocaleString('en-IN', { maximumFractionDigits: 3 })
-          return `${prim} (${alt} ${altUnit})`
+      const secUnit = item.secondaryUnit
+      const fmt = (primaryQty: number, secQty?: number) => {
+        const prim = `${primaryQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
+        if (secUnit && secUnit !== item.unit && typeof secQty === 'number') {
+          const sec = secQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+          return `${prim} (${sec} ${secUnit})`
         }
         return prim
       }
 
       return [
         item.itemName,
-        altUnit && altUnit !== item.unit ? `${item.unit} / ${altUnit}` : item.unit,
-        item.openingStockMT > 0 ? fmt(item.openingStockMT) : '-',
-        fmt(item.totalPurchaseMT),
-        fmt(item.totalSalesMT),
-        fmt(item.balanceMT),
+        secUnit && secUnit !== item.unit ? `${item.unit} / ${secUnit}` : item.unit,
+        item.openingStockMT > 0 ? fmt(item.openingStockMT, item.secondaryOpeningStock) : '-',
+        fmt(item.totalPurchaseMT, item.secondaryTotalPurchase),
+        fmt(item.totalSalesMT, item.secondaryTotalSales),
+        fmt(item.balanceMT, item.secondaryBalance),
         formatAmount(item.avgPurchaseRate),
         formatAmount(item.avgSalesRate),
         formatAmount(item.currentStockValue)
@@ -272,22 +265,15 @@ export default function InventoryReportPage({
                 </TableRow>
               ) : (
                 filteredInventoryData.map((item) => {
-                  const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE'
-                    ? item.alternativeUnit
-                    : (item.unit !== 'MT' ? 'MT' : undefined)
+                  const secUnit = item.secondaryUnit
                   
-                  const factor = item.conversionFactor 
-                    ? item.conversionFactor 
-                    : (item.unit === 'KG' && altUnit === 'MT' ? 0.001 : item.unit === 'MT' && altUnit === 'KG' ? 1000 : null)
+                  const renderQtyWithAlt = (primaryQty: number, secQty?: number, colorClass?: string, prefix: string = '') => {
+                    if (primaryQty === 0 && prefix === '') return '-'
+                    const primaryStr = `${prefix}${primaryQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
+                    let secStr: string | null = null
 
-                  const renderQtyWithAlt = (qty: number, colorClass?: string, prefix: string = '') => {
-                    if (qty === 0 && prefix === '') return '-'
-                    const primaryStr = `${prefix}${qty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`
-                    let altStr: string | null = null
-
-                    if (altUnit && altUnit !== item.unit && factor && factor > 0) {
-                      const altQty = qty * factor
-                      altStr = `${prefix}${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit}`
+                    if (secUnit && secUnit !== item.unit && typeof secQty === 'number') {
+                      secStr = `${prefix}${secQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${secUnit}`
                     }
 
                     return (
@@ -295,9 +281,9 @@ export default function InventoryReportPage({
                         <span className={`font-mono ${colorClass || 'text-slate-900 font-semibold'}`}>
                           {primaryStr}
                         </span>
-                        {altStr && (
+                        {secStr && (
                           <span className="font-mono text-[10px] text-slate-500 font-medium">
-                            ({altStr})
+                            ({secStr})
                           </span>
                         )}
                       </div>
@@ -315,22 +301,22 @@ export default function InventoryReportPage({
                       <TableCell>
                         <div className="flex flex-col gap-0.5">
                           <Badge variant="outline" className="font-mono text-xs w-fit">{item.unit}</Badge>
-                          {altUnit && altUnit !== item.unit && (
-                            <span className="text-[10px] text-slate-500 font-mono">Alt: {altUnit}</span>
+                          {secUnit && secUnit !== item.unit && (
+                            <span className="text-[10px] text-slate-500 font-mono">Alt: {secUnit}</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {renderQtyWithAlt(item.openingStockMT)}
+                        {renderQtyWithAlt(item.openingStockMT, item.secondaryOpeningStock)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {renderQtyWithAlt(item.totalPurchaseMT, 'text-emerald-700 font-bold', '+')}
+                        {renderQtyWithAlt(item.totalPurchaseMT, item.secondaryTotalPurchase, 'text-emerald-700 font-bold', '+')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {renderQtyWithAlt(item.totalSalesMT, 'text-blue-700 font-bold', '-')}
+                        {renderQtyWithAlt(item.totalSalesMT, item.secondaryTotalSales, 'text-blue-700 font-bold', '-')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {renderQtyWithAlt(item.balanceMT, item.balanceMT < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold')}
+                        {renderQtyWithAlt(item.balanceMT, item.secondaryBalance, item.balanceMT < 0 ? 'text-red-600 font-bold' : 'text-slate-900 font-bold')}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(item.avgPurchaseRate)}
