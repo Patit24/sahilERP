@@ -996,11 +996,11 @@ export default function SalesReturnPage({
                 <Table className="erp-item-picker-table">
                   <TableHeader className="erp-item-picker-table-head sticky top-0 z-10 bg-muted">
                     <TableRow>
-                      <TableHead className="w-[40%]">Item Name</TableHead>
-                      <TableHead>Item Code</TableHead>
-                      <TableHead className="text-right">Stock</TableHead>
-                      <TableHead className="text-right">Sales Price</TableHead>
-                      <TableHead className="text-right">Return Quantity</TableHead>
+                      <TableHead className="w-[30%]">Item Name</TableHead>
+                      <TableHead className="w-[15%]">Item Code</TableHead>
+                      <TableHead className="text-right w-[15%]">Stock</TableHead>
+                      <TableHead className="text-right w-[18%]">Sales Price</TableHead>
+                      <TableHead className="text-right w-[22%] min-w-[180px]">Return Quantity</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1014,6 +1014,9 @@ export default function SalesReturnPage({
                       filteredPickerItems.map(item => {
                         const pickerQuantity = pickerQuantities[item.id] !== undefined ? pickerQuantities[item.id] : 0
                         const isSelected = pickerQuantities[item.id] !== undefined
+                        const defaultAlt = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : item.unit
+                        const activeUnit = pickerUnits[item.id] || defaultAlt
+
                         return (
                           <TableRow
                             key={item.id}
@@ -1025,12 +1028,12 @@ export default function SalesReturnPage({
                             <TableCell className="text-right font-mono">{item.salesPrice ? formatCurrency(item.salesPrice) : '-'}</TableCell>
                             <TableCell className="text-right">
                               {isSelected ? (
-                                <div className="erp-picker-stepper flex items-center justify-end gap-1">
+                                <div className="inline-flex items-center justify-end gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200 shrink-0">
                                   <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7"
+                                    className="h-7 w-7 text-slate-600 hover:bg-white hover:text-slate-900 rounded-md shrink-0"
                                     onClick={() => updatePickerQuantity(item.id, pickerQuantity <= 1 ? null : pickerQuantity - 1)}
                                   >
                                     -
@@ -1041,62 +1044,55 @@ export default function SalesReturnPage({
                                     step="0.001"
                                     value={pickerQuantity}
                                     onChange={(event) => updatePickerQuantity(item.id, event.target.value === '' ? 0 : parseFloat(event.target.value))}
-                                    className="h-7 w-16 px-1 text-center font-mono text-xs"
+                                    className="h-7 w-14 px-1 text-center font-mono text-xs bg-white border-0 shadow-none focus-visible:ring-0 font-bold"
                                   />
                                   <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7"
+                                    className="h-7 w-7 text-slate-600 hover:bg-white hover:text-slate-900 rounded-md shrink-0"
                                     onClick={() => updatePickerQuantity(item.id, pickerQuantity + 1)}
                                   >
                                     +
                                   </Button>
-                                  {(() => {
-                                    const defaultAlt = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : item.unit
-                                    const activeUnit = pickerUnits[item.id] || defaultAlt
-                                    return (
-                                      <select
-                                        value={activeUnit}
-                                        onChange={(e) => updatePickerUnit(item.id, e.target.value)}
-                                        className="h-7 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 text-slate-800 focus:outline-none cursor-pointer"
-                                      >
-                                        {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
-                                          <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
-                                        )}
-                                        <option value={item.unit}>{item.unit}</option>
-                                      </select>
-                                    )
-                                  })()}
+                                  {item.alternativeUnit && item.alternativeUnit !== 'NONE' ? (
+                                    <select
+                                      value={activeUnit}
+                                      onChange={(e) => updatePickerUnit(item.id, e.target.value)}
+                                      className="h-7 text-xs font-bold font-mono bg-white border border-slate-200 rounded-md px-1 text-slate-800 focus:outline-none cursor-pointer ml-0.5"
+                                    >
+                                      <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
+                                      <option value={item.unit}>{item.unit}</option>
+                                    </select>
+                                  ) : (
+                                    <span className="text-xs font-bold font-mono text-slate-600 px-1.5">{item.unit}</span>
+                                  )}
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1.5">
                                   <Button
                                     type="button"
                                     variant="outline"
-                                    className="h-9 min-w-24 border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                                    size="sm"
+                                    className="h-8 px-3 text-xs font-semibold border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 shrink-0"
                                     onClick={() => {
                                       updatePickerQuantity(item.id, 1)
                                     }}
                                   >
                                     + Add
                                   </Button>
-                                  {(() => {
-                                    const defaultAlt = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : item.unit
-                                    const activeUnit = pickerUnits[item.id] || defaultAlt
-                                    return (
-                                      <select
-                                        value={activeUnit}
-                                        onChange={(e) => updatePickerUnit(item.id, e.target.value)}
-                                        className="h-9 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1.5 text-slate-800 focus:outline-none cursor-pointer"
-                                      >
-                                        {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
-                                          <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
-                                        )}
-                                        <option value={item.unit}>{item.unit}</option>
-                                      </select>
-                                    )
-                                  })()}
+                                  {item.alternativeUnit && item.alternativeUnit !== 'NONE' ? (
+                                    <select
+                                      value={activeUnit}
+                                      onChange={(e) => updatePickerUnit(item.id, e.target.value)}
+                                      className="h-8 text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded-md px-1.5 text-slate-800 focus:outline-none cursor-pointer shrink-0"
+                                    >
+                                      <option value={item.alternativeUnit}>{item.alternativeUnit}</option>
+                                      <option value={item.unit}>{item.unit}</option>
+                                    </select>
+                                  ) : (
+                                    <span className="text-xs font-bold font-mono text-slate-500 min-w-[32px] text-left">{item.unit}</span>
+                                  )}
                                 </div>
                               )}
                             </TableCell>
