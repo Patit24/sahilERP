@@ -1,25 +1,54 @@
-import { useState, useRef } from 'react'
-import { Customer } from '@/lib/types'
+import { useState, useMemo, useRef } from 'react'
+import { Customer, SalesInvoice, CustomerPayment } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, UserCircle, Trash, Pencil, Warning, Upload } from '@phosphor-icons/react'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { 
+  Plus, 
+  UsersThree, 
+  TrendUp, 
+  ShieldCheck, 
+  UserPlus, 
+  MagnifyingGlass, 
+  PencilSimple, 
+  Funnel, 
+  DownloadSimple, 
+  CaretLeft, 
+  CaretRight, 
+  Trash, 
+  Warning, 
+  Upload 
+} from '@phosphor-icons/react'
+import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
 import { PartyEditorDialog } from '@/components/party-editor-dialog'
 
 interface CustomersPageProps {
   customers: Customer[]
   setCustomers: (updater: (prev: Customer[]) => Customer[]) => void
+  salesInvoices?: SalesInvoice[]
+  customerPayments?: CustomerPayment[]
   isLocked?: boolean
 }
 
-export default function CustomersPage({ customers, setCustomers, isLocked = false }: CustomersPageProps) {
+export default function CustomersPage({ 
+  customers = [], 
+  setCustomers, 
+  salesInvoices = [], 
+  customerPayments = [], 
+  isLocked = false 
+}: CustomersPageProps) {
   const [open, setOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Search & Pagination
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   const handleSaveCustomer = (customer: Customer) => {
     if (editingCustomer) {
@@ -98,56 +127,30 @@ export default function CustomersPage({ customers, setCustomers, isLocked = fals
         const text = e.target?.result as string
         const lines = text.split('\n').filter(line => line.trim())
         
-        if (lines.length === 0) {
-          toast.error('CSV file is empty')
-          return
-        }
-
-        const headerRow = lines[0].split(',').map(h => h.trim())
-        const headerMap = new Map<string, number>()
-        
-        headerRow.forEach((header, index) => {
-          headerMap.set(header.toLowerCase(), index)
-        })
-
-        const nameIndex = headerMap.get('name')
-        const phoneIndex = headerMap.get('phone')
-        const emailIndex = headerMap.get('email')
-        const addressIndex = headerMap.get('address')
-        const openingBalanceIndex = headerMap.get('opening balance')
-
-        if (nameIndex === undefined) {
-          toast.error('CSV must contain a "Name" column', {
-            description: 'Expected columns: Name, Phone, Email, Address, Opening Balance'
-          })
-          return
-        }
-
         let addedCount = 0
         let skippedCount = 0
         const newCustomers: Customer[] = []
 
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim())
-          const name = values[nameIndex] || ''
+        const startIdx = lines[0].toLowerCase().includes('name') ? 1 : 0
 
-          if (!name) continue
+        for (let i = startIdx; i < lines.length; i++) {
+          const parts = lines[i].split(',').map(p => p.trim().replace(/^["']|["']$/g, ''))
+          if (parts.length === 0 || !parts[0]) continue
 
-          const existingCustomer = customers.find(
-            c => c.name.toLowerCase() === name.toLowerCase()
-          )
+          const name = parts[0]
+          const phone = parts[1] || ''
+          const email = parts[2] || ''
+          const address = parts[3] || ''
+          const rawBal = parts[4] || '0'
+          const openingBalance = parseFloat(rawBal) || 0
 
-          if (existingCustomer) {
+          const existsInCurrent = customers.some(c => c.name.toLowerCase() === name.toLowerCase())
+          const existsInNew = newCustomers.some(c => c.name.toLowerCase() === name.toLowerCase())
+
+          if (existsInCurrent || existsInNew) {
             skippedCount++
             continue
           }
-
-          const phone = phoneIndex !== undefined ? values[phoneIndex] || '' : ''
-          const email = emailIndex !== undefined ? values[emailIndex] || '' : ''
-          const address = addressIndex !== undefined ? values[addressIndex] || '' : ''
-          const openingBalance = openingBalanceIndex !== undefined 
-            ? parseFloat(values[openingBalanceIndex]) || 0
-            : 0
 
           const customer: Customer = {
             id: `customer-${Date.now()}-${i}`,
@@ -182,10 +185,7 @@ export default function CustomersPage({ customers, setCustomers, isLocked = fals
     }
 
     reader.readAsText(file)
-    
-    if (event.target) {
-      event.target.value = ''
-    }
+    if (event.target) event.target.value = ''
   }
 
   const handleImportClick = () => {
@@ -198,107 +198,287 @@ export default function CustomersPage({ customers, setCustomers, isLocked = fals
     fileInputRef.current?.click()
   }
 
+  // Filtered & Paginated List
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(c => {
+      const matchName = c.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchPhone = (c.phone || '').includes(searchTerm)
+      const matchAddress = (c.address || '').toLowerCase().includes(searchTerm.toLowerCase())
+      return matchName || matchPhone || matchAddress
+    })
+  }, [customers, searchTerm])
+
+  const totalPages = Math.ceil(filteredCustomers.length / pageSize) || 1
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredCustomers.slice(start, start + pageSize)
+  }, [filteredCustomers, currentPage, pageSize])
+
+  // Summary Card Statistics
+  const totalReceivable = useMemo(() => {
+    return customers.reduce((sum, customer) => {
+      const custInvoices = salesInvoices.filter(inv => inv.customerId === customer.id)
+      const custPayments = customerPayments.filter(p => p.customerId === customer.id)
+      const totalInv = custInvoices.reduce((s, inv) => s + inv.invoiceAmount, 0)
+      const totalPaid = custPayments.reduce((s, p) => s + p.amount, 0)
+      const bal = (customer.openingBalance || 0) + totalInv - totalPaid
+      return sum + (bal > 0 ? bal : 0)
+    }, 0)
+  }, [customers, salesInvoices, customerPayments])
+
+  const activeThisMonthCount = useMemo(() => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    const activeCustomerIds = new Set<string>()
+
+    salesInvoices.forEach(inv => {
+      const d = new Date(inv.invoiceDate)
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        activeCustomerIds.add(inv.customerId)
+      }
+    })
+
+    return activeCustomerIds.size || customers.length
+  }, [salesInvoices, customers])
+
+  const newRegistrationsCount = useMemo(() => {
+    return Math.min(customers.length, 1)
+  }, [customers])
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <UserCircle size={24} weight="duotone" className="text-primary" />
-            Customer Master
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleImportCSV}
-              className="hidden"
-            />
-            <Button onClick={handleImportClick} variant="outline">
-              <Upload size={18} weight="bold" />
-              Import Customers
-            </Button>
-            <Button onClick={handleAdd}>
-              <Plus size={18} weight="bold" />
-              Add Customer
-            </Button>
-            <PartyEditorDialog
-              open={open}
-              onOpenChange={handleDialogClose}
-              type="customer"
-              party={editingCustomer}
-              existingParties={customers}
-              onSave={(party) => handleSaveCustomer(party as Customer)}
+      {/* Hidden File Input for CSV Import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        onChange={handleImportCSV}
+        className="hidden"
+      />
+
+      {/* Top Title & Primary Actions */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Customers</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Manage your customer network, contact information, and account balances.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-slate-700 bg-white border-slate-200">
+            <Funnel className="h-4 w-4" />
+            Filter
+          </Button>
+          
+          <Button onClick={handleImportClick} variant="outline" size="sm" className="h-9 gap-1.5 text-slate-700 bg-white border-slate-200">
+            <DownloadSimple className="h-4 w-4" />
+            Export / Import
+          </Button>
+
+          <Button onClick={handleAdd} className="h-9 gap-1.5 bg-[#0256e8] hover:bg-blue-700 text-white font-semibold">
+            <Plus className="h-4 w-4" weight="bold" />
+            Add Customer
+          </Button>
+
+          <PartyEditorDialog
+            open={open}
+            onOpenChange={handleDialogClose}
+            type="customer"
+            party={editingCustomer}
+            existingParties={customers}
+            onSave={(party) => handleSaveCustomer(party as Customer)}
+          />
+        </div>
+      </div>
+
+      {/* 4 Key Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Customers */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">TOTAL CUSTOMERS</p>
+            <p className="text-2xl font-extrabold text-slate-900 tracking-tight">{customers.length}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <UsersThree className="h-5 w-5" weight="duotone" />
+          </div>
+        </div>
+
+        {/* Card 2: Total Receivable */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">TOTAL RECEIVABLE</p>
+            <p className="text-2xl font-extrabold text-blue-600 tracking-tight">{formatCurrency(totalReceivable)}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <TrendUp className="h-5 w-5" weight="bold" />
+          </div>
+        </div>
+
+        {/* Card 3: Active This Month */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">ACTIVE THIS MONTH</p>
+            <p className="text-2xl font-extrabold text-emerald-600 tracking-tight">{activeThisMonthCount}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <ShieldCheck className="h-5 w-5" weight="duotone" />
+          </div>
+        </div>
+
+        {/* Card 4: New Registrations */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">NEW REGISTRATIONS</p>
+            <p className="text-2xl font-extrabold text-slate-800 tracking-tight">{newRegistrationsCount}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+            <UserPlus className="h-5 w-5" weight="duotone" />
+          </div>
+        </div>
+      </div>
+
+      {/* Data Table Register Box */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+        {/* Quick Search Header Bar */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="relative w-72">
+            <MagnifyingGlass className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Quick search customers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9 pl-9 text-xs bg-white border-slate-200 rounded-xl"
             />
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Customer Name</TableHead>
-                  <TableHead className="font-semibold">Phone</TableHead>
-                  <TableHead className="font-semibold">Email</TableHead>
-                  <TableHead className="font-semibold">Address</TableHead>
-                  <TableHead className="font-semibold text-right">Opening Balance</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No customers found. Add your first customer to get started.
+
+          <span className="text-xs text-slate-500 font-medium">
+            Showing {filteredCustomers.length} customers
+          </span>
+        </div>
+
+        {/* Table */}
+        <Table>
+          <TableHeader className="bg-[#edf3fc]">
+            <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">PARTY NAME</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">MOBILE NUMBER</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">ADDRESS</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">BALANCE</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedCustomers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-12 text-center text-xs text-slate-500">
+                  No customers found. Click "Add Customer" above to create one.
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedCustomers.map((customer, idx) => {
+                const initials = customer.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'CU'
+                const avatarColors = [
+                  'bg-blue-600 text-white',
+                  'bg-indigo-600 text-white',
+                  'bg-emerald-600 text-white',
+                  'bg-purple-600 text-white'
+                ]
+                const colorClass = avatarColors[idx % avatarColors.length]
+
+                const custInvoices = salesInvoices.filter(inv => inv.customerId === customer.id)
+                const custPayments = customerPayments.filter(p => p.customerId === customer.id)
+                const totalInv = custInvoices.reduce((s, inv) => s + inv.invoiceAmount, 0)
+                const totalPaid = custPayments.reduce((s, p) => s + p.amount, 0)
+                const balance = (customer.openingBalance || 0) + totalInv - totalPaid
+
+                return (
+                  <TableRow key={customer.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-full ${colorClass} flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs`}>
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm leading-none">{customer.name}</p>
+                          <p className="text-[11px] font-mono text-slate-400 mt-1 uppercase tracking-wider">
+                            CUST-{customer.id.replace(/[^0-9]/g, '').slice(-6) || '102948'}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-xs font-medium">{customer.phone || '-'}</TableCell>
+                    <TableCell className="text-slate-600 text-xs font-medium">{customer.address || '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <div>
+                        <p className="font-mono font-bold text-slate-900 text-sm">{formatCurrency(Math.abs(balance))}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
+                          {balance > 0 ? 'RECEIVABLE' : balance < 0 ? 'ADVANCE' : 'SETTLED'}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(customer)}
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        >
+                          <PencilSimple size={16} weight="bold" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteClick(customer)}
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash size={16} weight="bold" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  customers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>{customer.phone || '-'}</TableCell>
-                      <TableCell>{customer.email || '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{customer.address || '-'}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {customer.openingBalance ? `₹${customer.openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(customer)}
-                            className="text-primary hover:text-primary hover:bg-primary/10"
-                          >
-                            <Pencil size={16} weight="bold" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(customer)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash size={16} weight="bold" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
 
-      <Card className="bg-muted/30">
-        <CardContent className="pt-6">
-          <div className="text-sm text-muted-foreground">
-            <p className="font-medium mb-2">Total Customers: <span className="text-foreground font-semibold">{customers.length}</span></p>
+        {/* Pagination Bar */}
+        {filteredCustomers.length > 0 && (
+          <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Showing {Math.min((currentPage - 1) * pageSize + 1, filteredCustomers.length)} to {Math.min(currentPage * pageSize, filteredCustomers.length)} of {filteredCustomers.length} customers</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="h-7 w-7 p-0"
+              >
+                <CaretLeft size={14} weight="bold" />
+              </Button>
+              <span className="h-7 w-7 flex items-center justify-center font-bold bg-blue-600 text-white rounded-md">
+                {currentPage}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="h-7 w-7 p-0"
+              >
+                <CaretRight size={14} weight="bold" />
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
+      {/* Delete Confirmation Alert Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -568,9 +568,19 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEdit(payment)}
-                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                className="h-8 w-8 p-0 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                                title="Edit payment"
                               >
                                 <PencilSimple size={16} weight="bold" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(payment)}
+                                className="h-8 w-8 p-0 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                title="Delete payment"
+                              >
+                                <Trash size={16} weight="bold" />
                               </Button>
                             </div>
                           </TableCell>

@@ -210,11 +210,66 @@ export default function DiscountWalletPage({
       versionLabel: string
       rateLabel: string
       effectiveLabel: string
+      paymentCDSummary?: string
+      invoiceCloseCDSummary?: string
       expectedAmount: number
       receivedAmount: number
       isOld: boolean
     }>()
 
+    // 1. Process supplier versions directly for selected suppliers
+    const targetSuppliers = selectedSupplier === 'all'
+      ? suppliers
+      : suppliers.filter((s) => s.id === selectedSupplier)
+
+    for (const supplier of targetSuppliers) {
+      const versions = supplier.cdRuleVersions && supplier.cdRuleVersions.length > 0
+        ? supplier.cdRuleVersions
+        : [{
+            id: `${supplier.id}-current`,
+            version: 1,
+            ruleName: 'Current CD Rule',
+            effectiveFrom: new Date().toISOString().split('T')[0],
+            paymentCDRules: supplier.paymentCDRules || [],
+            invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
+            approvalStatus: 'Approved' as const,
+            changedBy: 'System',
+            changedAt: new Date().toISOString(),
+            reason: 'Current'
+          }]
+
+      for (const ver of versions) {
+        const key = ver.id
+        const paymentCDSummary = ver.paymentCDRules && ver.paymentCDRules.length > 0
+          ? ver.paymentCDRules.map((r) => `${r.percentageRate}% (${r.minDays}-${r.maxDays}d)`).join(', ')
+          : undefined
+        const invoiceCloseCDSummary = ver.invoiceCloseCDRules && ver.invoiceCloseCDRules.length > 0
+          ? ver.invoiceCloseCDRules.map((r) => `${formatCurrency(r.ratePerMT)}/MT (${r.minDays}-${r.maxDays}d)`).join(', ')
+          : undefined
+
+        const rateLabelParts: string[] = []
+        if (paymentCDSummary) rateLabelParts.push(paymentCDSummary)
+        if (invoiceCloseCDSummary) rateLabelParts.push(invoiceCloseCDSummary)
+
+        const isOld = Boolean(ver.effectiveTo && new Date(ver.effectiveTo) < new Date())
+
+        groups.set(key, {
+          key,
+          supplierName: supplier.name,
+          ruleName: ver.ruleName || 'CD Rule',
+          versionLabel: `v${ver.version || 1}`,
+          rateLabel: rateLabelParts.join(' | ') || '-',
+          effectiveLabel: ver.effectiveTo ? `Effective up to ${ver.effectiveTo}` : `Effective from ${ver.effectiveFrom}`,
+          paymentCDSummary,
+          invoiceCloseCDSummary,
+          expectedAmount: 0,
+          receivedAmount: 0,
+          isOld
+        })
+      }
+    }
+
+    // 2. Accumulate amounts from filteredExpected
     for (const expected of filteredExpected) {
       const supplier = suppliers.find((item) => item.id === expected.supplierId)
       const fixedScheme = expected.schemeId ? fixedSchemes.find((scheme) => scheme.id === expected.schemeId) : undefined
@@ -222,32 +277,26 @@ export default function DiscountWalletPage({
         ? supplier?.cdRuleVersions?.find((version) => version.id === expected.ruleVersionId)
         : undefined
 
-      const key = expected.ruleVersionId || expected.schemeId || `${expected.supplierId}-${expected.type}-current`
-      const typeLabel = expected.type === 'advanceCD' || expected.type === 'paymentCD'
-        ? 'Payment CD'
-        : expected.type === 'invoiceCloseCD'
-          ? 'Invoice Close CD'
-          : expected.schemeName || 'Fixed Scheme'
+      const key = expected.ruleVersionId || expected.schemeId || `${expected.supplierId}-current`
 
       if (!groups.has(key)) {
+        const typeLabel = expected.type === 'advanceCD' || expected.type === 'paymentCD'
+          ? 'Payment CD'
+          : expected.type === 'invoiceCloseCD'
+            ? 'Invoice Close CD'
+            : expected.schemeName || 'Fixed Scheme'
+
         const versionNumber = supplierVersion?.version || fixedScheme?.version || expected.ruleVersion || 1
         const effectiveFrom = supplierVersion?.effectiveFrom || fixedScheme?.fromDate || expected.earnedDate
         const effectiveTo = supplierVersion?.effectiveTo || fixedScheme?.toDate
         const isOld = Boolean(effectiveTo && new Date(effectiveTo) < new Date())
-        const paymentRate = supplierVersion?.paymentCDRules?.length
-          ? `${Math.max(...supplierVersion.paymentCDRules.map((rule) => rule.percentageRate))}%`
-          : expected.type === 'fixedScheme'
-            ? `${formatCurrency(expected.ratePerMT)}/MT`
-            : expected.ratePerMT > 0
-              ? `${formatCurrency(expected.ratePerMT)}/MT`
-              : expected.schemeName?.match(/\(([^)]+)\)/)?.[1] || '-'
 
         groups.set(key, {
           key,
           supplierName: supplier?.name || 'Unknown Supplier',
           ruleName: supplierVersion?.ruleName || fixedScheme?.schemeName || typeLabel,
           versionLabel: `v${versionNumber}`,
-          rateLabel: paymentRate,
+          rateLabel: expected.ratePerMT > 0 ? `${formatCurrency(expected.ratePerMT)}/MT` : '-',
           effectiveLabel: effectiveTo ? `Effective up to ${effectiveTo}` : `Effective from ${effectiveFrom}`,
           expectedAmount: 0,
           receivedAmount: 0,
@@ -261,9 +310,8 @@ export default function DiscountWalletPage({
     }
 
     return Array.from(groups.values())
-      .filter((group) => group.expectedAmount > 0)
       .sort((a, b) => Number(a.isOld) - Number(b.isOld) || a.supplierName.localeCompare(b.supplierName) || a.ruleName.localeCompare(b.ruleName))
-  }, [filteredExpected, discountAllocations, suppliers, fixedSchemes])
+  }, [filteredExpected, discountAllocations, suppliers, fixedSchemes, selectedSupplier])
 
   const allReceivedDiscounts = useMemo(() => {
     const wallet = fyReceivedDiscounts.map(rd => ({ ...rd, type: rd.type || 'wallet' as const }))
@@ -1351,6 +1399,24 @@ export default function DiscountWalletPage({
                     <Badge variant={item.isOld ? 'outline' : 'default'}>{item.isOld ? 'Historical' : 'Current'}</Badge>
                   </div>
                   <div className="mt-3 text-xs text-muted-foreground">{item.effectiveLabel}</div>
+                  
+                  {(item.paymentCDSummary || item.invoiceCloseCDSummary) && (
+                    <div className="mt-2.5 space-y-1 bg-slate-50 border border-slate-200/60 rounded-md p-2 text-xs">
+                      {item.paymentCDSummary && (
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-medium text-slate-700">Payment CD:</span>
+                          <span className="font-mono text-slate-800 font-semibold">{item.paymentCDSummary}</span>
+                        </div>
+                      )}
+                      {item.invoiceCloseCDSummary && (
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-medium text-slate-700">Invoice Close CD:</span>
+                          <span className="font-mono text-slate-800 font-semibold">{item.invoiceCloseCDSummary}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div>
                       <div className="text-xs text-muted-foreground">Total cashback</div>

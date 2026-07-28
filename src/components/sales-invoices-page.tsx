@@ -22,6 +22,7 @@ import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog'
 import { exportSalesInvoicePDF } from '@/lib/pdf-export'
 import { PartyEditorDialog } from '@/components/party-editor-dialog'
 import { ItemEditorDialog } from '@/components/item-editor-dialog'
+import { cn } from '@/lib/utils'
 
 interface SalesInvoicesPageProps {
   salesInvoices: SalesInvoice[]
@@ -1650,16 +1651,15 @@ export default function SalesInvoicesPage({
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">INVOICE NO</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">CUSTOMER</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">ITEMS</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">QUANTITY (MT)</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">AMOUNT</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-center">STATUS</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-16 text-center">
+                      <TableCell colSpan={6} className="py-16 text-center">
                         <div className="max-w-sm mx-auto space-y-3">
                           <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
                             <Receipt size={32} weight="duotone" />
@@ -1679,22 +1679,46 @@ export default function SalesInvoicesPage({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id} className="hover:bg-slate-50/80 border-b border-slate-100">
-                        <TableCell className="font-mono font-bold text-slate-900 text-sm">{invoice.invoiceNo}</TableCell>
-                        <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell className="font-semibold text-slate-800 text-sm">{getCustomerName(invoice.customerId)}</TableCell>
-                        <TableCell>
-                          <div className="text-xs space-y-0.5">
-                            {(invoice.items || []).map((item, idx) => (
-                              <div key={idx} className="text-slate-600">
-                                <span className="font-medium text-slate-900">{getItemName(item.itemId)}</span>: {formatMT(item.quantityMT)} MT @ {formatCurrency(item.rate)}
-                              </div>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-900">{formatMT(invoice.quantityMT)}</TableCell>
-                        <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
+                    filteredInvoices.map((invoice) => {
+                      const custPayments = customerPayments.filter((p) => p.customerId === invoice.customerId)
+                      const totalCustPaid = custPayments.reduce((sum, p) => sum + p.amount, 0)
+                      const custInvoices = fyInvoices
+                        .filter((inv) => inv.customerId === invoice.customerId)
+                        .sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
+
+                      let accInv = 0
+                      let statusLabel = 'Payment pending'
+                      let badgeClass = 'bg-rose-50 text-rose-700 border-rose-200'
+
+                      for (const inv of custInvoices) {
+                        if (inv.id === invoice.id) {
+                          const rem = Math.max(0, totalCustPaid - accInv)
+                          if (rem >= inv.invoiceAmount) {
+                            statusLabel = 'Paid'
+                            badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          } else if (rem > 0) {
+                            statusLabel = 'Partial Paid'
+                            badgeClass = 'bg-amber-50 text-amber-700 border-amber-200'
+                          } else {
+                            statusLabel = 'Payment pending'
+                            badgeClass = 'bg-rose-50 text-rose-700 border-rose-200'
+                          }
+                          break
+                        }
+                        accInv += inv.invoiceAmount
+                      }
+
+                      return (
+                        <TableRow key={invoice.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+                          <TableCell className="font-mono font-bold text-slate-900 text-sm">{invoice.invoiceNo}</TableCell>
+                          <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
+                          <TableCell className="font-semibold text-slate-800 text-sm">{getCustomerName(invoice.customerId)}</TableCell>
+                          <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
+                          <TableCell className="text-center">
+                            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border', badgeClass)}>
+                              {statusLabel}
+                            </span>
+                          </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -1738,8 +1762,9 @@ export default function SalesInvoicesPage({
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
+                    )
+                  })
+                )}
                 </TableBody>
               </Table>
 

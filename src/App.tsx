@@ -1960,7 +1960,7 @@ function App() {
             />
           )
         case 'customers':
-          return <CustomersPage customers={safeCustomers} setCustomers={setCustomers} isLocked={isViewReadOnly('customers')} />
+          return <CustomersPage customers={safeCustomers} setCustomers={setCustomers} isLocked={isViewReadOnly('customers')} salesInvoices={safeSalesInvoices} customerPayments={safeCustomerPayments} />
         case 'items':
           return (
             <ItemsPage
