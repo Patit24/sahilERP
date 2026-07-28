@@ -147,26 +147,44 @@ export default function CDAtRiskReportPage({
       const cdSubRows: { cdType: string; amountAtRisk: number; nextSlab: string }[] = []
       
       if (data.totalPaymentCDAtCurrentSlab > 0 || data.paymentCDRisk > 0) {
+        const payNextDays = data.paymentCDNextSlabDays || 0
+        const payNextRate = data.nextSlabPaymentCDRate || 0
+        const payNextText = payNextDays > 0
+          ? `${payNextDays}d (${payNextRate}%)`
+          : (payNextRate > 0 ? `${payNextRate}%` : 'Max Slab')
+
         cdSubRows.push({
           cdType: `Payment Cd (${data.currentSlabPaymentCDRate}%)`,
           amountAtRisk: data.paymentCDRisk > 0 ? data.paymentCDRisk : data.totalPaymentCDAtCurrentSlab,
-          nextSlab: data.nextSlabDays > 0 ? `${data.nextSlabDays}d (${data.nextSlabPaymentCDRate}%)` : 'Max Slab'
+          nextSlab: payNextText
         })
       }
 
       if (data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0) {
         data.invoiceCloseCDBreakdown.forEach(item => {
+          const unitNextDays = item.nextSlabDays || 0
+          const unitNextRate = item.nextRate || 0
+          const unitNextText = unitNextDays > 0
+            ? `${unitNextDays}d (Rs ${unitNextRate}/${item.unit})`
+            : (unitNextRate > 0 ? `Rs ${unitNextRate}/${item.unit}` : 'Max Slab')
+
           cdSubRows.push({
             cdType: `Invoice Closed Cd (${item.quantity} ${item.unit} @ Rs ${item.currentRate}/${item.unit})`,
             amountAtRisk: item.riskAmount > 0 ? item.riskAmount : item.currentAmount,
-            nextSlab: item.nextRate > 0 ? `Rs ${item.nextRate}/${item.unit}` : 'Max Slab'
+            nextSlab: unitNextText
           })
         })
       } else if (data.invoiceCloseCDRisk > 0 || data.currentSlabInvoiceCloseCDRate > 0) {
+        const invNextDays = data.invoiceCloseCDNextSlabDays || 0
+        const invNextRate = data.nextSlabInvoiceCloseCDRate || 0
+        const invNextText = invNextDays > 0
+          ? `${invNextDays}d (Rs ${invNextRate}/MT)`
+          : (invNextRate > 0 ? `Rs ${invNextRate}/MT` : 'Max Slab')
+
         cdSubRows.push({
           cdType: `Invoice Closed Cd (Rs ${data.currentSlabInvoiceCloseCDRate}/MT)`,
           amountAtRisk: data.invoiceCloseCDRisk,
-          nextSlab: data.nextSlabInvoiceCloseCDRate > 0 ? `Rs ${data.nextSlabInvoiceCloseCDRate}/MT` : 'Max Slab'
+          nextSlab: invNextText
         })
       }
 
@@ -515,11 +533,17 @@ export default function CDAtRiskReportPage({
 
                   // Payment CD sub-row
                   if (data.totalPaymentCDAtCurrentSlab > 0 || data.paymentCDRisk > 0) {
+                    const payNextDays = data.paymentCDNextSlabDays || 0
+                    const payNextRate = data.nextSlabPaymentCDRate || 0
+                    const payNextText = payNextDays > 0
+                      ? `${payNextDays}d (${payNextRate}%)`
+                      : (payNextRate > 0 ? `${payNextRate}%` : 'Max Slab')
+
                     cdRows.push({
                       type: 'Payment Cd',
                       detail: `(${data.currentSlabPaymentCDRate}%)`,
                       amountAtRisk: data.paymentCDRisk > 0 ? data.paymentCDRisk : data.totalPaymentCDAtCurrentSlab,
-                      nextSlab: data.nextSlabDays > 0 ? `${data.nextSlabDays}d (${data.nextSlabPaymentCDRate}%)` : 'Max Slab',
+                      nextSlab: payNextText,
                       badgeStyle: 'bg-emerald-100 text-emerald-800 border-emerald-200'
                     })
                   }
@@ -527,20 +551,32 @@ export default function CDAtRiskReportPage({
                   // Invoice Closed CD sub-rows (per unit or rule)
                   if (data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0) {
                     data.invoiceCloseCDBreakdown.forEach((item) => {
+                      const unitNextDays = item.nextSlabDays || 0
+                      const unitNextRate = item.nextRate || 0
+                      const unitNextText = unitNextDays > 0
+                        ? `${unitNextDays}d (₹${unitNextRate}/${item.unit})`
+                        : (unitNextRate > 0 ? `₹${unitNextRate}/${item.unit}` : 'Max Slab')
+
                       cdRows.push({
                         type: 'Invoice Closed Cd',
                         detail: `(${item.quantity} ${item.unit} @ ₹${item.currentRate}/${item.unit})`,
                         amountAtRisk: item.riskAmount > 0 ? item.riskAmount : item.currentAmount,
-                        nextSlab: item.nextRate > 0 ? `₹${item.nextRate}/${item.unit}` : 'Max Slab',
+                        nextSlab: unitNextText,
                         badgeStyle: 'bg-indigo-100 text-indigo-800 border-indigo-200'
                       })
                     })
                   } else if (data.invoiceCloseCDRisk > 0 || data.currentSlabInvoiceCloseCDRate > 0) {
+                    const invNextDays = data.invoiceCloseCDNextSlabDays || 0
+                    const invNextRate = data.nextSlabInvoiceCloseCDRate || 0
+                    const invNextText = invNextDays > 0
+                      ? `${invNextDays}d (₹${invNextRate}/MT)`
+                      : (invNextRate > 0 ? `₹${invNextRate}/MT` : 'Max Slab')
+
                     cdRows.push({
                       type: 'Invoice Closed Cd',
                       detail: `(₹${data.currentSlabInvoiceCloseCDRate}/MT)`,
                       amountAtRisk: data.invoiceCloseCDRisk,
-                      nextSlab: data.nextSlabInvoiceCloseCDRate > 0 ? `₹${data.nextSlabInvoiceCloseCDRate}/MT` : 'Max Slab',
+                      nextSlab: invNextText,
                       badgeStyle: 'bg-indigo-100 text-indigo-800 border-indigo-200'
                     })
                   }

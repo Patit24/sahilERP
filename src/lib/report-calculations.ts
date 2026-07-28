@@ -87,6 +87,8 @@ export interface InvoiceCloseCDUnitBreakdown {
   currentAmount: number
   nextAmount: number
   riskAmount: number
+  nextSlabDays?: number
+  nextMinDays?: number
 }
 
 export interface CDAtRisk {
@@ -109,6 +111,10 @@ export interface CDAtRisk {
   totalCDAtRisk: number
   nextSlabDays: number
   daysUntilNextSlab: number
+  paymentCDNextSlabDays?: number
+  paymentCDNextSlabMinDays?: number
+  invoiceCloseCDNextSlabDays?: number
+  invoiceCloseCDNextSlabMinDays?: number
   totalPaymentCDAtCurrentSlab: number
   invoiceCloseCDBreakdown?: InvoiceCloseCDUnitBreakdown[]
 }
@@ -453,6 +459,12 @@ export function calculateCDAtRisk(
       const nextInvoiceCloseCDSlabRules = nextInvoiceCloseCDRules?.filter(r => r.minDays === minNextDays) || []
       const nextInvoiceCloseCDSlab = nextInvoiceCloseCDSlabRules[0]
 
+      const paymentCDNextSlabDays = nextPaymentCDSlab ? nextPaymentCDSlab.minDays - daysSinceInvoice : 0
+      const paymentCDNextSlabMinDays = nextPaymentCDSlab ? nextPaymentCDSlab.minDays : 0
+
+      const invoiceCloseCDNextSlabDays = nextInvoiceCloseCDSlab ? nextInvoiceCloseCDSlab.minDays - daysSinceInvoice : 0
+      const invoiceCloseCDNextSlabMinDays = nextInvoiceCloseCDSlab ? nextInvoiceCloseCDSlab.minDays : 0
+
       const nextSlabPaymentCDRate = nextPaymentCDSlab?.percentageRate || 0
       const nextSlabInvoiceCloseCDRate = nextInvoiceCloseCDSlab?.ratePerMT || 0 // For display
 
@@ -485,6 +497,9 @@ export function calculateCDAtRisk(
           const matchingNextRule = nextInvoiceCloseCDSlabRules.find(r => !r.unit || r.unit === 'ALL' || r.unit === '' || r.unit === targetUnit)
           const nextRate = matchingNextRule ? matchingNextRule.ratePerMT : 0
 
+          const unitNextSlabDays = matchingNextRule ? matchingNextRule.minDays - daysSinceInvoice : 0
+          const unitNextMinDays = matchingNextRule ? matchingNextRule.minDays : 0
+
           const currentAmt = qty * currentRate
           const nextAmt = qty * nextRate
           const riskAmt = currentAmt - nextAmt
@@ -499,7 +514,9 @@ export function calculateCDAtRisk(
             nextRate,
             currentAmount: currentAmt,
             nextAmount: nextAmt,
-            riskAmount: riskAmt
+            riskAmount: riskAmt,
+            nextSlabDays: unitNextSlabDays,
+            nextMinDays: unitNextMinDays
           })
         }
       })
@@ -529,6 +546,10 @@ export function calculateCDAtRisk(
         totalCDAtRisk,
         nextSlabDays,
         daysUntilNextSlab,
+        paymentCDNextSlabDays,
+        paymentCDNextSlabMinDays,
+        invoiceCloseCDNextSlabDays,
+        invoiceCloseCDNextSlabMinDays,
         totalPaymentCDAtCurrentSlab,
         invoiceCloseCDBreakdown
       })
