@@ -96,16 +96,32 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
     }
 
     if (editingScheme) {
-      const closedPrevious: FixedScheme = {
+      const updatedScheme: FixedScheme = {
         ...editingScheme,
-        toDate: addDays(fromDate, -1),
-        changedAt,
-        changeReason: `Closed by version ${nextVersion}: ${changeReason}`
+        supplierId,
+        schemeName,
+        ratePerMT,
+        unit,
+        fromDate,
+        toDate,
+        applyInMTBooking,
+        changedAt
       }
-      setFixedSchemes((prev) => prev.map(s => s.id === editingScheme.id ? closedPrevious : s).concat(scheme))
-      toast.success('New fixed scheme version created')
+      setFixedSchemes((prev) => prev.map(s => s.id === editingScheme.id ? updatedScheme : s))
+      toast.success('Fixed scheme updated successfully')
     } else {
-      setFixedSchemes((prev) => [...prev, scheme])
+      const newScheme: FixedScheme = {
+        id: `scheme-${Date.now()}`,
+        supplierId,
+        schemeName,
+        ratePerMT,
+        unit,
+        fromDate,
+        toDate,
+        applyInMTBooking,
+        changedAt
+      }
+      setFixedSchemes((prev) => [...prev, newScheme])
       toast.success('Fixed scheme added successfully')
     }
 
