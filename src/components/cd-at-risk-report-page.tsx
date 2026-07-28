@@ -142,29 +142,61 @@ export default function CDAtRiskReportPage({
     doc.setFont('helvetica', 'bold')
     doc.text('Eligible Invoices - CD Available', 14, yPos + 26)
 
-    const eligibleTableData = eligibleInvoices.map(data => {
-      const breakdownText = (data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0)
-        ? data.invoiceCloseCDBreakdown.map(b => `${b.quantity} ${b.unit} @ Rs ${b.currentRate}/${b.unit} = Rs ${formatAmount(b.currentAmount)}`).join('; ')
-        : `Rs ${data.currentSlabInvoiceCloseCDRate}/MT`
+    const eligibleTableData: any[] = []
+    eligibleInvoices.forEach(data => {
+      const cdSubRows: { cdType: string; amountAtRisk: number; nextSlab: string }[] = []
+      
+      if (data.totalPaymentCDAtCurrentSlab > 0 || data.paymentCDRisk > 0) {
+        cdSubRows.push({
+          cdType: `Payment Cd (${data.currentSlabPaymentCDRate}%)`,
+          amountAtRisk: data.paymentCDRisk > 0 ? data.paymentCDRisk : data.totalPaymentCDAtCurrentSlab,
+          nextSlab: data.nextSlabDays > 0 ? `${data.nextSlabDays}d (${data.nextSlabPaymentCDRate}%)` : 'Max Slab'
+        })
+      }
 
-      return [
-        data.invoiceNo,
-        data.supplierName,
-        format(new Date(data.invoiceDate), 'dd MMM yyyy'),
-        `${data.daysSinceInvoice}d`,
-        formatAmount(data.pendingAmount),
-        `${formatAmount(data.totalPaymentCDAtCurrentSlab)} (${data.currentSlabPaymentCDRate}%)`,
-        `${formatAmount(data.invoiceCloseCDRisk)}\n[${breakdownText}]`,
-        formatAmount(data.totalCDAtRisk),
-        data.nextSlabDays > 0 ? `${data.nextSlabDays}d` : 'Max',
-        data.nextSlabPaymentCDRate > 0 ? `${data.nextSlabPaymentCDRate}%` : '-'
-      ]
+      if (data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0) {
+        data.invoiceCloseCDBreakdown.forEach(item => {
+          cdSubRows.push({
+            cdType: `Invoice Closed Cd (${item.quantity} ${item.unit} @ Rs ${item.currentRate}/${item.unit})`,
+            amountAtRisk: item.riskAmount > 0 ? item.riskAmount : item.currentAmount,
+            nextSlab: item.nextRate > 0 ? `Rs ${item.nextRate}/${item.unit}` : 'Max Slab'
+          })
+        })
+      } else if (data.invoiceCloseCDRisk > 0 || data.currentSlabInvoiceCloseCDRate > 0) {
+        cdSubRows.push({
+          cdType: `Invoice Closed Cd (Rs ${data.currentSlabInvoiceCloseCDRate}/MT)`,
+          amountAtRisk: data.invoiceCloseCDRisk,
+          nextSlab: data.nextSlabInvoiceCloseCDRate > 0 ? `Rs ${data.nextSlabInvoiceCloseCDRate}/MT` : 'Max Slab'
+        })
+      }
+
+      if (cdSubRows.length === 0) {
+        cdSubRows.push({
+          cdType: 'No CD',
+          amountAtRisk: 0,
+          nextSlab: '-'
+        })
+      }
+
+      cdSubRows.forEach((sub, idx) => {
+        eligibleTableData.push([
+          idx === 0 ? data.invoiceNo : '',
+          idx === 0 ? data.supplierName : '',
+          idx === 0 ? format(new Date(data.invoiceDate), 'dd MMM yyyy') : '',
+          idx === 0 ? `${data.daysSinceInvoice}d` : '',
+          idx === 0 ? formatAmount(data.pendingAmount) : '',
+          sub.cdType,
+          formatAmount(sub.amountAtRisk),
+          sub.nextSlab,
+          idx === 0 ? formatAmount(data.totalCDAtRisk) : ''
+        ])
+      })
     })
 
     autoTable(doc, {
       startY: yPos + 28,
-      head: [['Invoice No', 'Supplier', 'Date', 'Days', 'Pending (Rs)', 'TOTAL CD RISK (Rs)', 'Invoice CD Loss (Rs & Breakdown)', 'CURRENT SLAB RISK (Rs)', 'Next Slab', 'Next CD %']],
-      body: eligibleTableData.length > 0 ? eligibleTableData : [['No eligible invoices', '', '', '', '', '', '', '', '', '']],
+      head: [['Invoice No', 'Supplier', 'Date', 'Aging', 'Pending Amt (Rs)', 'CD Types', 'Amount At-Risk (Rs)', 'Next Slab', 'Total CD Risk (Rs)']],
+      body: eligibleTableData.length > 0 ? eligibleTableData : [['No eligible invoices', '', '', '', '', '', '', '', '']],
       theme: 'grid',
       headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold', halign: 'center' },
       bodyStyles: { fontSize: 7 },
@@ -173,12 +205,11 @@ export default function CDAtRiskReportPage({
         1: { cellWidth: 35, halign: 'left' },
         2: { cellWidth: 23, halign: 'center' },
         3: { cellWidth: 13, halign: 'center' },
-        4: { cellWidth: 25, halign: 'right' },
-        5: { cellWidth: 30, halign: 'right' },
-        6: { cellWidth: 50, halign: 'left' },
-        7: { cellWidth: 25, halign: 'right', fontStyle: 'bold' },
-        8: { cellWidth: 15, halign: 'center' },
-        9: { cellWidth: 15, halign: 'center' },
+        4: { cellWidth: 27, halign: 'right' },
+        5: { cellWidth: 55, halign: 'left' },
+        6: { cellWidth: 30, halign: 'right' },
+        7: { cellWidth: 25, halign: 'center' },
+        8: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
       },
       margin: { left: 14, right: 14 },
     })
@@ -440,7 +471,7 @@ export default function CDAtRiskReportPage({
                 </Badge>
               </CardTitle>
               <CardDescription className="text-slate-300 text-xs mt-1">
-                Invoices currently within eligible CD slab periods — multi-unit rates & unit-wise discounts separated cleanly
+                Invoices currently within eligible CD slab periods — structured CD types & at-risk amounts after pending amount
               </CardDescription>
             </div>
           </div>
@@ -450,17 +481,15 @@ export default function CDAtRiskReportPage({
           <Table>
             <TableHeader className="bg-slate-100/90 border-b border-slate-200">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Invoice No</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Supplier</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Invoice Date</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-center">Aging</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right">Pending Amount</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right">Payment CD Risk</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right min-w-[260px]">
-                  Invoice CD Loss (Unit Wise)
-                </TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right">Total CD Risk</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-center">Next Slab</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-3">invoice no</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-3">Supplier</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-3">Date</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-center py-3">Aging</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right py-3">Pending Amount</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider pl-4 py-3 border-l border-slate-300">CD Types</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right py-3 border-l border-slate-300">Amount At-risk</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-center py-3 border-l border-slate-300">Next Slab</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right py-3 border-l border-slate-300">Total Cd Risk</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -475,92 +504,137 @@ export default function CDAtRiskReportPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                eligibleInvoices.map((data) => (
-                  <TableRow key={data.invoiceId} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
-                    <TableCell className="font-medium font-mono text-slate-900 text-sm">
-                      {data.invoiceNo}
-                    </TableCell>
-                    <TableCell className="font-medium text-slate-800 text-sm">
-                      {data.supplierName}
-                    </TableCell>
-                    <TableCell className="text-slate-600 text-sm">
-                      {format(new Date(data.invoiceDate), 'dd MMM yyyy')}
-                    </TableCell>
-                    <TableCell className="text-center font-mono">
-                      <Badge 
-                        variant="outline"
-                        className={cn(
-                          "font-semibold text-xs px-2 py-0.5",
-                          data.daysSinceInvoice > 60 ? "bg-rose-50 text-rose-700 border-rose-200" :
-                          data.daysSinceInvoice > 30 ? "bg-amber-50 text-amber-700 border-amber-200" :
-                          "bg-slate-100 text-slate-700 border-slate-200"
-                        )}
-                      >
-                        {data.daysSinceInvoice}d
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium text-slate-900">
-                      {formatCurrency(data.pendingAmount)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      <div className="flex flex-col items-end">
-                        <span className="font-semibold text-slate-900">{formatCurrency(data.totalPaymentCDAtCurrentSlab)}</span>
-                        <span className="text-[11px] font-medium text-slate-500">
-                          ({data.currentSlabPaymentCDRate}%)
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      <div className="flex flex-col items-end gap-1.5 py-1">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {formatCurrency(data.invoiceCloseCDRisk)}
-                        </span>
-                        
-                        {data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0 ? (
-                          <div className="flex flex-col items-end gap-1 w-full">
-                            {data.invoiceCloseCDBreakdown.map((item, idx) => (
-                              <div 
-                                key={idx} 
-                                className="flex items-center justify-end gap-1.5 text-xs bg-slate-50 p-1.5 rounded-md border border-slate-200/80 w-full"
-                              >
-                                <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 border-indigo-200 px-1.5 py-0 text-[10px] font-semibold">
-                                  {item.quantity} {item.unit}
-                                </Badge>
-                                <span className="text-slate-600 text-[11px]">
-                                  @ ₹{item.currentRate}/{item.unit} =
-                                </span>
-                                <span className="font-bold text-slate-900 text-[11px]">
-                                  {formatCurrency(item.currentAmount)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-500 font-mono">
-                            (₹{data.currentSlabInvoiceCloseCDRate}/MT)
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold">
-                      <span className={cn(
-                        "text-base",
-                        data.totalCDAtRisk > 10000 ? "text-rose-600" : "text-amber-600"
-                      )}>
-                        {formatCurrency(data.totalCDAtRisk)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center font-mono">
-                      {data.nextSlabDays > 0 ? (
-                        <Badge variant="outline" className="font-semibold text-xs bg-indigo-50/50 text-indigo-700 border-indigo-200">
-                          {data.nextSlabDays}d
+                eligibleInvoices.map((data) => {
+                  const cdRows: {
+                    type: string
+                    detail: string
+                    amountAtRisk: number
+                    nextSlab: string
+                    badgeStyle: string
+                  }[] = []
+
+                  // Payment CD sub-row
+                  if (data.totalPaymentCDAtCurrentSlab > 0 || data.paymentCDRisk > 0) {
+                    cdRows.push({
+                      type: 'Payment Cd',
+                      detail: `(${data.currentSlabPaymentCDRate}%)`,
+                      amountAtRisk: data.paymentCDRisk > 0 ? data.paymentCDRisk : data.totalPaymentCDAtCurrentSlab,
+                      nextSlab: data.nextSlabDays > 0 ? `${data.nextSlabDays}d (${data.nextSlabPaymentCDRate}%)` : 'Max Slab',
+                      badgeStyle: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    })
+                  }
+
+                  // Invoice Closed CD sub-rows (per unit or rule)
+                  if (data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0) {
+                    data.invoiceCloseCDBreakdown.forEach((item) => {
+                      cdRows.push({
+                        type: 'Invoice Closed Cd',
+                        detail: `(${item.quantity} ${item.unit} @ ₹${item.currentRate}/${item.unit})`,
+                        amountAtRisk: item.riskAmount > 0 ? item.riskAmount : item.currentAmount,
+                        nextSlab: item.nextRate > 0 ? `₹${item.nextRate}/${item.unit}` : 'Max Slab',
+                        badgeStyle: 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                      })
+                    })
+                  } else if (data.invoiceCloseCDRisk > 0 || data.currentSlabInvoiceCloseCDRate > 0) {
+                    cdRows.push({
+                      type: 'Invoice Closed Cd',
+                      detail: `(₹${data.currentSlabInvoiceCloseCDRate}/MT)`,
+                      amountAtRisk: data.invoiceCloseCDRisk,
+                      nextSlab: data.nextSlabInvoiceCloseCDRate > 0 ? `₹${data.nextSlabInvoiceCloseCDRate}/MT` : 'Max Slab',
+                      badgeStyle: 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                    })
+                  }
+
+                  if (cdRows.length === 0) {
+                    cdRows.push({
+                      type: 'No CD Risk',
+                      detail: '',
+                      amountAtRisk: 0,
+                      nextSlab: '-',
+                      badgeStyle: 'bg-slate-100 text-slate-600 border-slate-200'
+                    })
+                  }
+
+                  return (
+                    <TableRow key={data.invoiceId} className="hover:bg-slate-50/80 transition-colors border-b border-slate-200">
+                      {/* invoice no */}
+                      <TableCell className="font-medium font-mono text-slate-900 text-sm align-top py-3">
+                        {data.invoiceNo}
+                      </TableCell>
+
+                      {/* Supplier */}
+                      <TableCell className="font-medium text-slate-800 text-sm align-top py-3">
+                        {data.supplierName}
+                      </TableCell>
+
+                      {/* Date */}
+                      <TableCell className="text-slate-600 text-sm align-top py-3 whitespace-nowrap">
+                        {format(new Date(data.invoiceDate), 'dd MMM yyyy')}
+                      </TableCell>
+
+                      {/* Aging */}
+                      <TableCell className="text-center font-mono align-top py-3">
+                        <Badge 
+                          variant="outline"
+                          className={cn(
+                            "font-semibold text-xs px-2 py-0.5 whitespace-nowrap",
+                            data.daysSinceInvoice > 60 ? "bg-rose-50 text-rose-700 border-rose-200" :
+                            data.daysSinceInvoice > 30 ? "bg-amber-50 text-amber-700 border-amber-200" :
+                            "bg-slate-100 text-slate-700 border-slate-200"
+                          )}
+                        >
+                          {data.daysSinceInvoice}d
                         </Badge>
-                      ) : (
-                        <span className="text-xs text-slate-400 font-medium">Max Slab</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+
+                      {/* Pending Amount */}
+                      <TableCell className="text-right font-mono font-medium text-slate-900 align-top py-3 whitespace-nowrap">
+                        {formatCurrency(data.pendingAmount)}
+                      </TableCell>
+
+                      {/* CD Types, Amount At-risk, Next Slab Sub-table */}
+                      <TableCell colSpan={3} className="p-0 align-top border-l border-slate-200">
+                        <div className="divide-y divide-slate-100">
+                          {cdRows.map((row, idx) => (
+                            <div key={idx} className="grid grid-cols-[1.4fr_1fr_1fr] items-center px-3 py-2 text-xs font-mono">
+                              {/* CD Types */}
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span className={cn("px-1.5 py-0.5 rounded text-[11px] font-semibold shrink-0 border", row.badgeStyle)}>
+                                  {row.type}
+                                </span>
+                                {row.detail && (
+                                  <span className="text-slate-600 font-medium truncate text-[11px]">
+                                    {row.detail}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Amount At-risk */}
+                              <div className="text-right font-bold text-slate-900 text-xs pr-2 border-l border-slate-100 pl-2">
+                                {formatCurrency(row.amountAtRisk)}
+                              </div>
+
+                              {/* Next Slab */}
+                              <div className="text-center text-slate-600 font-medium text-xs border-l border-slate-100 pl-2">
+                                {row.nextSlab}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+
+                      {/* Total Cd Risk */}
+                      <TableCell className="text-right font-mono font-bold align-top py-3 whitespace-nowrap border-l border-slate-200">
+                        <span className={cn(
+                          "text-base font-extrabold",
+                          data.totalCDAtRisk > 10000 ? "text-rose-600" : "text-amber-600"
+                        )}>
+                          {formatCurrency(data.totalCDAtRisk)}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
