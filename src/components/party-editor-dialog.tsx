@@ -212,71 +212,7 @@ export function PartyEditorDialog({
       const normalizedAdvanceCD = advanceCDValue > 0 ? advanceCDValue : undefined
       const cleanEffectiveDate = effectiveDate || todayKey()
       const cleanChangeReason = changeReason.trim() || (supplier ? 'Supplier CD rule update' : 'Initial supplier CD rule setup')
-      const existingVersions = supplier?.cdRuleVersions?.length
-        ? supplier.cdRuleVersions
-        : supplier
-          ? [makeInitialVersion(supplier, addDays(cleanEffectiveDate, -1))]
-          : []
-      const cdChanged = !supplier || rulesChanged(supplier, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD)
-      const closedVersions = supplier && cdChanged
-        ? existingVersions.map((version, index) => {
-          if (index !== existingVersions.length - 1 || version.effectiveTo) return version
-          return { ...version, effectiveTo: addDays(cleanEffectiveDate, -1) }
-        })
-        : existingVersions
-      const nextVersion = Math.max(0, ...closedVersions.map((version) => version.version)) + 1
-      const initialVersion = !supplier
-        ? makeSupplierRuleVersion(supplierId, 1, cleanEffectiveDate, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD, changedBy, cleanChangeReason)
-        : undefined
-      const changedVersion = supplier && cdChanged
-        ? makeSupplierRuleVersion(supplierId, nextVersion, cleanEffectiveDate, paymentCDRules, invoiceCloseCDRules, normalizedAdvanceCD, changedBy, cleanChangeReason)
-        : undefined
-      const changedAt = new Date().toISOString()
-      const changeLog: CDRuleChangeLog | undefined = supplier && cdChanged ? {
-        id: `${supplierId}-cd-change-${Date.now()}`,
-        supplierId,
-        ruleName: 'Supplier CD Rules',
-        ruleVersion: changedVersion?.version || nextVersion,
-        previousValues: {
-          paymentCDRules: supplier.paymentCDRules || [],
-          invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
-          advanceCDPercentage: supplier.advanceCDPercentage,
-          effectiveTo: addDays(cleanEffectiveDate, -1)
-        },
-        newValues: {
-          paymentCDRules,
-          invoiceCloseCDRules,
-          advanceCDPercentage: normalizedAdvanceCD,
-          effectiveFrom: cleanEffectiveDate
-        },
-        effectiveDate: cleanEffectiveDate,
-        changedBy,
-        changedAt,
-        reason: cleanChangeReason,
-        approvalStatus: 'Approved'
-      } : undefined
-      const initialChangeLog: CDRuleChangeLog | undefined = !supplier ? {
-        id: `${supplierId}-cd-change-${Date.now()}`,
-        supplierId,
-        ruleName: 'Supplier CD Rules',
-        ruleVersion: 1,
-        previousValues: {
-          paymentCDRules: [],
-          invoiceCloseCDRules: [],
-          advanceCDPercentage: undefined
-        },
-        newValues: {
-          paymentCDRules,
-          invoiceCloseCDRules,
-          advanceCDPercentage: normalizedAdvanceCD,
-          effectiveFrom: cleanEffectiveDate
-        },
-        effectiveDate: cleanEffectiveDate,
-        changedBy,
-        changedAt,
-        reason: cleanChangeReason,
-        approvalStatus: 'Approved'
-      } : undefined
+
 
       onSave({
         ...(supplier || {}),
@@ -301,16 +237,8 @@ export function PartyEditorDialog({
         } : undefined,
         paymentCDRules,
         invoiceCloseCDRules,
-        cdRuleVersions: [
-          ...closedVersions,
-          ...(initialVersion ? [initialVersion] : []),
-          ...(changedVersion ? [changedVersion] : [])
-        ],
-        cdRuleChangeLog: [
-          ...(supplier?.cdRuleChangeLog || []),
-          ...(initialChangeLog ? [initialChangeLog] : []),
-          ...(changeLog ? [changeLog] : [])
-        ]
+        cdRuleVersions: supplier?.cdRuleVersions,
+        cdRuleChangeLog: supplier?.cdRuleChangeLog
       } satisfies Supplier)
     } else {
       const customer = party as Customer | null | undefined
@@ -645,7 +573,7 @@ export function PartyEditorDialog({
                     </div>
                   ) : (
                     invoiceCloseCDRules.map((rule, index) => (
-                      <div key={index} className="grid gap-2 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                      <div key={index} className="grid gap-2 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
                         <div className="space-y-1.5">
                           <Label className="text-[11px] font-medium">Min Days</Label>
                           <Input
@@ -665,7 +593,7 @@ export function PartyEditorDialog({
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[11px] font-medium">Rate/MT (₹)</Label>
+                          <Label className="text-[11px] font-medium">Rate (₹)</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -673,6 +601,23 @@ export function PartyEditorDialog({
                             value={rule.ratePerMT}
                             onChange={(event) => updateInvoiceCloseCDRule(index, { ratePerMT: parseFloat(event.target.value) || 0 })}
                           />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-medium">Unit</Label>
+                          <select
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            value={rule.unit || 'MT'}
+                            onChange={(e) => updateInvoiceCloseCDRule(index, { unit: e.target.value })}
+                          >
+                            <option value="MT">MT</option>
+                            <option value="PCS">PCS</option>
+                            <option value="BOX">BOX</option>
+                            <option value="PKT">PKT</option>
+                            <option value="BTL">BTL</option>
+                            <option value="JAR">JAR</option>
+                            <option value="TIN">TIN</option>
+                            <option value="KG">KG</option>
+                          </select>
                         </div>
                         <Button
                           type="button"

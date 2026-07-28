@@ -568,27 +568,33 @@ export function calculateExpectedDiscounts(
         const maxSlabDays = Math.max(...effectiveInvoiceRules.invoiceCloseCDRules.map(rule => rule.maxDays))
         
         if (daysSinceInvoice <= maxSlabDays) {
-          const invoiceCloseCDRule = effectiveInvoiceRules.invoiceCloseCDRules.find(
+          const applicableRules = effectiveInvoiceRules.invoiceCloseCDRules.filter(
             rule => daysSinceInvoice >= rule.minDays && daysSinceInvoice <= rule.maxDays
           )
           
-          if (invoiceCloseCDRule) {
-            expectedDiscounts.push({
-              id: `invoiceCloseCD-${invoice.id}`,
-              supplierId: supplier.id,
-              invoiceId: invoice.id,
-              type: 'invoiceCloseCD',
-              ruleVersionId: effectiveInvoiceRules.version?.id,
-              ruleVersion: effectiveInvoiceRules.version?.version,
-              ruleName: effectiveInvoiceRules.version?.ruleName || 'Invoice Close CD',
-              earnedDate: lastPayment.paymentDate,
-              invoiceDate: invoice.invoiceDate,
-              eligibleQuantityMT: invoice.quantityMT,
-              ratePerMT: invoiceCloseCDRule.ratePerMT,
-              expectedAmount: invoice.quantityMT * invoiceCloseCDRule.ratePerMT,
-              invoiceNo: invoice.invoiceNo
-            })
-          }
+          applicableRules.forEach(invoiceCloseCDRule => {
+            const targetUnit = invoiceCloseCDRule.unit || 'MT'
+            const eligibleQuantity = getInvoiceQtyForUnit(invoice, targetUnit)
+            
+            if (eligibleQuantity > 0) {
+              expectedDiscounts.push({
+                id: `invoiceCloseCD-${invoice.id}-${targetUnit}`,
+                supplierId: supplier.id,
+                invoiceId: invoice.id,
+                type: 'invoiceCloseCD',
+                ruleVersionId: effectiveInvoiceRules.version?.id,
+                ruleVersion: effectiveInvoiceRules.version?.version,
+                ruleName: effectiveInvoiceRules.version?.ruleName || 'Invoice Close CD',
+                earnedDate: lastPayment.paymentDate,
+                invoiceDate: invoice.invoiceDate,
+                eligibleQuantityMT: eligibleQuantity,
+                ratePerMT: invoiceCloseCDRule.ratePerMT,
+                unit: targetUnit,
+                expectedAmount: eligibleQuantity * invoiceCloseCDRule.ratePerMT,
+                invoiceNo: invoice.invoiceNo
+              })
+            }
+          })
         }
       }
     }

@@ -94,8 +94,9 @@ export default function SuppliersPage({
   // CD Feature 2: Invoice Closed CD Rules
   const [invoiceCloseCDRules, setInvoiceCloseCDRules] = useState<InvoiceCloseCDRule[]>([])
   const [newCloseMinDays, setNewCloseMinDays] = useState('0')
-  const [newCloseMaxDays, setNewCloseMaxDays] = useState('30')
+  const [newCloseMaxDays, setNewCloseMaxDays] = useState('15')
   const [newCloseRate, setNewCloseRate] = useState('100')
+  const [newCloseUnit, setNewCloseUnit] = useState('MT')
 
   // CD Feature 3: Annual Target
   const [targetMT, setTargetMT] = useState('0')
@@ -213,46 +214,7 @@ export default function SuppliersPage({
     } : undefined
 
     if (editingSupplier) {
-      // Check if CD rules changed to create change log entry
-      const existingLogs = editingSupplier.cdRuleChangeLog || []
-      const currentVerNumber = (editingSupplier.cdRuleVersions?.length || 1) + 1
 
-      const newLog: CDRuleChangeLog = {
-        id: `log-${Date.now()}`,
-        supplierId: editingSupplier.id,
-        ruleName: 'Supplier CD Rules',
-        ruleVersion: currentVerNumber,
-        previousValues: {
-          paymentCDRules: editingSupplier.paymentCDRules || [],
-          invoiceCloseCDRules: editingSupplier.invoiceCloseCDRules || [],
-          advanceCDPercentage: editingSupplier.advanceCDPercentage || 0
-        },
-        newValues: {
-          paymentCDRules,
-          invoiceCloseCDRules,
-          advanceCDPercentage: advCD,
-          effectiveFrom: effectiveFromDate
-        },
-        effectiveDate: effectiveFromDate,
-        changedBy,
-        changedAt: new Date().toISOString(),
-        reason: 'Rule updated in supplier management',
-        approvalStatus: 'Approved'
-      }
-
-      const newVersion: SupplierCDRuleVersion = {
-        id: `v-${Date.now()}`,
-        version: currentVerNumber,
-        ruleName: 'Supplier CD Rules',
-        effectiveFrom: effectiveFromDate,
-        paymentCDRules,
-        invoiceCloseCDRules,
-        advanceCDPercentage: advCD,
-        changedBy,
-        changedAt: new Date().toISOString(),
-        reason: 'Rule updated',
-        approvalStatus: 'Approved'
-      }
 
       const updatedSupplier: Supplier = {
         ...editingSupplier,
@@ -267,27 +229,15 @@ export default function SuppliersPage({
         paymentCDRules,
         invoiceCloseCDRules,
         annualTarget,
-        cdRuleVersions: [newVersion, ...(editingSupplier.cdRuleVersions || [])],
-        cdRuleChangeLog: [newLog, ...existingLogs]
+        cdRuleVersions: editingSupplier.cdRuleVersions,
+        cdRuleChangeLog: editingSupplier.cdRuleChangeLog
       }
 
       setSuppliers((prev) => prev.map((s) => (s.id === editingSupplier.id ? updatedSupplier : s)))
       toast.success(`Supplier "${name}" updated successfully`)
     } else {
       const newId = `sup-${Date.now()}`
-      const initialVer: SupplierCDRuleVersion = {
-        id: `v-1`,
-        version: 1,
-        ruleName: 'Initial Setup',
-        effectiveFrom: effectiveFromDate,
-        paymentCDRules,
-        invoiceCloseCDRules,
-        advanceCDPercentage: advCD,
-        changedBy,
-        changedAt: new Date().toISOString(),
-        reason: 'Initial setup approved by system',
-        approvalStatus: 'Approved'
-      }
+
 
       const newSupplier: Supplier = {
         id: newId,
@@ -302,20 +252,7 @@ export default function SuppliersPage({
         paymentCDRules,
         invoiceCloseCDRules,
         annualTarget,
-        cdRuleVersions: [initialVer],
-        cdRuleChangeLog: [{
-          id: `log-init-${Date.now()}`,
-          supplierId: newId,
-          ruleName: 'Initial Setup',
-          ruleVersion: 1,
-          previousValues: { paymentCDRules: [], invoiceCloseCDRules: [], advanceCDPercentage: 0 },
-          newValues: { paymentCDRules, invoiceCloseCDRules, advanceCDPercentage: advCD, effectiveFrom: effectiveFromDate },
-          effectiveDate: effectiveFromDate,
-          changedBy,
-          changedAt: new Date().toISOString(),
-          reason: 'Initial rule setup',
-          approvalStatus: 'Approved'
-        }]
+
       }
 
       setSuppliers((prev) => [newSupplier, ...prev])
@@ -379,8 +316,9 @@ export default function SuppliersPage({
     const minD = parseInt(newCloseMinDays) || 0
     const maxD = parseInt(newCloseMaxDays) || 0
     const rate = parseFloat(newCloseRate) || 0
+    const unit = newCloseUnit || 'MT'
     if (maxD <= minD) return toast.error('Max days must be greater than Min days')
-    setInvoiceCloseCDRules((prev) => [...prev, { minDays: minD, maxDays: maxD, ratePerMT: rate }])
+    setInvoiceCloseCDRules((prev) => [...prev, { minDays: minD, maxDays: maxD, ratePerMT: rate, unit }])
     setNewCloseMinDays(maxD.toString())
     setNewCloseMaxDays((maxD + 15).toString())
   }
@@ -947,7 +885,7 @@ export default function SuppliersPage({
                       {invoiceCloseCDRules.map((rule, idx) => (
                         <div key={idx} className="p-2.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between text-xs">
                           <span className="font-semibold text-slate-800">
-                            {rule.minDays} to {rule.maxDays} Days ➔ <span className="font-bold text-indigo-700">{formatCurrency(rule.ratePerMT)} / MT</span>
+                            {rule.minDays} to {rule.maxDays} Days ➔ <span className="font-bold text-indigo-700">{formatCurrency(rule.ratePerMT)} / {rule.unit || 'MT'}</span>
                           </span>
                           <Button
                             type="button"
@@ -983,11 +921,25 @@ export default function SuppliersPage({
                     <Input
                       type="number"
                       step="any"
-                      placeholder="Rate/MT"
+                      placeholder="Rate"
                       value={newCloseRate}
                       onChange={(e) => setNewCloseRate(e.target.value)}
-                      className="h-8 text-xs w-28 bg-white font-bold text-indigo-700"
+                      className="h-8 text-xs w-20 bg-white font-bold text-indigo-700"
                     />
+                    <select
+                      value={newCloseUnit}
+                      onChange={(e) => setNewCloseUnit(e.target.value)}
+                      className="h-8 text-xs w-20 rounded-md border border-input bg-white px-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="MT">MT</option>
+                      <option value="PCS">PCS</option>
+                      <option value="BOX">BOX</option>
+                      <option value="PKT">PKT</option>
+                      <option value="BTL">BTL</option>
+                      <option value="JAR">JAR</option>
+                      <option value="TIN">TIN</option>
+                      <option value="KG">KG</option>
+                    </select>
                     <Button
                       type="button"
                       size="sm"
@@ -1095,7 +1047,7 @@ export default function SuppliersPage({
                   <span className="text-[10px] text-slate-500 uppercase font-extrabold shrink-0">INVOICE CLOSED CD</span>
                   <span className="font-bold text-slate-800 text-right">
                     {invoiceCloseCDRules.length > 0
-                      ? invoiceCloseCDRules.map((r) => `${r.minDays}-${r.maxDays}d: ₹${r.ratePerMT}/MT`).join(', ')
+                      ? invoiceCloseCDRules.map((r) => `${r.minDays}-${r.maxDays}d: ₹${r.ratePerMT}/${r.unit || 'MT'}`).join(', ')
                       : 'Not configured'}
                   </span>
                 </div>

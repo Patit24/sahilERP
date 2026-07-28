@@ -382,6 +382,23 @@ export function calculateCDAtRisk(
 
     const pendingAmount = invoice.invoiceAmount - allocatedAmount
 
+    const getInvoiceQtyForUnit = (inv: PurchaseInvoice, targetUnit: string): number => {
+      if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
+        let matchQty = 0
+        inv.items.forEach(invItem => {
+          const itemUnit = invItem.entryUnit || 'MT'
+          if (itemUnit === targetUnit) {
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            matchQty += qty
+          }
+        })
+        return matchQty
+      }
+      return targetUnit === 'MT' ? (inv.quantityMT || 0) : 0
+    }
+
     if (pendingAmount > 0) {
       const invoiceDate = new Date(invoice.invoiceDate)
       const daysSinceInvoice = Math.floor(
@@ -391,23 +408,28 @@ export function calculateCDAtRisk(
       const currentPaymentCDRule = supplier.paymentCDRules?.find(
         rule => daysSinceInvoice >= rule.minDays && daysSinceInvoice <= rule.maxDays
       )
-      const currentInvoiceCloseCDRule = supplier.invoiceCloseCDRules?.find(
+      const currentInvoiceCloseCDRules = supplier.invoiceCloseCDRules?.filter(
         rule => daysSinceInvoice >= rule.minDays && daysSinceInvoice <= rule.maxDays
-      )
+      ) || []
 
       const currentSlabPaymentCDRate = currentPaymentCDRule?.percentageRate || 0
-      const currentSlabInvoiceCloseCDRate = currentInvoiceCloseCDRule?.ratePerMT || 0
+      const currentSlabInvoiceCloseCDRate = currentInvoiceCloseCDRules.length > 0 ? currentInvoiceCloseCDRules[0].ratePerMT : 0 // For display
 
       const nextPaymentCDSlab = supplier.paymentCDRules
         ?.filter(rule => rule.minDays > daysSinceInvoice)
         .sort((a, b) => a.minDays - b.minDays)[0]
 
-      const nextInvoiceCloseCDSlab = supplier.invoiceCloseCDRules
+      const nextInvoiceCloseCDRules = supplier.invoiceCloseCDRules
         ?.filter(rule => rule.minDays > daysSinceInvoice)
-        .sort((a, b) => a.minDays - b.minDays)[0]
+        // Group by minDays and find the earliest next slab rules
+      const minNextDays = nextInvoiceCloseCDRules && nextInvoiceCloseCDRules.length > 0 
+        ? Math.min(...nextInvoiceCloseCDRules.map(r => r.minDays))
+        : 0
+      const nextInvoiceCloseCDSlabRules = nextInvoiceCloseCDRules?.filter(r => r.minDays === minNextDays) || []
+      const nextInvoiceCloseCDSlab = nextInvoiceCloseCDSlabRules[0]
 
       const nextSlabPaymentCDRate = nextPaymentCDSlab?.percentageRate || 0
-      const nextSlabInvoiceCloseCDRate = nextInvoiceCloseCDSlab?.ratePerMT || 0
+      const nextSlabInvoiceCloseCDRate = nextInvoiceCloseCDSlab?.ratePerMT || 0 // For display
 
       const nextSlabDays = nextPaymentCDSlab?.minDays || nextInvoiceCloseCDSlab?.minDays || 0
       const daysUntilNextSlab = nextSlabDays > 0 ? nextSlabDays - daysSinceInvoice : 0
@@ -421,8 +443,18 @@ export function calculateCDAtRisk(
       const paymentCDRisk = currentPaymentCD - nextPaymentCD  // LOSS due to downgrade
 
       // Calculate Invoice Close CD risk (slab difference, not full amount)
-      const currentInvoiceCloseCD = invoice.quantityMT * currentSlabInvoiceCloseCDRate
-      const nextInvoiceCloseCD = invoice.quantityMT * nextSlabInvoiceCloseCDRate
+      let currentInvoiceCloseCD = 0
+      currentInvoiceCloseCDRules.forEach(rule => {
+        const qty = getInvoiceQtyForUnit(invoice, rule.unit || 'MT')
+        currentInvoiceCloseCD += qty * rule.ratePerMT
+      })
+
+      let nextInvoiceCloseCD = 0
+      nextInvoiceCloseCDSlabRules.forEach(rule => {
+        const qty = getInvoiceQtyForUnit(invoice, rule.unit || 'MT')
+        nextInvoiceCloseCD += qty * rule.ratePerMT
+      })
+
       const invoiceCloseCDRisk = currentInvoiceCloseCD - nextInvoiceCloseCD  // LOSS due to downgrade
 
       // Total risk is sum of both losses

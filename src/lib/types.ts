@@ -51,6 +51,7 @@ export interface InvoiceCloseCDRule {
   minDays: number
   maxDays: number
   ratePerMT: number
+  unit?: string
 }
 
 export type RuleApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
