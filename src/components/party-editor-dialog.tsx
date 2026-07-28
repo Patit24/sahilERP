@@ -606,9 +606,10 @@ export function PartyEditorDialog({
                           <Label className="text-[11px] font-medium">Unit</Label>
                           <select
                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                            value={rule.unit || 'MT'}
-                            onChange={(e) => updateInvoiceCloseCDRule(index, { unit: e.target.value })}
+                            value={rule.unit || ''}
+                            onChange={(e) => updateInvoiceCloseCDRule(index, { unit: e.target.value || undefined })}
                           >
+                            <option value="">All Units</option>
                             <option value="MT">MT</option>
                             <option value="PCS">PCS</option>
                             <option value="BOX">BOX</option>

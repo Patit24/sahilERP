@@ -158,9 +158,8 @@ export default function PaymentDetailsPage({
             )
             
             if (invoiceCloseCDs.length > 0) {
-              const invoiceCloseCD = invoiceCloseCDs[0]
-              invoiceCloseCDEarned = invoiceCloseCD.expectedAmount
-              invoiceCloseCDRate = invoiceCloseCD.ratePerMT
+              invoiceCloseCDEarned = invoiceCloseCDs.reduce((sum, ed) => sum + ed.expectedAmount, 0)
+              invoiceCloseCDRate = invoiceCloseCDs[0].ratePerMT
               
               const invoiceDateObj = new Date(invoice.invoiceDate)
               const paymentDateObj = new Date(payment.paymentDate)

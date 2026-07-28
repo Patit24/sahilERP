@@ -459,14 +459,30 @@ export function calculateCDAtRisk(
       // Calculate Invoice Close CD risk (slab difference, not full amount)
       let currentInvoiceCloseCD = 0
       currentInvoiceCloseCDRules.forEach(rule => {
-        const qty = getInvoiceQtyForUnit(invoice, rule.unit || 'MT')
-        currentInvoiceCloseCD += qty * rule.ratePerMT
+        const targetUnits = (rule.unit && rule.unit !== 'ALL' && rule.unit !== '')
+          ? [rule.unit]
+          : (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0
+              ? Array.from(new Set(invoice.items.map(i => i.entryUnit || 'MT')))
+              : ['MT'])
+
+        targetUnits.forEach(targetUnit => {
+          const qty = getInvoiceQtyForUnit(invoice, targetUnit)
+          currentInvoiceCloseCD += qty * rule.ratePerMT
+        })
       })
 
       let nextInvoiceCloseCD = 0
       nextInvoiceCloseCDSlabRules.forEach(rule => {
-        const qty = getInvoiceQtyForUnit(invoice, rule.unit || 'MT')
-        nextInvoiceCloseCD += qty * rule.ratePerMT
+        const targetUnits = (rule.unit && rule.unit !== 'ALL' && rule.unit !== '')
+          ? [rule.unit]
+          : (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0
+              ? Array.from(new Set(invoice.items.map(i => i.entryUnit || 'MT')))
+              : ['MT'])
+
+        targetUnits.forEach(targetUnit => {
+          const qty = getInvoiceQtyForUnit(invoice, targetUnit)
+          nextInvoiceCloseCD += qty * rule.ratePerMT
+        })
       })
 
       const invoiceCloseCDRisk = currentInvoiceCloseCD - nextInvoiceCloseCD  // LOSS due to downgrade
