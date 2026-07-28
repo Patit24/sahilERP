@@ -1077,13 +1077,18 @@ function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
   const items = options.items || [];
   const rows = items.map((line, index) => {
     const item = options.itemMap.get(line.itemId);
+    const unit = line.entryUnit || item?.unit || 'MT';
+    const qty = (line.entryQuantity !== undefined && line.entryQuantity !== null && line.entryQuantity > 0)
+      ? line.entryQuantity
+      : (line.quantityMT || 0);
+    const rate = line.rate || (qty > 0 ? line.amount / qty : 0);
     return [
       (index + 1).toString(),
       item?.name || 'Unknown item',
       '-', // HSN/SAC
-      formatMT(line.quantityMT),
-      (line.amount / line.quantityMT).toFixed(2), // Rate
-      item?.unit || 'MT',
+      qty.toLocaleString('en-IN', { maximumFractionDigits: 3 }),
+      rate.toFixed(2), // Rate
+      unit,
       line.amount.toFixed(2)
     ];
   });

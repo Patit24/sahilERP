@@ -99,10 +99,10 @@ export default function InventoryReportPage({
     const tableData = inventoryData.map(item => [
       item.itemName,
       item.unit,
-      item.openingStockMT > 0 ? formatMT(item.openingStockMT) : '-',
-      formatMT(item.totalPurchaseMT),
-      formatMT(item.totalSalesMT),
-      formatMT(item.balanceMT),
+      item.openingStockMT > 0 ? `${item.openingStockMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}` : '-',
+      `${item.totalPurchaseMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`,
+      `${item.totalSalesMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`,
+      `${item.balanceMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`,
       formatAmount(item.avgPurchaseRate),
       formatAmount(item.avgSalesRate),
       formatAmount(item.currentStockValue)
@@ -264,17 +264,17 @@ export default function InventoryReportPage({
                       <Badge variant="outline" className="font-mono text-xs">{item.unit}</Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono font-medium">
-                      {item.openingStockMT > 0 ? formatMT(item.openingStockMT) : '-'}
+                      {item.openingStockMT > 0 ? `${item.openingStockMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}` : '-'}
                     </TableCell>
                     <TableCell className="text-right font-mono text-emerald-700 font-bold">
-                      +{formatMT(item.totalPurchaseMT)}
+                      +{item.totalPurchaseMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
                     </TableCell>
                     <TableCell className="text-right font-mono text-blue-700 font-bold">
-                      -{formatMT(item.totalSalesMT)}
+                      -{item.totalSalesMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold">
                       <span className={item.balanceMT < 0 ? 'text-red-600' : 'text-slate-900'}>
-                        {formatMT(item.balanceMT)}
+                        {item.balanceMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono">

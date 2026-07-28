@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment } from '@/lib/types'
+import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
+import { calculateItemStockMap } from '@/lib/report-calculations'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,6 +25,9 @@ import { ItemEditorDialog } from '@/components/item-editor-dialog'
 interface InvoicesPageProps {
   invoices: PurchaseInvoice[]
   setInvoices: (updater: (prev: PurchaseInvoice[]) => PurchaseInvoice[]) => void
+  salesInvoices?: SalesInvoice[]
+  purchaseReturns?: PurchaseReturn[]
+  salesReturns?: SalesReturn[]
   suppliers: Supplier[]
   setSuppliers: (updater: (prev: Supplier[]) => Supplier[]) => void
   payments: Payment[]
@@ -40,7 +44,28 @@ interface InvoicesPageProps {
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
 
-export default function InvoicesPage({ invoices, setInvoices, suppliers, setSuppliers, payments, setPayments, items, setItems, currentFY, isLocked = false, gstPercentage = 18, counters, transactions, onUpdateCashBank }: InvoicesPageProps) {
+export default function InvoicesPage({
+  invoices,
+  setInvoices,
+  salesInvoices = [],
+  purchaseReturns = [],
+  salesReturns = [],
+  suppliers,
+  setSuppliers,
+  payments,
+  setPayments,
+  items,
+  setItems,
+  currentFY,
+  isLocked = false,
+  gstPercentage = 18,
+  counters,
+  transactions,
+  onUpdateCashBank
+}: InvoicesPageProps) {
+  const stockMap = useMemo(() => {
+    return calculateItemStockMap(items, invoices, salesInvoices, purchaseReturns, salesReturns)
+  }, [items, invoices, salesInvoices, purchaseReturns, salesReturns])
   const [open, setOpen] = useState(false)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [editingInvoice, setEditingInvoice] = useState<PurchaseInvoice | null>(null)
@@ -1480,7 +1505,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                             >
                               <TableCell className="font-medium">{item.name}</TableCell>
                               <TableCell>{item.itemCode || '-'}</TableCell>
-                              <TableCell className="text-right font-mono">{item.openingStock ?? 0} {item.unit}</TableCell>
+                              <TableCell className="text-right font-mono font-semibold text-blue-700">
+                                {(stockMap.get(item.id)?.currentStock ?? item.openingStock ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })} {item.unit}
+                              </TableCell>
                               <TableCell className="text-right font-mono">{item.salesPrice ? formatCurrency(item.salesPrice) : '-'}</TableCell>
                               <TableCell className="text-right font-mono">{item.purchasePrice ? formatCurrency(item.purchasePrice) : '-'}</TableCell>
                               <TableCell className="text-right">

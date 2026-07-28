@@ -1962,12 +1962,25 @@ function App() {
         case 'customers':
           return <CustomersPage customers={safeCustomers} setCustomers={setCustomers} isLocked={isViewReadOnly('customers')} />
         case 'items':
-          return <ItemsPage items={safeItems} setItems={setItems} isLocked={isViewReadOnly('items')} />
+          return (
+            <ItemsPage
+              items={safeItems}
+              setItems={setItems}
+              purchaseInvoices={safeInvoices}
+              salesInvoices={safeSalesInvoices}
+              purchaseReturns={safePurchaseReturns}
+              salesReturns={safeSalesReturns}
+              isLocked={isViewReadOnly('items')}
+            />
+          )
         case 'invoices':
           return (
             <InvoicesPage
               invoices={safeInvoices}
               setInvoices={setInvoices}
+              salesInvoices={safeSalesInvoices}
+              purchaseReturns={safePurchaseReturns}
+              salesReturns={safeSalesReturns}
               suppliers={safeSuppliers}
               setSuppliers={setSuppliers}
               payments={safePayments}
@@ -2026,6 +2039,9 @@ function App() {
             <SalesInvoicesPage
               salesInvoices={safeSalesInvoices}
               setSalesInvoices={setSalesInvoices}
+              purchaseInvoices={safeInvoices}
+              purchaseReturns={safePurchaseReturns}
+              salesReturns={safeSalesReturns}
               customers={safeCustomers}
               setCustomers={setCustomers}
               customerPayments={safeCustomerPayments}

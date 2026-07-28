@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Item } from '@/lib/types'
+import { Item, PurchaseInvoice, SalesInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
+import { calculateItemStockMap } from '@/lib/report-calculations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
@@ -24,14 +25,30 @@ import {
 interface ItemsPageProps {
   items: Item[]
   setItems: (updater: (prev: Item[]) => Item[]) => void
+  purchaseInvoices?: PurchaseInvoice[]
+  salesInvoices?: SalesInvoice[]
+  purchaseReturns?: PurchaseReturn[]
+  salesReturns?: SalesReturn[]
   isLocked?: boolean
 }
 
-export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPageProps) {
+export default function ItemsPage({
+  items,
+  setItems,
+  purchaseInvoices = [],
+  salesInvoices = [],
+  purchaseReturns = [],
+  salesReturns = [],
+  isLocked = false
+}: ItemsPageProps) {
   const [open, setOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
+
+  const stockMap = useMemo(() => {
+    return calculateItemStockMap(items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns)
+  }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns])
 
   // Custom Category & Unit Manager Modals State
   const [customCategories, setCustomCategories] = useState<string[]>(getCustomCategories)
@@ -361,39 +378,45 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
                           <TableHead className="text-right font-bold text-slate-700">Sales Price</TableHead>
                           <TableHead className="text-right font-bold text-slate-700">GST %</TableHead>
                           <TableHead className="text-right font-bold text-slate-700">Opening Stock</TableHead>
+                          <TableHead className="text-right font-bold text-slate-700">Current Stock</TableHead>
                           <TableHead className="w-[80px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {categoryItems.map(item => (
-                          <TableRow key={item.id} className="hover:bg-slate-50/80">
-                            <TableCell className="font-bold text-slate-900">{item.name}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="font-mono text-xs font-bold text-slate-800">
-                                  {item.unit}
-                                  {item.alternativeUnit && item.alternativeUnit !== 'NONE' ? ` / ${item.alternativeUnit}` : ''}
-                                </span>
-                                {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
-                                  <span className="text-[10px] text-slate-500 font-mono">
-                                    1 {item.unit} = {item.conversionFactor ? item.conversionFactor.toLocaleString() : (item.unit === 'MT' ? '1,000' : '1')} {item.alternativeUnit}
+                        {categoryItems.map(item => {
+                          const currentStockVal = stockMap.get(item.id)?.currentStock ?? item.openingStock ?? 0
+                          return (
+                            <TableRow key={item.id} className="hover:bg-slate-50/80">
+                              <TableCell className="font-bold text-slate-900">{item.name}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-mono text-xs font-bold text-slate-800">
+                                    {item.unit}
+                                    {item.alternativeUnit && item.alternativeUnit !== 'NONE' ? ` / ${item.alternativeUnit}` : ''}
                                   </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm font-semibold">
-                              {item.purchasePrice ? `₹${item.purchasePrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm font-semibold text-emerald-700">
-                              {item.salesPrice ? `₹${item.salesPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {item.gstRate ? `${item.gstRate}%` : '-'}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm font-semibold">
-                              {item.openingStock ? `${item.openingStock.toFixed(3)} ${item.unit}` : '-'}
-                            </TableCell>
-                            <TableCell>
+                                  {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
+                                    <span className="text-[10px] text-slate-500 font-mono">
+                                      1 {item.unit} = {item.conversionFactor ? item.conversionFactor.toLocaleString() : (item.unit === 'MT' ? '1,000' : '1')} {item.alternativeUnit}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm font-semibold">
+                                {typeof item.purchasePrice === 'number' ? `₹${item.purchasePrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm font-semibold text-emerald-700">
+                                {typeof item.salesPrice === 'number' ? `₹${item.salesPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm">
+                                {typeof item.gstRate === 'number' ? `${item.gstRate}%` : '-'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm font-semibold text-slate-600">
+                                {typeof item.openingStock === 'number' ? `${item.openingStock.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}` : '-'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm font-bold text-blue-700">
+                                {`${currentStockVal.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit}`}
+                              </TableCell>
+                              <TableCell>
                               <div className="flex items-center justify-end gap-1">
                                 <Button 
                                   variant="ghost" 
@@ -414,8 +437,9 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
+                        )
+                      })}
+                    </TableBody>
                     </Table>
                   )}
                 </CardContent>

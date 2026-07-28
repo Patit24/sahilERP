@@ -113,15 +113,20 @@ export function InvoicePreviewDialog({
                   </tr>
                 ) : items.map((line, index) => {
                   const item = itemMap.get(line.itemId)
+                  const unit = line.entryUnit || item?.unit || 'MT'
+                  const qty = (line.entryQuantity !== undefined && line.entryQuantity !== null && line.entryQuantity > 0)
+                    ? line.entryQuantity
+                    : (line.quantityMT || 0)
+                  const rate = line.rate || (qty > 0 ? line.amount / qty : 0)
                   return (
                     <tr key={`${line.itemId}-${index}`}>
                       <td>{index + 1}</td>
                       <td>
                         <strong>{item?.name || 'Unknown item'}</strong>
-                        <span>{item?.description || item?.unit || ''}</span>
+                        <span>{item?.description || unit}</span>
                       </td>
-                      <td>{formatMT(line.quantityMT)}</td>
-                      <td>{formatCurrency(line.rate)}</td>
+                      <td>{qty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {unit}</td>
+                      <td>{formatCurrency(rate)}</td>
                       <td>0</td>
                       <td>{formatCurrency(line.amount)}</td>
                     </tr>

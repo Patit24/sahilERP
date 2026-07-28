@@ -125,11 +125,14 @@ export function calculateInventoryReport(
       if (invoice.items && Array.isArray(invoice.items)) {
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            totalPurchaseMT += invItem.quantityMT
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            totalPurchaseMT += qty
             totalPurchaseAmount += invItem.amount
             purchaseBatches.push({
               date: new Date(invoice.invoiceDate),
-              quantityMT: invItem.quantityMT,
+              quantityMT: qty,
               rate: invItem.rate,
               amount: invItem.amount
             })
@@ -143,7 +146,10 @@ export function calculateInventoryReport(
       if (ret.items && Array.isArray(ret.items)) {
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            totalPurchaseMT -= invItem.quantityMT
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            totalPurchaseMT -= qty
             totalPurchaseAmount -= invItem.amount
           }
         })
@@ -154,7 +160,10 @@ export function calculateInventoryReport(
       if (invoice.items && Array.isArray(invoice.items)) {
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            totalSalesMT += invItem.quantityMT
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            totalSalesMT += qty
             totalSalesAmount += invItem.amount
           }
         })
@@ -166,7 +175,10 @@ export function calculateInventoryReport(
       if (ret.items && Array.isArray(ret.items)) {
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
-            totalSalesMT -= invItem.quantityMT
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            totalSalesMT -= qty
             totalSalesAmount -= invItem.amount
           }
         })
@@ -213,7 +225,7 @@ export function calculateInventoryReport(
       itemId: item.id,
       itemName: item.name,
       category: item.category || 'Uncategorized',
-      unit: item.unit,
+      unit: item.unit || 'MT',
       openingStockMT,
       openingStockValue,
       totalPurchaseMT,
@@ -226,6 +238,76 @@ export function calculateInventoryReport(
   })
 
   return inventory.filter(inv => inv.openingStockMT > 0 || inv.totalPurchaseMT > 0 || inv.totalSalesMT > 0)
+}
+
+export function calculateItemStockMap(
+  items: Item[],
+  purchaseInvoices: PurchaseInvoice[],
+  salesInvoices: SalesInvoice[],
+  purchaseReturns: PurchaseReturn[] = [],
+  salesReturns: SalesReturn[] = []
+): Map<string, { currentStock: number; unit: string }> {
+  const stockMap = new Map<string, { currentStock: number; unit: string }>()
+
+  items.forEach(item => {
+    let currentStock = item.openingStock || 0
+
+    purchaseInvoices.forEach(inv => {
+      if (inv.items && Array.isArray(inv.items)) {
+        inv.items.forEach(invItem => {
+          if (invItem.itemId === item.id) {
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            currentStock += qty
+          }
+        })
+      }
+    })
+
+    purchaseReturns.forEach(ret => {
+      if (ret.items && Array.isArray(ret.items)) {
+        ret.items.forEach(invItem => {
+          if (invItem.itemId === item.id) {
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            currentStock -= qty
+          }
+        })
+      }
+    })
+
+    salesInvoices.forEach(inv => {
+      if (inv.items && Array.isArray(inv.items)) {
+        inv.items.forEach(invItem => {
+          if (invItem.itemId === item.id) {
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            currentStock -= qty
+          }
+        })
+      }
+    })
+
+    salesReturns.forEach(ret => {
+      if (ret.items && Array.isArray(ret.items)) {
+        ret.items.forEach(invItem => {
+          if (invItem.itemId === item.id) {
+            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+              ? invItem.entryQuantity
+              : (invItem.quantityMT || 0)
+            currentStock += qty
+          }
+        })
+      }
+    })
+
+    stockMap.set(item.id, { currentStock, unit: item.unit || 'MT' })
+  })
+
+  return stockMap
 }
 
 /**

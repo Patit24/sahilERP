@@ -95,22 +95,24 @@ export default function ItemReportsPage({
         const supplierIds = new Set(existingDetail?.supplierCount ? [invoice.supplierId] : [invoice.supplierId])
         
         if (existingDetail) {
+          const qty = (item.entryQuantity !== undefined && item.entryQuantity !== null && item.entryQuantity > 0) ? item.entryQuantity : item.quantityMT
           supplierIds.add(invoice.supplierId)
           details.set(item.itemId, {
             ...existingDetail,
-            totalQuantity: existingDetail.totalQuantity + item.quantityMT,
+            totalQuantity: existingDetail.totalQuantity + qty,
             totalAmount: existingDetail.totalAmount + item.amount,
-            avgRate: (existingDetail.totalAmount + item.amount) / (existingDetail.totalQuantity + item.quantityMT),
+            avgRate: (existingDetail.totalAmount + item.amount) / (existingDetail.totalQuantity + qty),
             invoiceCount: existingDetail.invoiceCount + 1,
             supplierCount: supplierIds.size,
             firstPurchaseDate: invoice.invoiceDate < existingDetail.firstPurchaseDate ? invoice.invoiceDate : existingDetail.firstPurchaseDate,
             lastPurchaseDate: invoice.invoiceDate > existingDetail.lastPurchaseDate ? invoice.invoiceDate : existingDetail.lastPurchaseDate
           })
         } else {
+          const qty = (item.entryQuantity !== undefined && item.entryQuantity !== null && item.entryQuantity > 0) ? item.entryQuantity : item.quantityMT
           details.set(item.itemId, {
             itemId: item.itemId,
             itemName: itemData?.name || 'Unknown',
-            totalQuantity: item.quantityMT,
+            totalQuantity: qty,
             totalAmount: item.amount,
             avgRate: item.rate,
             invoiceCount: 1,
@@ -137,22 +139,24 @@ export default function ItemReportsPage({
         const customerIds = new Set(existingDetail?.customerCount ? [invoice.customerId] : [invoice.customerId])
         
         if (existingDetail) {
+          const qty = (item.entryQuantity !== undefined && item.entryQuantity !== null && item.entryQuantity > 0) ? item.entryQuantity : item.quantityMT
           customerIds.add(invoice.customerId)
           details.set(item.itemId, {
             ...existingDetail,
-            totalQuantity: existingDetail.totalQuantity + item.quantityMT,
+            totalQuantity: existingDetail.totalQuantity + qty,
             totalAmount: existingDetail.totalAmount + item.amount,
-            avgRate: (existingDetail.totalAmount + item.amount) / (existingDetail.totalQuantity + item.quantityMT),
+            avgRate: (existingDetail.totalAmount + item.amount) / (existingDetail.totalQuantity + qty),
             invoiceCount: existingDetail.invoiceCount + 1,
             customerCount: customerIds.size,
             firstSaleDate: invoice.invoiceDate < existingDetail.firstSaleDate ? invoice.invoiceDate : existingDetail.firstSaleDate,
             lastSaleDate: invoice.invoiceDate > existingDetail.lastSaleDate ? invoice.invoiceDate : existingDetail.lastSaleDate
           })
         } else {
+          const qty = (item.entryQuantity !== undefined && item.entryQuantity !== null && item.entryQuantity > 0) ? item.entryQuantity : item.quantityMT
           details.set(item.itemId, {
             itemId: item.itemId,
             itemName: itemData?.name || 'Unknown',
-            totalQuantity: item.quantityMT,
+            totalQuantity: qty,
             totalAmount: item.amount,
             avgRate: item.rate,
             invoiceCount: 1,
