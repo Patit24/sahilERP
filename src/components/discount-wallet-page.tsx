@@ -60,7 +60,7 @@ export default function DiscountWalletPage({
 }: DiscountWalletPageProps) {
   const [open, setOpen] = useState(false)
   const [dialogType, setDialogType] = useState<'wallet' | 'annual'>('wallet')
-  const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
+  const [selectedSupplier, setSelectedSupplier] = useState<string>(suppliers[0]?.id || '')
   const [selectedCategories, setSelectedCategories] = useState<Set<DiscountCategory>>(() => 
     new Set(['paymentCD', 'invoiceCloseCD', 'fixedScheme', 'annual'])
   )
@@ -1108,7 +1108,7 @@ export default function DiscountWalletPage({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Suppliers</SelectItem>
+
                   {suppliers.map(supplier => (
                     <SelectItem key={supplier.id} value={supplier.id}>
                       {supplier.name}
