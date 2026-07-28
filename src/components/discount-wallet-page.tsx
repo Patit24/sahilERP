@@ -547,7 +547,7 @@ export default function DiscountWalletPage({
       const normalizedType = isPaymentCDType ? 'paymentCD' : pd.type
       
       const schemeName = normalizedType === 'paymentCD' ? 'Payment CD' : 
-                        normalizedType === 'invoiceCloseCD' ? 'Invoice Close CD' : 
+                        normalizedType === 'invoiceCloseCD' ? (('ruleName' in pd ? pd.ruleName : undefined) || 'Invoice Close CD') : 
                         normalizedType === 'annual' ? 'Annual Target' :
                         pd.schemeName || 'Unknown'
       
