@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { PurchaseInvoice, Payment, Supplier, PaymentAllocation } from '@/lib/types'
-import { calculatePaymentAllocations, formatCurrency, formatMT } from '@/lib/calculations'
+import { calculatePaymentAllocations, formatCurrency, formatMT, getInvoiceQtyForUnit } from '@/lib/calculations'
 import { Warning, Clock, ArrowRight } from '@phosphor-icons/react'
 import { format, differenceInDays } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -24,6 +24,7 @@ interface CDExpiryAlert {
   supplierName: string
   pendingAmount: number
   pendingQuantityMT: number
+  quantityDisplay?: string
   currentSlabDays: number
   currentSlabRate: number
   nextSlabDays: number
@@ -58,164 +59,173 @@ export default function CDExpiryAlert({
       
       const pendingAmount = invoice.invoiceAmount - allocatedAmount
       const invoiceDate = new Date(invoice.invoiceDate)
-      const daysFromInvoice = differenceInDays(today, invoiceDate)
+      const daysFromInvoice = Math.max(0, differenceInDays(today, invoiceDate))
       
+      // Calculate quantity display string (e.g. "30 MT, 15 BOX")
+      let quantityDisplay = formatMT(invoice.quantityMT)
+      if (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0) {
+        const unitMap = new Map<string, number>()
+        invoice.items.forEach(item => {
+          const u = item.entryUnit || 'MT'
+          const q = (item.entryQuantity !== undefined && item.entryQuantity !== null && item.entryQuantity > 0)
+            ? item.entryQuantity
+            : (item.quantityMT || 0)
+          unitMap.set(u, (unitMap.get(u) || 0) + q)
+        })
+        quantityDisplay = Array.from(unitMap.entries())
+          .map(([unit, qty]) => `${qty} ${unit}`)
+          .join(', ')
+      }
+
+      // 1. Payment CD Alerts
       if (supplier.paymentCDRules && supplier.paymentCDRules.length > 0 && pendingAmount > 0) {
-        const sortedRules = [...supplier.paymentCDRules].sort((a, b) => a.minDays - b.minDays)
+        const validRules = supplier.paymentCDRules
+          .filter(r => r.maxDays > r.minDays && r.percentageRate > 0)
+          .sort((a, b) => a.minDays - b.minDays)
         
-        let currentSlab: typeof sortedRules[0] | null = null
-        let nextSlab: typeof sortedRules[0] | null = null
-        
-        for (let i = 0; i < sortedRules.length; i++) {
-          const rule = sortedRules[i]
-          if (daysFromInvoice >= rule.minDays && daysFromInvoice <= rule.maxDays) {
-            currentSlab = rule
-            if (i < sortedRules.length - 1) {
-              nextSlab = sortedRules[i + 1]
-            }
-            break
-          }
-        }
-        
-        if (!currentSlab) {
-          for (let i = sortedRules.length - 1; i >= 0; i--) {
-            if (daysFromInvoice < sortedRules[i].minDays) {
-              currentSlab = sortedRules[i]
-              if (i < sortedRules.length - 1) {
-                nextSlab = sortedRules[i + 1]
-              }
-            }
-          }
-        }
-        
-        if (currentSlab) {
-          const daysUntilExpiry = currentSlab.maxDays - daysFromInvoice
-          const daysUntilNextSlab = nextSlab ? (nextSlab.minDays - daysFromInvoice) : -1
+        if (validRules.length > 0) {
+          const currentSlab = validRules.find(
+            rule => daysFromInvoice >= rule.minDays && daysFromInvoice <= rule.maxDays
+          )
           
-          if (daysUntilExpiry >= 0 && daysUntilExpiry <= 2) {
+          if (currentSlab) {
+            // Find next slab that has a LOWER rate (causing a potential loss)
+            const nextSlab = validRules.find(
+              rule => rule.minDays > currentSlab.maxDays && rule.percentageRate < currentSlab.percentageRate
+            )
+            
+            const daysUntilExpiry = currentSlab.maxDays - daysFromInvoice
+            const daysUntilNextSlab = nextSlab ? (nextSlab.minDays - daysFromInvoice) : daysUntilExpiry
+            
             const currentCD = (pendingAmount * currentSlab.percentageRate) / 100
             const nextCD = nextSlab ? (pendingAmount * nextSlab.percentageRate) / 100 : 0
             const potentialLoss = currentCD - nextCD
             
-            alerts.push({
-              invoiceId: invoice.id,
-              invoiceNo: invoice.invoiceNo,
-              invoiceDate: invoice.invoiceDate,
-              supplierId: supplier.id,
-              supplierName: supplier.name,
-              pendingAmount,
-              pendingQuantityMT: invoice.quantityMT,
-              currentSlabDays: currentSlab.maxDays,
-              currentSlabRate: currentSlab.percentageRate,
-              nextSlabDays: nextSlab ? nextSlab.minDays : -1,
-              nextSlabRate: nextSlab ? nextSlab.percentageRate : 0,
-              daysUntilNextSlab: daysUntilExpiry,
-              potentialLoss,
-              type: 'expiring',
-              cdType: 'payment'
-            })
-          } else if (nextSlab && daysUntilNextSlab >= 0 && daysUntilNextSlab <= 2) {
-            const currentCD = (pendingAmount * currentSlab.percentageRate) / 100
-            const nextCD = (pendingAmount * nextSlab.percentageRate) / 100
-            const potentialLoss = currentCD - nextCD
-            
-            alerts.push({
-              invoiceId: invoice.id,
-              invoiceNo: invoice.invoiceNo,
-              invoiceDate: invoice.invoiceDate,
-              supplierId: supplier.id,
-              supplierName: supplier.name,
-              pendingAmount,
-              pendingQuantityMT: invoice.quantityMT,
-              currentSlabDays: currentSlab.maxDays,
-              currentSlabRate: currentSlab.percentageRate,
-              nextSlabDays: nextSlab.minDays,
-              nextSlabRate: nextSlab.percentageRate,
-              daysUntilNextSlab,
-              potentialLoss,
-              type: 'moving',
-              cdType: 'payment'
-            })
-          }
-        }
-      }
-      
-      if (supplier.invoiceCloseCDRules && supplier.invoiceCloseCDRules.length > 0) {
-        const sortedRules = [...supplier.invoiceCloseCDRules].sort((a, b) => a.minDays - b.minDays)
-        
-        let currentSlab: typeof sortedRules[0] | null = null
-        let nextSlab: typeof sortedRules[0] | null = null
-        
-        for (let i = 0; i < sortedRules.length; i++) {
-          const rule = sortedRules[i]
-          if (daysFromInvoice >= rule.minDays && daysFromInvoice <= rule.maxDays) {
-            currentSlab = rule
-            if (i < sortedRules.length - 1) {
-              nextSlab = sortedRules[i + 1]
-            }
-            break
-          }
-        }
-        
-        if (!currentSlab) {
-          for (let i = sortedRules.length - 1; i >= 0; i--) {
-            if (daysFromInvoice < sortedRules[i].minDays) {
-              currentSlab = sortedRules[i]
-              if (i < sortedRules.length - 1) {
-                nextSlab = sortedRules[i + 1]
+            if (potentialLoss > 0) {
+              if (!nextSlab && daysUntilExpiry >= 0 && daysUntilExpiry <= 2) {
+                alerts.push({
+                  invoiceId: invoice.id,
+                  invoiceNo: invoice.invoiceNo,
+                  invoiceDate: invoice.invoiceDate,
+                  supplierId: supplier.id,
+                  supplierName: supplier.name,
+                  pendingAmount,
+                  quantityDisplay,
+                  pendingQuantityMT: invoice.quantityMT,
+                  currentSlabDays: currentSlab.maxDays,
+                  currentSlabRate: currentSlab.percentageRate,
+                  nextSlabDays: -1,
+                  nextSlabRate: 0,
+                  daysUntilNextSlab: daysUntilExpiry,
+                  potentialLoss,
+                  type: 'expiring',
+                  cdType: 'payment'
+                })
+              } else if (nextSlab && daysUntilNextSlab >= 0 && daysUntilNextSlab <= 2) {
+                alerts.push({
+                  invoiceId: invoice.id,
+                  invoiceNo: invoice.invoiceNo,
+                  invoiceDate: invoice.invoiceDate,
+                  supplierId: supplier.id,
+                  supplierName: supplier.name,
+                  pendingAmount,
+                  quantityDisplay,
+                  pendingQuantityMT: invoice.quantityMT,
+                  currentSlabDays: currentSlab.maxDays,
+                  currentSlabRate: currentSlab.percentageRate,
+                  nextSlabDays: nextSlab.minDays,
+                  nextSlabRate: nextSlab.percentageRate,
+                  daysUntilNextSlab,
+                  potentialLoss,
+                  type: 'moving',
+                  cdType: 'payment'
+                })
               }
             }
           }
         }
+      }
+      
+      // 2. Invoice Close CD Alerts
+      if (supplier.invoiceCloseCDRules && supplier.invoiceCloseCDRules.length > 0) {
+        const validRules = supplier.invoiceCloseCDRules
+          .filter(r => r.maxDays > r.minDays && r.ratePerMT > 0)
+          .sort((a, b) => a.minDays - b.minDays)
         
-        if (currentSlab) {
-          const daysUntilExpiry = currentSlab.maxDays - daysFromInvoice
-          const daysUntilNextSlab = nextSlab ? (nextSlab.minDays - daysFromInvoice) : -1
+        if (validRules.length > 0) {
+          const currentSlab = validRules.find(
+            rule => daysFromInvoice >= rule.minDays && daysFromInvoice <= rule.maxDays
+          )
           
-          if (daysUntilExpiry >= 0 && daysUntilExpiry <= 2) {
-            const currentCD = invoice.quantityMT * currentSlab.ratePerMT
-            const nextCD = nextSlab ? (invoice.quantityMT * nextSlab.ratePerMT) : 0
-            const potentialLoss = currentCD - nextCD
+          if (currentSlab) {
+            const nextSlab = validRules.find(
+              rule => rule.minDays > currentSlab.maxDays && rule.ratePerMT < currentSlab.ratePerMT
+            )
             
-            alerts.push({
-              invoiceId: invoice.id,
-              invoiceNo: invoice.invoiceNo,
-              invoiceDate: invoice.invoiceDate,
-              supplierId: supplier.id,
-              supplierName: supplier.name,
-              pendingAmount,
-              pendingQuantityMT: invoice.quantityMT,
-              currentSlabDays: currentSlab.maxDays,
-              currentSlabRate: currentSlab.ratePerMT,
-              nextSlabDays: nextSlab ? nextSlab.minDays : -1,
-              nextSlabRate: nextSlab ? nextSlab.ratePerMT : 0,
-              daysUntilNextSlab: daysUntilExpiry,
-              potentialLoss,
-              type: 'expiring',
-              cdType: 'invoiceClose'
-            })
-          } else if (nextSlab && daysUntilNextSlab >= 0 && daysUntilNextSlab <= 2) {
-            const currentCD = invoice.quantityMT * currentSlab.ratePerMT
-            const nextCD = invoice.quantityMT * nextSlab.ratePerMT
-            const potentialLoss = currentCD - nextCD
+            const daysUntilExpiry = currentSlab.maxDays - daysFromInvoice
+            const daysUntilNextSlab = nextSlab ? (nextSlab.minDays - daysFromInvoice) : daysUntilExpiry
             
-            alerts.push({
-              invoiceId: invoice.id,
-              invoiceNo: invoice.invoiceNo,
-              invoiceDate: invoice.invoiceDate,
-              supplierId: supplier.id,
-              supplierName: supplier.name,
-              pendingAmount,
-              pendingQuantityMT: invoice.quantityMT,
-              currentSlabDays: currentSlab.maxDays,
-              currentSlabRate: currentSlab.ratePerMT,
-              nextSlabDays: nextSlab.minDays,
-              nextSlabRate: nextSlab.ratePerMT,
-              daysUntilNextSlab,
-              potentialLoss,
-              type: 'moving',
-              cdType: 'invoiceClose'
+            // Calculate current CD and next CD for all target units in invoice
+            let currentCDAmount = 0
+            let nextCDAmount = 0
+
+            const targetUnits = (currentSlab.unit && currentSlab.unit !== 'ALL' && currentSlab.unit !== '')
+              ? [currentSlab.unit]
+              : (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0
+                  ? Array.from(new Set(invoice.items.map(i => i.entryUnit || 'MT')))
+                  : ['MT'])
+
+            targetUnits.forEach(u => {
+              const q = getInvoiceQtyForUnit(invoice, u)
+              currentCDAmount += q * currentSlab!.ratePerMT
+              if (nextSlab) {
+                nextCDAmount += q * nextSlab.ratePerMT
+              }
             })
+
+            const potentialLoss = currentCDAmount - nextCDAmount
+
+            if (potentialLoss > 0) {
+              if (!nextSlab && daysUntilExpiry >= 0 && daysUntilExpiry <= 2) {
+                alerts.push({
+                  invoiceId: invoice.id,
+                  invoiceNo: invoice.invoiceNo,
+                  invoiceDate: invoice.invoiceDate,
+                  supplierId: supplier.id,
+                  supplierName: supplier.name,
+                  pendingAmount,
+                  quantityDisplay,
+                  pendingQuantityMT: invoice.quantityMT,
+                  currentSlabDays: currentSlab.maxDays,
+                  currentSlabRate: currentSlab.ratePerMT,
+                  nextSlabDays: -1,
+                  nextSlabRate: 0,
+                  daysUntilNextSlab: daysUntilExpiry,
+                  potentialLoss,
+                  type: 'expiring',
+                  cdType: 'invoiceClose'
+                })
+              } else if (nextSlab && daysUntilNextSlab >= 0 && daysUntilNextSlab <= 2) {
+                alerts.push({
+                  invoiceId: invoice.id,
+                  invoiceNo: invoice.invoiceNo,
+                  invoiceDate: invoice.invoiceDate,
+                  supplierId: supplier.id,
+                  supplierName: supplier.name,
+                  pendingAmount,
+                  quantityDisplay,
+                  pendingQuantityMT: invoice.quantityMT,
+                  currentSlabDays: currentSlab.maxDays,
+                  currentSlabRate: currentSlab.ratePerMT,
+                  nextSlabDays: nextSlab.minDays,
+                  nextSlabRate: nextSlab.ratePerMT,
+                  daysUntilNextSlab,
+                  potentialLoss,
+                  type: 'moving',
+                  cdType: 'invoiceClose'
+                })
+              }
+            }
           }
         }
       }
@@ -306,7 +316,7 @@ export default function CDExpiryAlert({
                         ) : (
                           <div>
                             <span className="text-muted-foreground">Quantity:</span>
-                            <span className="ml-2 font-mono font-medium">{formatMT(alert.pendingQuantityMT)}</span>
+                            <span className="ml-2 font-mono font-medium">{alert.quantityDisplay || formatMT(alert.pendingQuantityMT)}</span>
                           </div>
                         )}
                         <div>
