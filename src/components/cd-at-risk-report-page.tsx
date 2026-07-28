@@ -4,9 +4,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PurchaseInvoice, Payment, Supplier } from '@/lib/types'
-import { calculateCDAtRisk } from '@/lib/report-calculations'
+import { calculateCDAtRisk, InvoiceCloseCDUnitBreakdown } from '@/lib/report-calculations'
 import { calculatePaymentAllocations, formatCurrency, formatMT } from '@/lib/calculations'
-import { Warning, Clock, TrendDown, CaretDown, FilePdf } from '@phosphor-icons/react'
+import { Warning, Clock, TrendDown, CaretDown, FilePdf, Shield, CoinVertical, Receipt, Funnel, X } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 import {
   Collapsible,
@@ -52,7 +52,7 @@ export default function CDAtRiskReportPage({
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([])
   const [supplierFilterOpen, setSupplierFilterOpen] = useState(false)
 
-  const { allocations: paymentAllocations, paymentAdvanceInfo } = useMemo(() => {
+  const { allocations: paymentAllocations } = useMemo(() => {
     return calculatePaymentAllocations(payments, purchaseInvoices)
   }, [payments, purchaseInvoices])
 
@@ -102,7 +102,7 @@ export default function CDAtRiskReportPage({
     doc.text(businessName, 14, 15)
     
     doc.setFontSize(14)
-    doc.text('CD at Risk Report', 14, 23)
+    doc.text('CD at Risk Report (Multi-Unit Breakdown)', 14, 23)
     
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
@@ -142,37 +142,43 @@ export default function CDAtRiskReportPage({
     doc.setFont('helvetica', 'bold')
     doc.text('Eligible Invoices - CD Available', 14, yPos + 26)
 
-    const eligibleTableData = eligibleInvoices.map(data => [
-      data.invoiceNo,
-      data.supplierName,
-      format(new Date(data.invoiceDate), 'dd MMM yyyy'),
-      `${data.daysSinceInvoice}d`,
-      formatAmount(data.pendingAmount),
-      `${formatAmount(data.totalPaymentCDAtCurrentSlab)} (${data.currentSlabPaymentCDRate}%)`,
-      `${formatAmount(data.invoiceCloseCDRisk)} (Rs ${data.currentSlabInvoiceCloseCDRate}/MT → Rs ${data.nextSlabInvoiceCloseCDRate}/MT)`,
-      formatAmount(data.totalCDAtRisk),
-      data.nextSlabDays > 0 ? `${data.nextSlabDays}d` : 'Max',
-      data.nextSlabPaymentCDRate > 0 ? `${data.nextSlabPaymentCDRate}%` : '-'
-    ])
+    const eligibleTableData = eligibleInvoices.map(data => {
+      const breakdownText = (data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0)
+        ? data.invoiceCloseCDBreakdown.map(b => `${b.quantity} ${b.unit} @ Rs ${b.currentRate}/${b.unit} = Rs ${formatAmount(b.currentAmount)}`).join('; ')
+        : `Rs ${data.currentSlabInvoiceCloseCDRate}/MT`
+
+      return [
+        data.invoiceNo,
+        data.supplierName,
+        format(new Date(data.invoiceDate), 'dd MMM yyyy'),
+        `${data.daysSinceInvoice}d`,
+        formatAmount(data.pendingAmount),
+        `${formatAmount(data.totalPaymentCDAtCurrentSlab)} (${data.currentSlabPaymentCDRate}%)`,
+        `${formatAmount(data.invoiceCloseCDRisk)}\n[${breakdownText}]`,
+        formatAmount(data.totalCDAtRisk),
+        data.nextSlabDays > 0 ? `${data.nextSlabDays}d` : 'Max',
+        data.nextSlabPaymentCDRate > 0 ? `${data.nextSlabPaymentCDRate}%` : '-'
+      ]
+    })
 
     autoTable(doc, {
       startY: yPos + 28,
-      head: [['Invoice No', 'Supplier', 'Date', 'Days', 'Pending (Rs)', 'TOTAL CD RISK (Rs)', 'Invoice CD Loss (Rs)', 'CURRENT SLAB RISK (Rs)', 'Next Slab', 'Next CD %']],
+      head: [['Invoice No', 'Supplier', 'Date', 'Days', 'Pending (Rs)', 'TOTAL CD RISK (Rs)', 'Invoice CD Loss (Rs & Breakdown)', 'CURRENT SLAB RISK (Rs)', 'Next Slab', 'Next CD %']],
       body: eligibleTableData.length > 0 ? eligibleTableData : [['No eligible invoices', '', '', '', '', '', '', '', '', '']],
       theme: 'grid',
-      headStyles: { fillColor: [64, 44, 120], fontSize: 8, fontStyle: 'bold', halign: 'center' },
+      headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold', halign: 'center' },
       bodyStyles: { fontSize: 7 },
       columnStyles: {
         0: { cellWidth: 23, halign: 'left' },
         1: { cellWidth: 35, halign: 'left' },
         2: { cellWidth: 23, halign: 'center' },
         3: { cellWidth: 13, halign: 'center' },
-        4: { cellWidth: 27, halign: 'right' },
-        5: { cellWidth: 32, halign: 'right' },
-        6: { cellWidth: 37, halign: 'right' },
-        7: { cellWidth: 27, halign: 'right', fontStyle: 'bold' },
-        8: { cellWidth: 18, halign: 'center' },
-        9: { cellWidth: 18, halign: 'center' },
+        4: { cellWidth: 25, halign: 'right' },
+        5: { cellWidth: 30, halign: 'right' },
+        6: { cellWidth: 50, halign: 'left' },
+        7: { cellWidth: 25, halign: 'right', fontStyle: 'bold' },
+        8: { cellWidth: 15, halign: 'center' },
+        9: { cellWidth: 15, halign: 'center' },
       },
       margin: { left: 14, right: 14 },
     })
@@ -197,7 +203,7 @@ export default function CDAtRiskReportPage({
       head: [['Invoice No', 'Supplier', 'Date', 'Days', 'Pending (Rs)', 'Status']],
       body: ineligibleTableData.length > 0 ? ineligibleTableData : [['No ineligible invoices', '', '', '', '', '']],
       theme: 'grid',
-      headStyles: { fillColor: [64, 44, 120], fontSize: 8, fontStyle: 'bold', halign: 'center' },
+      headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold', halign: 'center' },
       bodyStyles: { fontSize: 7 },
       columnStyles: {
         0: { cellWidth: 30, halign: 'left' },
@@ -213,45 +219,6 @@ export default function CDAtRiskReportPage({
     const fileName = `CD_at_Risk_${currentFY}_${new Date().toISOString().split('T')[0]}.pdf`
     doc.save(fileName)
     toast.success('PDF exported successfully')
-  }
-
-  const handleExportExcel = () => {
-    const eligibleData = eligibleInvoices.map(data => ({
-      invoiceId: data.invoiceId,
-      invoiceNo: data.invoiceNo,
-      invoiceDate: data.invoiceDate,
-      supplierName: data.supplierName,
-      invoiceAmount: data.invoiceAmount,
-      paidAmount: data.paidAmount,
-      pendingAmount: data.pendingAmount,
-      lastPaymentDate: null,
-      daysElapsed: data.daysSinceInvoice,
-      currentSlabDays: data.daysSinceInvoice,
-      currentCDRate: data.currentSlabPaymentCDRate,
-      nextSlabDays: data.nextSlabDays || null,
-      nextCDRate: data.nextSlabPaymentCDRate || null,
-      daysToNextSlab: data.nextSlabDays || null,
-      currentCDEarned: data.paymentCDRisk + data.invoiceCloseCDRisk,
-      potentialCDLoss: data.totalCDAtRisk,
-      status: data.totalCDAtRisk > 10000 ? 'Critical' : 'At Risk'
-    }))
-
-    const ineligibleData = ineligibleInvoices.map(data => ({
-      invoiceId: data.invoiceId,
-      invoiceNo: data.invoiceNo,
-      invoiceDate: data.invoiceDate,
-      supplierName: data.supplierName,
-      invoiceAmount: data.invoiceAmount,
-      paidAmount: data.paidAmount,
-      pendingAmount: data.pendingAmount,
-      lastPaymentDate: null,
-      daysElapsed: data.daysSinceInvoice,
-      currentSlabDays: 0,
-      currentCDRate: 0,
-      status: 'CD Expired'
-    }))
-
-    toast.success('Excel export not available')
   }
 
   const handleToggleSupplier = (supplierId: string) => {
@@ -275,47 +242,57 @@ export default function CDAtRiskReportPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">CD at Risk Report</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Potential discount loss on pending payments
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPDF}
-            className="gap-2"
-            disabled={cdAtRiskData.length === 0}
-          >
-            <FilePdf className="h-4 w-4" />
-            Export PDF
-          </Button>
-          <Badge variant="outline" className="text-sm px-3 py-1.5 font-mono">
-            {currentFY}
-          </Badge>
+    <div className="space-y-6 pb-12">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl border border-slate-800">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                <Shield className="mr-1.5 h-3.5 w-3.5" /> CD Risk Analytics
+              </Badge>
+              <Badge variant="outline" className="text-slate-300 border-slate-700 font-mono text-xs">
+                FY {currentFY}
+              </Badge>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
+              Cash Discount Risk Intelligence
+            </h1>
+            <p className="text-sm text-slate-300 max-w-2xl">
+              Track multi-unit discount losses, payment CD slab risks, and upcoming CD expiry thresholds to protect supplier margins.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            <Button
+              onClick={handleExportPDF}
+              disabled={cdAtRiskData.length === 0}
+              className="bg-white text-slate-900 hover:bg-slate-100 font-semibold shadow-md gap-2"
+            >
+              <FilePdf className="h-4 w-4 text-red-600" />
+              Export Detailed PDF
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Supplier:</span>
+      <Card className="border border-slate-200/80 shadow-sm bg-white/80 backdrop-blur-sm">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <Funnel className="h-4 w-4 text-indigo-600" /> Filter by Supplier:
+              </div>
               <Popover open={supplierFilterOpen} onOpenChange={setSupplierFilterOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
                     className={cn(
-                      "h-9 min-w-[200px] justify-between",
-                      selectedSuppliers.length > 0 && "border-primary"
+                      "h-9 min-w-[220px] justify-between border-slate-300 font-medium text-slate-800 shadow-none hover:bg-slate-50",
+                      selectedSuppliers.length > 0 && "border-indigo-500 bg-indigo-50/50 text-indigo-900"
                     )}
                   >
                     <span className="truncate">
@@ -323,12 +300,12 @@ export default function CDAtRiskReportPage({
                         ? "All Suppliers"
                         : selectedSuppliers.length === suppliers.length
                         ? "All Suppliers"
-                        : `${selectedSuppliers.length} selected`}
+                        : `${selectedSuppliers.length} Suppliers Selected`}
                     </span>
                     <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
+                <PopoverContent className="w-[320px] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search supplier..." />
                     <CommandList>
@@ -336,18 +313,19 @@ export default function CDAtRiskReportPage({
                       <CommandGroup>
                         <CommandItem
                           onSelect={handleSelectAllSuppliers}
-                          className="font-medium"
+                          className="font-semibold text-slate-800"
                         >
                           <Checkbox
                             checked={selectedSuppliers.length === suppliers.length}
                             className="mr-2"
                           />
-                          Select All
+                          Select All Suppliers
                         </CommandItem>
                         {suppliers.map((supplier) => (
                           <CommandItem
                             key={supplier.id}
                             onSelect={() => handleToggleSupplier(supplier.id)}
+                            className="text-slate-700"
                           >
                             <Checkbox
                               checked={selectedSuppliers.includes(supplier.id)}
@@ -361,159 +339,224 @@ export default function CDAtRiskReportPage({
                   </Command>
                 </PopoverContent>
               </Popover>
+
               {selectedSuppliers.length > 0 && selectedSuppliers.length < suppliers.length && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleClearSupplierFilter}
-                  className="h-8 px-2 text-xs"
+                  className="h-8 px-2 text-xs text-slate-500 hover:text-slate-900"
                 >
-                  Clear
+                  <X className="h-3 w-3 mr-1" /> Reset Filter
                 </Button>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+              <span>Showing {eligibleInvoices.length} eligible invoice{eligibleInvoices.length !== 1 ? 's' : ''}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="border-amber-200/80 bg-gradient-to-br from-amber-50/50 via-white to-white shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">TOTAL CD RISK</CardTitle>
-            <TrendDown className="h-4 w-4 text-warning" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-amber-900">Total Payment CD Risk</CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+              <TrendDown className="h-4 w-4 text-amber-700" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold text-warning">
+            <div className="text-2xl font-mono font-bold text-amber-700">
               {formatCurrency(summary.totalPaymentCDAtCurrentSlab)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Payment CD at risk
+            <p className="text-xs text-slate-500 mt-1 font-sans">
+              Current slab payment CD value
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-indigo-200/80 bg-gradient-to-br from-indigo-50/50 via-white to-white shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-            <TrendDown className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-indigo-900">Invoice CD Loss</CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <CoinVertical className="h-4 w-4 text-indigo-700" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold">
+            <div className="text-2xl font-mono font-bold text-indigo-700">
+              {formatCurrency(summary.totalInvoiceCDRisk)}
+            </div>
+            <p className="text-xs text-slate-500 mt-1 font-sans">
+              Multi-unit invoice close CD risk
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Total Pending Amount</CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
+              <Receipt className="h-4 w-4 text-slate-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-mono font-bold text-slate-900">
               {formatCurrency(summary.totalPending)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Unpaid invoices
+            <p className="text-xs text-slate-500 mt-1 font-sans">
+              Unpaid purchase invoice balance
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-rose-200/80 bg-gradient-to-br from-rose-50/50 via-white to-white shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Invoices</CardTitle>
-            <Warning className="h-4 w-4 text-destructive" />
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-rose-900">Critical At-Risk Invoices</CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-rose-100 flex items-center justify-center">
+              <Warning className="h-4 w-4 text-rose-700" weight="fill" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-mono font-semibold text-destructive">
+            <div className="text-2xl font-mono font-bold text-rose-700">
               {summary.criticalCount}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              CD at risk &gt; ₹10,000
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Eligible Invoices</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-mono font-semibold">{summary.totalEligible}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              With CD still available
+            <p className="text-xs text-slate-500 mt-1 font-sans">
+              CD risk &gt; ₹10,000 threshold
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Eligible Invoices - CD Available</CardTitle>
-          <CardDescription>Invoices still within CD slab period - immediate action required</CardDescription>
+      <Card className="border border-slate-200 shadow-md overflow-hidden bg-white">
+        <CardHeader className="bg-slate-900 text-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                Eligible Invoices - CD Available
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs font-semibold">
+                  {summary.totalEligible} Active
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-slate-300 text-xs mt-1">
+                Invoices currently within eligible CD slab periods — multi-unit rates & unit-wise discounts separated cleanly
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice No</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Invoice Date</TableHead>
-                <TableHead className="text-right">Days</TableHead>
-                <TableHead className="text-right">Pending Amt</TableHead>
-                <TableHead className="text-right">TOTAL CD RISK</TableHead>
-                <TableHead className="text-right">Invoice CD Loss</TableHead>
-                <TableHead className="text-right">CURRENT SLAB RISK</TableHead>
-                <TableHead className="text-right">Next Slab</TableHead>
-                <TableHead className="text-right">Next CD %</TableHead>
+            <TableHeader className="bg-slate-100/90 border-b border-slate-200">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Invoice No</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Supplier</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Invoice Date</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-center">Aging</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right">Pending Amount</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right">Payment CD Risk</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right min-w-[260px]">
+                  Invoice CD Loss (Unit Wise)
+                </TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-right">Total CD Risk</TableHead>
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider text-center">Next Slab</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {eligibleInvoices.length === 0 ? (
                 <TableRow>
-                    No eligible invoices - all invoices paid or no CD available
-                    No eligible invoices - all invoices paid or no CD available
+                  <TableCell colSpan={9} className="h-32 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Clock className="h-8 w-8 text-slate-300" />
+                      <p className="font-medium text-slate-700">No eligible invoices with active CD</p>
+                      <p className="text-xs text-slate-400">All purchase invoices are either paid or beyond CD slab eligibility.</p>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ) : (
                 eligibleInvoices.map((data) => (
-                  <TableRow key={data.invoiceId}>
-                    <TableCell className="font-medium font-mono">{data.invoiceNo}</TableCell>
-                    <TableCell>{data.supplierName}</TableCell>
-                    <TableCell>{format(new Date(data.invoiceDate), 'dd MMM yyyy')}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      <Badge variant={data.daysSinceInvoice > 60 ? 'destructive' : data.daysSinceInvoice > 30 ? 'default' : 'outline'}>
+                  <TableRow key={data.invoiceId} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                    <TableCell className="font-medium font-mono text-slate-900 text-sm">
+                      {data.invoiceNo}
+                    </TableCell>
+                    <TableCell className="font-medium text-slate-800 text-sm">
+                      {data.supplierName}
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-sm">
+                      {format(new Date(data.invoiceDate), 'dd MMM yyyy')}
+                    </TableCell>
+                    <TableCell className="text-center font-mono">
+                      <Badge 
+                        variant="outline"
+                        className={cn(
+                          "font-semibold text-xs px-2 py-0.5",
+                          data.daysSinceInvoice > 60 ? "bg-rose-50 text-rose-700 border-rose-200" :
+                          data.daysSinceInvoice > 30 ? "bg-amber-50 text-amber-700 border-amber-200" :
+                          "bg-slate-100 text-slate-700 border-slate-200"
+                        )}
+                      >
                         {data.daysSinceInvoice}d
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right font-mono font-medium text-slate-900">
                       {formatCurrency(data.pendingAmount)}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       <div className="flex flex-col items-end">
-                        <span>{formatCurrency(data.totalPaymentCDAtCurrentSlab)}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-slate-900">{formatCurrency(data.totalPaymentCDAtCurrentSlab)}</span>
+                        <span className="text-[11px] font-medium text-slate-500">
                           ({data.currentSlabPaymentCDRate}%)
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      <div className="flex flex-col items-end">
-                        <span>{formatCurrency(data.invoiceCloseCDRisk)}</span>
-                        <span className="text-xs text-muted-foreground">
-                          (₹{data.currentSlabInvoiceCloseCDRate}/MT → ₹{data.nextSlabInvoiceCloseCDRate}/MT)
+                      <div className="flex flex-col items-end gap-1.5 py-1">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {formatCurrency(data.invoiceCloseCDRisk)}
                         </span>
+                        
+                        {data.invoiceCloseCDBreakdown && data.invoiceCloseCDBreakdown.length > 0 ? (
+                          <div className="flex flex-col items-end gap-1 w-full">
+                            {data.invoiceCloseCDBreakdown.map((item, idx) => (
+                              <div 
+                                key={idx} 
+                                className="flex items-center justify-end gap-1.5 text-xs bg-slate-50 p-1.5 rounded-md border border-slate-200/80 w-full"
+                              >
+                                <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 border-indigo-200 px-1.5 py-0 text-[10px] font-semibold">
+                                  {item.quantity} {item.unit}
+                                </Badge>
+                                <span className="text-slate-600 text-[11px]">
+                                  @ ₹{item.currentRate}/{item.unit} =
+                                </span>
+                                <span className="font-bold text-slate-900 text-[11px]">
+                                  {formatCurrency(item.currentAmount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-mono">
+                            (₹{data.currentSlabInvoiceCloseCDRate}/MT)
+                          </span>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">
-                      <span className={data.totalCDAtRisk > 10000 ? 'text-destructive' : 'text-warning'}>
+                    <TableCell className="text-right font-mono font-bold">
+                      <span className={cn(
+                        "text-base",
+                        data.totalCDAtRisk > 10000 ? "text-rose-600" : "text-amber-600"
+                      )}>
                         {formatCurrency(data.totalCDAtRisk)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center font-mono">
                       {data.nextSlabDays > 0 ? (
-                        <Badge variant="outline" className="font-mono">
+                        <Badge variant="outline" className="font-semibold text-xs bg-indigo-50/50 text-indigo-700 border-indigo-200">
                           {data.nextSlabDays}d
                         </Badge>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Max</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {data.nextSlabPaymentCDRate > 0 ? (
-                        <span className="font-mono text-sm font-medium">
-                          {data.nextSlabPaymentCDRate}%
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
+                        <span className="text-xs text-slate-400 font-medium">Max Slab</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -525,24 +568,26 @@ export default function CDAtRiskReportPage({
       </Card>
 
       <Collapsible open={ineligibleOpen} onOpenChange={setIneligibleOpen}>
-        <Card>
+        <Card className="border border-slate-200 shadow-sm bg-slate-50/50 overflow-hidden">
           <CollapsibleTrigger className="w-full">
-            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+            <CardHeader className="cursor-pointer hover:bg-slate-100/80 transition-colors p-5">
               <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <CardTitle className="flex items-center gap-2">
+                <div className="text-left space-y-1">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
                     Ineligible Invoices - CD Expired
-                    <Badge variant="secondary" className="ml-2">
+                    <Badge variant="secondary" className="bg-slate-200 text-slate-700 font-semibold text-xs">
                       {summary.totalIneligible}
                     </Badge>
                   </CardTitle>
-                  <CardDescription>Invoices that exceeded all CD slab periods - no discount available</CardDescription>
+                  <CardDescription className="text-xs text-slate-500">
+                    Invoices that have exceeded all CD slab periods — no further cash discount available
+                  </CardDescription>
                 </div>
                 <motion.div
                   animate={{ rotate: ineligibleOpen ? 180 : 0 }}
                   transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
                 >
-                  <CaretDown className="h-5 w-5 text-muted-foreground" />
+                  <CaretDown className="h-5 w-5 text-slate-500" />
                 </motion.div>
               </div>
             </CardHeader>
@@ -570,41 +615,35 @@ export default function CDAtRiskReportPage({
                   }}
                   className="overflow-hidden"
                 >
-                  <CardContent>
+                  <CardContent className="pt-0 p-6">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-slate-200/70">
                         <TableRow>
-                          <TableHead>Invoice No</TableHead>
-                          <TableHead>Supplier</TableHead>
-                          <TableHead>Invoice Date</TableHead>
-                          <TableHead className="text-right">Days</TableHead>
-                          <TableHead className="text-right">Pending Amt</TableHead>
-                          <TableHead className="text-right">Status</TableHead>
+                          <TableHead className="font-bold text-slate-700 text-xs">Invoice No</TableHead>
+                          <TableHead className="font-bold text-slate-700 text-xs">Supplier</TableHead>
+                          <TableHead className="font-bold text-slate-700 text-xs">Invoice Date</TableHead>
+                          <TableHead className="font-bold text-slate-700 text-xs text-right">Days Elapsed</TableHead>
+                          <TableHead className="font-bold text-slate-700 text-xs text-right">Pending Amount</TableHead>
+                          <TableHead className="font-bold text-slate-700 text-xs text-center">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {ineligibleInvoices.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                              No ineligible invoices
+                            <TableCell colSpan={6} className="text-center py-6 text-slate-500 text-sm">
+                              No expired invoices.
                             </TableCell>
                           </TableRow>
                         ) : (
                           ineligibleInvoices.map((data) => (
-                            <TableRow key={data.invoiceId}>
-                              <TableCell className="font-medium font-mono">{data.invoiceNo}</TableCell>
-                              <TableCell>{data.supplierName}</TableCell>
-                              <TableCell>{format(new Date(data.invoiceDate), 'dd MMM yyyy')}</TableCell>
-                              <TableCell className="text-right font-mono">
-                                <Badge variant="outline">
-                                  {data.daysSinceInvoice}d
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right font-mono">
-                                {formatCurrency(data.pendingAmount)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Badge variant="secondary" className="text-xs">
+                            <TableRow key={data.invoiceId} className="hover:bg-slate-100/50">
+                              <TableCell className="font-mono text-sm text-slate-800">{data.invoiceNo}</TableCell>
+                              <TableCell className="text-sm text-slate-800">{data.supplierName}</TableCell>
+                              <TableCell className="text-sm text-slate-600">{format(new Date(data.invoiceDate), 'dd MMM yyyy')}</TableCell>
+                              <TableCell className="text-right font-mono text-sm">{data.daysSinceInvoice}d</TableCell>
+                              <TableCell className="text-right font-mono text-sm text-slate-800">{formatCurrency(data.pendingAmount)}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="secondary" className="bg-slate-200 text-slate-600 text-xs font-semibold">
                                   CD Expired
                                 </Badge>
                               </TableCell>
