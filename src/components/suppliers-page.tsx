@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Supplier, PurchaseInvoice, Payment, PaymentCDRule, InvoiceCloseCDRule, SupplierCDRuleVersion, CDRuleChangeLog, AnnualTarget } from '@/lib/types'
+import { getAvailableUnits } from '@/lib/custom-data-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -59,6 +60,14 @@ export default function SuppliersPage({
   // View mode: 'list' (Register table) | 'editor' (Full screen edit matching screenshot 2)
   const [viewMode, setViewMode] = useState<'list' | 'editor'>('list')
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
+
+  const [availableUnits, setAvailableUnits] = useState(() => getAvailableUnits())
+
+  useEffect(() => {
+    const syncUnits = () => setAvailableUnits(getAvailableUnits())
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => window.removeEventListener('custom-units-updated', syncUnits)
+  }, [])
 
   // Filter & Search states for list view
   const [searchTerm, setSearchTerm] = useState('')
@@ -929,16 +938,11 @@ export default function SuppliersPage({
                     <select
                       value={newCloseUnit}
                       onChange={(e) => setNewCloseUnit(e.target.value)}
-                      className="h-8 text-xs w-20 rounded-md border border-input bg-white px-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="h-8 text-xs min-w-[80px] rounded-md border border-input bg-white px-2 font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <option value="MT">MT</option>
-                      <option value="PCS">PCS</option>
-                      <option value="BOX">BOX</option>
-                      <option value="PKT">PKT</option>
-                      <option value="BTL">BTL</option>
-                      <option value="JAR">JAR</option>
-                      <option value="TIN">TIN</option>
-                      <option value="KG">KG</option>
+                      {availableUnits.map((u) => (
+                        <option key={u.value} value={u.value}>{u.label}</option>
+                      ))}
                     </select>
                     <Button
                       type="button"

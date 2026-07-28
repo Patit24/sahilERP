@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Customer, Supplier, PaymentCDRule, InvoiceCloseCDRule, SupplierCDRuleVersion, CDRuleChangeLog } from '@/lib/types'
+import { getAvailableUnits } from '@/lib/custom-data-store'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -107,6 +108,14 @@ export function PartyEditorDialog({
   changedBy = 'Master Admin',
   onSave
 }: PartyEditorDialogProps) {
+  const [availableUnits, setAvailableUnits] = useState(() => getAvailableUnits())
+
+  useEffect(() => {
+    const syncUnits = () => setAvailableUnits(getAvailableUnits())
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => window.removeEventListener('custom-units-updated', syncUnits)
+  }, [])
+
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -610,14 +619,9 @@ export function PartyEditorDialog({
                             onChange={(e) => updateInvoiceCloseCDRule(index, { unit: e.target.value || undefined })}
                           >
                             <option value="">All Units</option>
-                            <option value="MT">MT</option>
-                            <option value="PCS">PCS</option>
-                            <option value="BOX">BOX</option>
-                            <option value="PKT">PKT</option>
-                            <option value="BTL">BTL</option>
-                            <option value="JAR">JAR</option>
-                            <option value="TIN">TIN</option>
-                            <option value="KG">KG</option>
+                            {availableUnits.map((u) => (
+                              <option key={u.value} value={u.value}>{u.label}</option>
+                            ))}
                           </select>
                         </div>
                         <Button

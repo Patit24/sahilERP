@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { FixedScheme, Supplier } from '@/lib/types'
+import { getAvailableUnits } from '@/lib/custom-data-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -31,6 +32,14 @@ function addDays(date: string, days: number): string {
 }
 
 export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppliers, currentFY, isLocked = false }: FixedSchemesPageProps) {
+  const [availableUnits, setAvailableUnits] = useState(() => getAvailableUnits())
+
+  useEffect(() => {
+    const syncUnits = () => setAvailableUnits(getAvailableUnits())
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => window.removeEventListener('custom-units-updated', syncUnits)
+  }, [])
+
   const [open, setOpen] = useState(false)
   const [editingScheme, setEditingScheme] = useState<FixedScheme | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -327,11 +336,9 @@ export default function FixedSchemesPage({ fixedSchemes, setFixedSchemes, suppli
                       <SelectValue placeholder="Select Unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="MT">MT</SelectItem>
-                      <SelectItem value="PCS">PCS</SelectItem>
-                      <SelectItem value="BOX">BOX</SelectItem>
-                      <SelectItem value="BAG">BAG</SelectItem>
-                      <SelectItem value="KG">KG</SelectItem>
+                      {availableUnits.map((u) => (
+                        <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

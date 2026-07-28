@@ -1,3 +1,5 @@
+import { Item } from './types'
+
 export const DEFAULT_CATEGORIES: string[] = []
 
 export const DEFAULT_UNITS: { value: string; label: string }[] = []
@@ -97,4 +99,38 @@ export function deleteCustomUnit(code: string): { value: string; label: string }
   localStorage.setItem('custom_item_units', JSON.stringify(updated))
   window.dispatchEvent(new Event('custom-units-updated'))
   return updated
+}
+
+export function getAvailableUnits(items?: Item[]): { value: string; label: string }[] {
+  const customUnits = getCustomUnits()
+  const unitMap = new Map<string, string>()
+
+  customUnits.forEach(u => {
+    if (u && u.value) {
+      const val = u.value.trim().toUpperCase()
+      unitMap.set(val, val)
+    }
+  })
+
+  if (items && Array.isArray(items)) {
+    items.forEach(i => {
+      if (i.unit && i.unit.trim()) {
+        const u = i.unit.trim().toUpperCase()
+        unitMap.set(u, u)
+      }
+      if (i.alternativeUnit && i.alternativeUnit !== 'NONE' && i.alternativeUnit.trim()) {
+        const u = i.alternativeUnit.trim().toUpperCase()
+        unitMap.set(u, u)
+      }
+    })
+  }
+
+  if (unitMap.size === 0) {
+    unitMap.set('MT', 'MT')
+  }
+
+  return Array.from(unitMap.keys()).map(code => ({
+    value: code,
+    label: code
+  }))
 }
