@@ -1,31 +1,15 @@
-export const DEFAULT_CATEGORIES = [
-  'TMT Bars',
-  'Steel Plates',
-  'Coils',
-  'Pipes & Tubes',
-  'Angles & Channels',
-  'Structural Steel',
-  'Sponge Iron',
-  'General'
-]
+export const DEFAULT_CATEGORIES: string[] = []
 
-export const DEFAULT_UNITS = [
-  { value: 'MT', label: 'Metric Ton (MT)' },
-  { value: 'KG', label: 'Kilogram (KG)' },
-  { value: 'PCS', label: 'Pieces (PCS)' },
-  { value: 'TON', label: 'Ton (TON)' },
-  { value: 'BAG', label: 'Bag (BAG)' },
-  { value: 'BOX', label: 'Box (BOX)' },
-  { value: 'BUNDLE', label: 'Bundle (BUNDLE)' },
-  { value: 'LTR', label: 'Litre (LTR)' }
-]
+export const DEFAULT_UNITS: { value: string; label: string }[] = []
 
 export function getCustomCategories(): string[] {
   try {
     const saved = localStorage.getItem('custom_item_categories')
     if (saved) {
       const parsed = JSON.parse(saved)
-      return Array.from(new Set([...DEFAULT_CATEGORIES, ...parsed]))
+      if (Array.isArray(parsed)) {
+        return Array.from(new Set(parsed.map(c => String(c).trim()).filter(Boolean)))
+      }
     }
   } catch (e) {
     console.error('Failed to load categories', e)
@@ -69,13 +53,9 @@ export function getCustomUnits(): { value: string; label: string }[] {
     const saved = localStorage.getItem('custom_item_units')
     if (saved) {
       const parsed = JSON.parse(saved)
-      const combined = [...DEFAULT_UNITS]
-      parsed.forEach((u: { value: string; label: string }) => {
-        if (!combined.some(item => item.value === u.value)) {
-          combined.push(u)
-        }
-      })
-      return combined
+      if (Array.isArray(parsed)) {
+        return parsed
+      }
     }
   } catch (e) {
     console.error('Failed to load units', e)
