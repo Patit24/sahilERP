@@ -793,7 +793,7 @@ export default function InvoicesPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
             {/* Card 1: Total Invoices */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
               <div>
@@ -805,19 +805,6 @@ export default function InvoicesPage({
               </div>
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/60 flex items-center justify-center shrink-0">
                 <Receipt className="h-6 w-6" weight="duotone" />
-              </div>
-            </div>
-
-            {/* Card 2: Total Quantity Purchased */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Quantity Purchased</p>
-                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {formatMT(totalMT)} <span className="text-base font-bold text-slate-500">MT</span>
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 flex items-center justify-center shrink-0">
-                <Package className="h-6 w-6" weight="duotone" />
               </div>
             </div>
 
