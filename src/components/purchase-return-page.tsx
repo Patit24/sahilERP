@@ -235,20 +235,38 @@ export default function PurchaseReturnPage({
   }
 
   const handleUpdateLineItem = (index: number, field: keyof InvoiceItem, value: any) => {
-    setReturnItems(prev => prev.map((item, idx) => {
-      if (idx !== index) return item
-      const updated = { ...item, [field]: value }
+    setReturnItems(prev => prev.map((itemRow, idx) => {
+      if (idx !== index) return itemRow
+      const selectedDef = items.find(i => i.id === (field === 'itemId' ? value : itemRow.itemId))
+      const updated = { ...itemRow, [field]: value }
+      
       if (field === 'itemId') {
-        const selected = items.find(i => i.id === value)
-        if (selected && selected.purchasePrice) {
-          updated.rate = selected.purchasePrice
+        const defaultUnit = selectedDef?.unit || 'MT'
+        updated.entryUnit = defaultUnit
+        if (selectedDef && selectedDef.purchasePrice) {
+          updated.rate = selectedDef.purchasePrice
         }
       }
-      if (field === 'quantityMT' || field === 'rate' || field === 'itemId') {
-        const qty = Number(updated.quantityMT) || 0
-        const rate = Number(updated.rate) || 0
-        updated.amount = parseFloat((qty * rate).toFixed(2))
+
+      if (field === 'entryQuantity' || field === 'quantityMT') {
+        const numVal = Number(value) || 0
+        updated.entryQuantity = numVal
+        if (selectedDef) {
+          const factor = selectedDef.conversionFactor || 1000
+          const activeUnit = updated.entryUnit || selectedDef.unit
+          if (activeUnit === selectedDef.alternativeUnit) {
+            updated.quantityMT = numVal / factor
+          } else {
+            updated.quantityMT = numVal
+          }
+        } else {
+          updated.quantityMT = numVal
+        }
       }
+
+      const qty = Number(updated.quantityMT) || 0
+      const rate = Number(updated.rate) || 0
+      updated.amount = parseFloat((qty * rate).toFixed(2))
       return updated
     }))
   }
@@ -389,7 +407,7 @@ export default function PurchaseReturnPage({
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Quantity Returned</p>
                 <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {formatMT(totalQuantityMT)} <span className="text-base font-bold text-slate-500">MT</span>
+                  {formatMT(totalQuantityMT)}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/60 flex items-center justify-center shrink-0">
@@ -756,15 +774,33 @@ export default function PurchaseReturnPage({
                             </SelectContent>
                           </Select>
                           <Input value="-" disabled className="erp-reference-cell-input text-center" />
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            value={lineItem.quantityMT || ''}
-                            onChange={(e) => handleUpdateLineItem(index, 'quantityMT', e.target.value)}
-                            placeholder="0"
-                            className="erp-reference-cell-input font-mono text-right"
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.001"
+                              min="0"
+                              value={lineItem.entryQuantity ?? (lineItem.quantityMT || '')}
+                              onChange={(e) => handleUpdateLineItem(index, 'entryQuantity', e.target.value)}
+                              placeholder="0"
+                              className="erp-reference-cell-input font-mono text-right flex-1 min-w-[70px]"
+                            />
+                            {(() => {
+                              const sel = items.find(i => i.id === lineItem.itemId)
+                              const activeUnit = lineItem.entryUnit || sel?.unit || 'MT'
+                              return (
+                                <select
+                                  value={activeUnit}
+                                  onChange={(e) => handleUpdateLineItem(index, 'entryUnit', e.target.value)}
+                                  className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
+                                >
+                                  <option value={sel?.unit || 'MT'}>{sel?.unit || 'MT'}</option>
+                                  {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
+                                    <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
+                                  )}
+                                </select>
+                              )
+                            })()}
+                          </div>
                           <Input
                             type="number"
                             step="0.01"

@@ -46,6 +46,24 @@ export function saveCustomCategory(category: string): string[] {
   return current
 }
 
+export function updateCustomCategory(oldName: string, newName: string): string[] {
+  const clean = newName.trim()
+  if (!clean || clean === oldName) return getCustomCategories()
+  const current = getCustomCategories()
+  const updated = current.map(cat => cat === oldName ? clean : cat)
+  localStorage.setItem('custom_item_categories', JSON.stringify(updated))
+  window.dispatchEvent(new Event('custom-categories-updated'))
+  return updated
+}
+
+export function deleteCustomCategory(name: string): string[] {
+  const current = getCustomCategories()
+  const updated = current.filter(cat => cat !== name)
+  localStorage.setItem('custom_item_categories', JSON.stringify(updated))
+  window.dispatchEvent(new Event('custom-categories-updated'))
+  return updated
+}
+
 export function getCustomUnits(): { value: string; label: string }[] {
   try {
     const saved = localStorage.getItem('custom_item_units')
@@ -79,4 +97,24 @@ export function saveCustomUnit(unitCode: string, unitLabel?: string): { value: s
     return updated
   }
   return current
+}
+
+export function updateCustomUnit(oldCode: string, newCode: string, newLabel?: string): { value: string; label: string }[] {
+  const code = newCode.trim().toUpperCase()
+  const label = newLabel?.trim() || code
+  if (!code) return getCustomUnits()
+
+  const current = getCustomUnits()
+  const updated = current.map(u => u.value === oldCode ? { value: code, label: `${label} (${code})` } : u)
+  localStorage.setItem('custom_item_units', JSON.stringify(updated))
+  window.dispatchEvent(new Event('custom-units-updated'))
+  return updated
+}
+
+export function deleteCustomUnit(code: string): { value: string; label: string }[] {
+  const current = getCustomUnits()
+  const updated = current.filter(u => u.value !== code)
+  localStorage.setItem('custom_item_units', JSON.stringify(updated))
+  window.dispatchEvent(new Event('custom-units-updated'))
+  return updated
 }

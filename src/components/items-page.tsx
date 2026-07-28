@@ -7,10 +7,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Package, Trash, Pencil, Warning, SquaresFour, Scales, Folder } from '@phosphor-icons/react'
+import { Plus, Package, Trash, Pencil, Warning, SquaresFour, Scales, Folder, Check, X } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ItemEditorDialog } from '@/components/item-editor-dialog'
-import { getCustomCategories, saveCustomCategory, getCustomUnits, saveCustomUnit } from '@/lib/custom-data-store'
+import { 
+  getCustomCategories, 
+  saveCustomCategory, 
+  updateCustomCategory, 
+  deleteCustomCategory, 
+  getCustomUnits, 
+  saveCustomUnit, 
+  updateCustomUnit, 
+  deleteCustomUnit 
+} from '@/lib/custom-data-store'
 
 interface ItemsPageProps {
   items: Item[]
@@ -24,16 +33,21 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
 
-  // Direct Category & Unit Creation Modals
+  // Custom Category & Unit Manager Modals State
   const [customCategories, setCustomCategories] = useState<string[]>(getCustomCategories)
   const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(getCustomUnits)
 
   const [addCatDialogOpen, setAddCatDialogOpen] = useState(false)
   const [newCatName, setNewCatName] = useState('')
+  const [editingCatName, setEditingCatName] = useState<string | null>(null)
+  const [editCatInputValue, setEditCatInputValue] = useState('')
 
   const [addUnitDialogOpen, setAddUnitDialogOpen] = useState(false)
   const [newUnitCode, setNewUnitCode] = useState('')
   const [newUnitLabel, setNewUnitLabel] = useState('')
+  const [editingUnitCode, setEditingUnitCode] = useState<string | null>(null)
+  const [editUnitCodeVal, setEditUnitCodeVal] = useState('')
+  const [editUnitLabelVal, setEditUnitLabelVal] = useState('')
 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all')
 
@@ -114,8 +128,23 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
     const updated = saveCustomCategory(clean)
     setCustomCategories(updated)
     setNewCatName('')
-    setAddCatDialogOpen(false)
-    toast.success(`Category "${clean}" created! You can now assign it to items.`)
+    toast.success(`Category "${clean}" added!`)
+  }
+
+  const handleSaveCategoryEdit = (oldName: string) => {
+    const clean = editCatInputValue.trim()
+    if (!clean) return
+    const updated = updateCustomCategory(oldName, clean)
+    setCustomCategories(updated)
+    setEditingCatName(null)
+    setEditCatInputValue('')
+    toast.success(`Category renamed to "${clean}"`)
+  }
+
+  const handleDeleteCategory = (catName: string) => {
+    const updated = deleteCustomCategory(catName)
+    setCustomCategories(updated)
+    toast.success(`Category "${catName}" deleted`)
   }
 
   const handleCreateUnit = () => {
@@ -126,8 +155,25 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
     setCustomUnits(updated)
     setNewUnitCode('')
     setNewUnitLabel('')
-    setAddUnitDialogOpen(false)
-    toast.success(`Unit "${code}" created! You can now assign it when creating items.`)
+    toast.success(`Unit "${code}" added!`)
+  }
+
+  const handleSaveUnitEdit = (oldCode: string) => {
+    const code = editUnitCodeVal.trim().toUpperCase()
+    const label = editUnitLabelVal.trim() || code
+    if (!code) return
+    const updated = updateCustomUnit(oldCode, code, label)
+    setCustomUnits(updated)
+    setEditingUnitCode(null)
+    setEditUnitCodeVal('')
+    setEditUnitLabelVal('')
+    toast.success(`Unit "${code}" updated`)
+  }
+
+  const handleDeleteUnit = (unitCode: string) => {
+    const updated = deleteCustomUnit(unitCode)
+    setCustomUnits(updated)
+    toast.success(`Unit "${unitCode}" deleted`)
   }
 
   // Categories list combined from customCategories + assigned items categories
@@ -186,7 +232,7 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
             className="border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
           >
             <SquaresFour className="mr-1.5 h-4 w-4 text-blue-600" />
-            Add Category
+            Manage Categories
           </Button>
           <Button
             variant="outline"
@@ -194,7 +240,7 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
             className="border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
           >
             <Scales className="mr-1.5 h-4 w-4 text-emerald-600" />
-            Add Unit
+            Manage Units
           </Button>
           <Button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 font-bold text-white shadow-2xs">
             <Plus className="mr-2" size={18} weight="bold" />
@@ -379,67 +425,227 @@ export default function ItemsPage({ items, setItems, isLocked = false }: ItemsPa
         </div>
       )}
 
-      {/* CREATE NEW CATEGORY DIALOG */}
+      {/* MANAGE CATEGORIES MODAL (Add, Edit, Delete Categories) */}
       <Dialog open={addCatDialogOpen} onOpenChange={setAddCatDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <SquaresFour size={20} className="text-blue-600" />
-              Add New Category
+            <DialogTitle className="flex items-center gap-2 text-slate-900 font-bold">
+              <SquaresFour size={22} className="text-blue-600" />
+              Manage Product Categories
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label htmlFor="newCategoryNamePage">Category Name</Label>
-            <Input
-              id="newCategoryNamePage"
-              value={newCatName}
-              onChange={(e) => setNewCatName(e.target.value)}
-              placeholder="ex: Structural Steel"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateCategory()
-              }}
-            />
+
+          {/* Add Category Section */}
+          <div className="space-y-4 pt-1">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <Label htmlFor="newCategoryNamePage" className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Create New Category
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="newCategoryNamePage"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="ex: Structural Steel, TMT Bars"
+                  className="bg-white"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateCategory()
+                  }}
+                />
+                <Button onClick={handleCreateCategory} className="bg-blue-600 hover:bg-blue-700 text-white font-bold shrink-0">
+                  <Plus size={16} className="mr-1" weight="bold" /> Add
+                </Button>
+              </div>
+            </div>
+
+            {/* List of Existing Categories with Edit & Delete */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                All Categories ({customCategories.length})
+              </Label>
+              <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+                {customCategories.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 text-sm">No categories available</div>
+                ) : (
+                  customCategories.map((cat) => (
+                    <div key={cat} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                      {editingCatName === cat ? (
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <Input
+                            value={editCatInputValue}
+                            onChange={(e) => setEditCatInputValue(e.target.value)}
+                            className="h-8 text-sm font-semibold bg-white"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveCategoryEdit(cat)
+                            }}
+                          />
+                          <Button size="sm" variant="ghost" onClick={() => handleSaveCategoryEdit(cat)} className="h-8 w-8 p-0 text-emerald-600">
+                            <Check size={18} weight="bold" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingCatName(null)} className="h-8 w-8 p-0 text-slate-400">
+                            <X size={18} weight="bold" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-slate-800 text-sm">{cat}</span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingCatName(cat)
+                                setEditCatInputValue(cat)
+                              }}
+                              className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                              title="Edit Category"
+                            >
+                              <Pencil size={15} weight="bold" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteCategory(cat)}
+                              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                              title="Delete Category"
+                            >
+                              <Trash size={15} weight="bold" />
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddCatDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateCategory} className="bg-blue-600 text-white font-bold">Add Category</Button>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setAddCatDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* CREATE NEW UNIT DIALOG */}
+      {/* MANAGE UNITS MODAL (Add, Edit, Delete Measuring Units) */}
       <Dialog open={addUnitDialogOpen} onOpenChange={setAddUnitDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Scales size={20} className="text-emerald-600" />
-              Add Custom Measuring Unit
+            <DialogTitle className="flex items-center gap-2 text-slate-900 font-bold">
+              <Scales size={22} className="text-emerald-600" />
+              Manage Measuring Units
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label htmlFor="newUnitCodePage">Unit Code (Short symbol) *</Label>
-              <Input
-                id="newUnitCodePage"
-                value={newUnitCode}
-                onChange={(e) => setNewUnitCode(e.target.value)}
-                placeholder="ex: BAG, BUNDLE, BOX, LTR"
-                className="font-mono uppercase"
-              />
+
+          {/* Add Unit Section */}
+          <div className="space-y-4 pt-1">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Create Custom Measuring Unit
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="newUnitCodePage" className="text-[11px] text-slate-500 font-medium">Unit Symbol *</Label>
+                  <Input
+                    id="newUnitCodePage"
+                    value={newUnitCode}
+                    onChange={(e) => setNewUnitCode(e.target.value)}
+                    placeholder="ex: BAG, LTR, BOX"
+                    className="font-mono uppercase bg-white h-9"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="newUnitLabelPage" className="text-[11px] text-slate-500 font-medium">Display Name</Label>
+                  <Input
+                    id="newUnitLabelPage"
+                    value={newUnitLabel}
+                    onChange={(e) => setNewUnitLabel(e.target.value)}
+                    placeholder="ex: Cement Bag"
+                    className="bg-white h-9"
+                  />
+                </div>
+              </div>
+              <Button onClick={handleCreateUnit} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9">
+                <Plus size={16} className="mr-1" weight="bold" /> Add Custom Unit
+              </Button>
             </div>
-            <div>
-              <Label htmlFor="newUnitLabelPage">Unit Display Name</Label>
-              <Input
-                id="newUnitLabelPage"
-                value={newUnitLabel}
-                onChange={(e) => setNewUnitLabel(e.target.value)}
-                placeholder="ex: Cement Bag, Steel Bundle"
-              />
+
+            {/* List of Existing Units with Edit & Delete */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                All Measuring Units ({customUnits.length})
+              </Label>
+              <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+                {customUnits.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 text-sm">No units available</div>
+                ) : (
+                  customUnits.map((u) => (
+                    <div key={u.value} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                      {editingUnitCode === u.value ? (
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <Input
+                            value={editUnitCodeVal}
+                            onChange={(e) => setEditUnitCodeVal(e.target.value)}
+                            className="h-8 text-xs font-mono uppercase w-20 bg-white"
+                            autoFocus
+                          />
+                          <Input
+                            value={editUnitLabelVal}
+                            onChange={(e) => setEditUnitLabelVal(e.target.value)}
+                            className="h-8 text-xs font-semibold flex-1 bg-white"
+                            placeholder="Display Label"
+                          />
+                          <Button size="sm" variant="ghost" onClick={() => handleSaveUnitEdit(u.value)} className="h-8 w-8 p-0 text-emerald-600">
+                            <Check size={18} weight="bold" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingUnitCode(null)} className="h-8 w-8 p-0 text-slate-400">
+                            <X size={18} weight="bold" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-800 border border-slate-200">
+                              {u.value}
+                            </span>
+                            <span className="text-sm font-semibold text-slate-700">{u.label}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingUnitCode(u.value)
+                                setEditUnitCodeVal(u.value)
+                                setEditUnitLabelVal(u.label)
+                              }}
+                              className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                              title="Edit Unit"
+                            >
+                              <Pencil size={15} weight="bold" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteUnit(u.value)}
+                              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                              title="Delete Unit"
+                            >
+                              <Trash size={15} weight="bold" />
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddUnitDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateUnit} className="bg-emerald-600 text-white font-bold">Add Unit</Button>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setAddUnitDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

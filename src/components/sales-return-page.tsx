@@ -412,7 +412,7 @@ export default function SalesReturnPage({
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Quantity Returned</p>
                 <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {formatMT(totalQuantityMT)} <span className="text-base font-bold text-slate-500">MT</span>
+                  {formatMT(totalQuantityMT)}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100/60 flex items-center justify-center shrink-0">
@@ -778,15 +778,34 @@ export default function SalesReturnPage({
                             </SelectContent>
                           </Select>
                           <Input value="-" disabled className="erp-reference-cell-input text-center" />
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            value={lineItem.quantityMT || ''}
-                            onChange={(e) => handleUpdateLineItem(index, 'quantityMT', e.target.value)}
-                            placeholder="0"
-                            className="erp-reference-cell-input font-mono text-right"
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.001"
+                              min="0"
+                              value={lineItem.entryQuantity ?? (lineItem.quantityMT || '')}
+                              onChange={(e) => handleUpdateLineItem(index, 'entryQuantity', e.target.value)}
+                              placeholder="0"
+                              className="erp-reference-cell-input font-mono text-right flex-1 min-w-[70px]"
+                            />
+                            {(() => {
+                              const sel = items.find(i => i.id === lineItem.itemId)
+                              const defaultAlt = sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' ? sel.alternativeUnit : (sel?.unit || 'MT')
+                              const activeUnit = lineItem.entryUnit || defaultAlt
+                              return (
+                                <select
+                                  value={activeUnit}
+                                  onChange={(e) => handleUpdateLineItem(index, 'entryUnit', e.target.value)}
+                                  className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
+                                >
+                                  {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
+                                    <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
+                                  )}
+                                  <option value={sel?.unit || 'MT'}>{sel?.unit || 'MT'}</option>
+                                </select>
+                              )
+                            })()}
+                          </div>
                           <Input
                             type="number"
                             step="0.01"

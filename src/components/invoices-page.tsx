@@ -225,6 +225,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
     const item = items.find((candidate) => candidate.id === itemId)
     const basicRate = item?.purchasePrice || 0
     const rate = calculateRateWithItemGst(basicRate, itemId)
+    const defaultEntryUnit = item?.unit || 'MT'
 
     setInvoiceItems(prev => {
       const existingIndex = prev.findIndex(existing => existing.itemId === itemId)
@@ -249,7 +250,9 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
         quantityMT,
         basicRate,
         rate,
-        amount: parseFloat((quantityMT * rate).toFixed(2))
+        amount: parseFloat((quantityMT * rate).toFixed(2)),
+        entryUnit: defaultEntryUnit,
+        entryQuantity: quantityMT
       }
 
       const emptyIndex = prev.findIndex(existing => !existing.itemId)
@@ -273,47 +276,77 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
   const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
     setInvoiceItems(prev => {
       const updated = [...prev]
-      const item = { ...updated[index] }
+      const itemRow = { ...updated[index] }
+      const selectedItemDef = items.find(i => i.id === itemRow.itemId)
       
       if (field === 'itemId') {
         const newItemId = value as string
+        const selectedDef = items.find(i => i.id === newItemId)
+        const defaultUnit = selectedDef?.unit || 'MT'
+        
         const existingIndex = prev.findIndex((r, i) => r.itemId === newItemId && i !== index)
         
         if (existingIndex !== -1) {
           // Merge into existing row
           const existing = { ...updated[existingIndex] }
-          existing.quantityMT = (existing.quantityMT || 0) + (item.quantityMT || 0)
+          existing.quantityMT = (existing.quantityMT || 0) + (itemRow.quantityMT || 0)
           existing.amount = parseFloat((existing.quantityMT * existing.rate).toFixed(2))
           updated[existingIndex] = existing
           
           // Clear current row
-          item.itemId = ''
-          item.quantityMT = 0
-          item.basicRate = 0
-          item.rate = 0
-          item.amount = 0
+          itemRow.itemId = ''
+          itemRow.quantityMT = 0
+          itemRow.basicRate = 0
+          itemRow.rate = 0
+          itemRow.amount = 0
+          itemRow.entryUnit = defaultUnit
+          itemRow.entryQuantity = 0
         } else {
-          item.itemId = newItemId
-          const selectedItem = items.find((candidate) => candidate.id === item.itemId)
-          const basicRate = item.basicRate && item.basicRate > 0 ? item.basicRate : selectedItem?.purchasePrice || 0
-          item.basicRate = basicRate
-          item.rate = calculateRateWithItemGst(basicRate, item.itemId)
-          item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
+          itemRow.itemId = newItemId
+          const basicRate = itemRow.basicRate && itemRow.basicRate > 0 ? itemRow.basicRate : selectedDef?.purchasePrice || 0
+          itemRow.basicRate = basicRate
+          itemRow.rate = calculateRateWithItemGst(basicRate, itemRow.itemId)
+          itemRow.entryUnit = defaultUnit
+          itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
         }
-      } else if (field === 'quantityMT') {
-        item.quantityMT = parseFloat(value as string) || 0
-        item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
+      } else if (field === 'entryUnit') {
+        itemRow.entryUnit = value as string
+        if (selectedItemDef) {
+          const factor = selectedItemDef.conversionFactor || 1000
+          if (value === selectedItemDef.alternativeUnit) {
+            itemRow.quantityMT = (itemRow.entryQuantity || 0) / factor
+          } else {
+            itemRow.quantityMT = itemRow.entryQuantity || 0
+          }
+          itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
+        }
+      } else if (field === 'entryQuantity' || field === 'quantityMT') {
+        const numVal = parseFloat(value as string) || 0
+        itemRow.entryQuantity = numVal
+        
+        if (selectedItemDef) {
+          const factor = selectedItemDef.conversionFactor || 1000
+          const activeUnit = itemRow.entryUnit || selectedItemDef.unit
+          if (activeUnit === selectedItemDef.alternativeUnit) {
+            itemRow.quantityMT = numVal / factor
+          } else {
+            itemRow.quantityMT = numVal
+          }
+        } else {
+          itemRow.quantityMT = numVal
+        }
+        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       } else if (field === 'basicRate') {
         const basicRate = parseFloat(value as string) || 0
-        item.basicRate = basicRate
-        item.rate = calculateRateWithItemGst(basicRate, item.itemId)
-        item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
+        itemRow.basicRate = basicRate
+        itemRow.rate = calculateRateWithItemGst(basicRate, itemRow.itemId)
+        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       } else if (field === 'rate') {
-        item.rate = parseFloat(value as string) || 0
-        item.amount = parseFloat((item.quantityMT * item.rate).toFixed(2))
+        itemRow.rate = parseFloat(value as string) || 0
+        itemRow.amount = parseFloat((itemRow.quantityMT * itemRow.rate).toFixed(2))
       }
       
-      updated[index] = item
+      updated[index] = itemRow
       return updated
     })
   }
@@ -950,15 +983,33 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                             </SelectContent>
                           </Select>
                           <Input value="-" disabled className="erp-reference-cell-input text-center" />
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            value={invoiceItem.quantityMT || ''}
-                            onChange={(e) => updateInvoiceItem(index, 'quantityMT', e.target.value)}
-                            placeholder="0"
-                            className="erp-reference-cell-input font-mono text-right"
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.001"
+                              min="0"
+                              value={invoiceItem.entryQuantity ?? (invoiceItem.quantityMT || '')}
+                              onChange={(e) => updateInvoiceItem(index, 'entryQuantity', e.target.value)}
+                              placeholder="0"
+                              className="erp-reference-cell-input font-mono text-right flex-1 min-w-[70px]"
+                            />
+                            {(() => {
+                              const sel = items.find(i => i.id === invoiceItem.itemId)
+                              const activeUnit = invoiceItem.entryUnit || sel?.unit || 'MT'
+                              return (
+                                <select
+                                  value={activeUnit}
+                                  onChange={(e) => updateInvoiceItem(index, 'entryUnit', e.target.value)}
+                                  className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
+                                >
+                                  <option value={sel?.unit || 'MT'}>{sel?.unit || 'MT'}</option>
+                                  {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
+                                    <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
+                                  )}
+                                </select>
+                              )
+                            })()}
+                          </div>
                           <Input
                             type="number"
                             step="0.01"
@@ -1231,7 +1282,7 @@ export default function InvoicesPage({ invoices, setInvoices, suppliers, setSupp
                           <div className="erp-invoice-summary-list">
                             <div className="erp-summary-item">
                               <span>Total Quantity</span>
-                              <span className="value">{formatMT(totalInvoiceQty)} MT</span>
+                              <span className="value">{formatMT(totalInvoiceQty)}</span>
                             </div>
                             <div className="erp-summary-divider"></div>
                             <div className="erp-summary-item">
