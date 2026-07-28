@@ -305,6 +305,8 @@ export default function InventoryReportPage({
                     </div>
                   )
                 }
+                const origPrimary = item.primaryUnit || item.unit
+                const origAlt = item.unit === origPrimary ? secUnit : item.unit
 
                 return (
                   <TableRow key={item.itemId} className="hover:bg-slate-50/80">
@@ -316,9 +318,9 @@ export default function InventoryReportPage({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        <Badge variant="outline" className="font-mono text-xs w-fit">{item.unit}</Badge>
-                        {secUnit && secUnit !== item.unit && (
-                          <span className="text-[10px] text-slate-500 font-mono">Alt: {secUnit}</span>
+                        <Badge variant="outline" className="font-mono text-xs w-fit">{origAlt || origPrimary}</Badge>
+                        {origAlt && (
+                          <span className="text-[10px] text-slate-500 font-mono">({origPrimary})</span>
                         )}
                       </div>
                     </TableCell>
