@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Supplier, PaymentCDRule, InvoiceCloseCDRule } from '@/lib/types'
+import { Supplier, PaymentCDRule, InvoiceCloseCDRule, CDRuleChangeLog } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -153,20 +153,27 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
 
     const updatedVersions = [newVersion, ...currentVersions]
 
-    const newLogEntry = {
+    const newLogEntry: CDRuleChangeLog = {
       id: `log-${Date.now()}`,
-      versionId,
-      version: newVersionNumber,
-      ruleName: `CD Rules v${newVersionNumber}`,
-      effectiveFrom: effectiveFromDate || new Date().toISOString().split('T')[0],
+      supplierId: selectedSupplier.id,
+      ruleName: `Supplier CD Rules v${newVersionNumber}`,
+      ruleVersion: newVersionNumber,
+      previousValues: {
+        paymentCDRules: selectedSupplier.paymentCDRules || [],
+        invoiceCloseCDRules: selectedSupplier.invoiceCloseCDRules || [],
+        advanceCDPercentage: selectedSupplier.advanceCDPercentage,
+      },
+      newValues: {
+        paymentCDRules,
+        invoiceCloseCDRules,
+        advanceCDPercentage: advNum > 0 ? advNum : undefined,
+        effectiveFrom: effectiveFromDate || new Date().toISOString().split('T')[0]
+      },
+      effectiveDate: effectiveFromDate || new Date().toISOString().split('T')[0],
       changedBy: 'Master Admin',
       changedAt: new Date().toISOString(),
       reason: changeReason || `Updated CD rules v${newVersionNumber}`,
-      fieldChanges: [
-        { fieldName: 'Advance CD', oldValue: `${selectedSupplier.advanceCDPercentage || 0}%`, newValue: `${advNum}%` },
-        { fieldName: 'Payment CD Rules', oldValue: `${selectedSupplier.paymentCDRules?.length || 0} rules`, newValue: `${paymentCDRules.length} rules` },
-        { fieldName: 'Invoice Close CD Rules', oldValue: `${selectedSupplier.invoiceCloseCDRules?.length || 0} rules`, newValue: `${invoiceCloseCDRules.length} rules` },
-      ]
+      approvalStatus: 'Approved'
     }
 
     const updatedChangeLogs = [newLogEntry, ...(selectedSupplier.cdRuleChangeLog || [])]
