@@ -40,6 +40,7 @@ interface InvoicesPageProps {
   counters: Counter[]
   transactions: CashBankTransaction[]
   onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
+  onNavigateToInvoiceDetails?: (invoiceNo: string) => void
 }
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
@@ -61,7 +62,8 @@ export default function InvoicesPage({
   gstPercentage = 18,
   counters,
   transactions,
-  onUpdateCashBank
+  onUpdateCashBank,
+  onNavigateToInvoiceDetails
 }: InvoicesPageProps) {
   const stockMap = useMemo(() => {
     return calculateItemStockMap(items, invoices, salesInvoices, purchaseReturns, salesReturns)
@@ -1826,7 +1828,23 @@ export default function InvoicesPage({
 
                     return (
                       <TableRow key={invoice.id} className="hover:bg-slate-50/80 border-b border-slate-100">
-                        <TableCell className="font-mono font-bold text-slate-900 text-sm">{invoice.invoiceNo}</TableCell>
+                        <TableCell className="font-mono font-bold text-slate-900 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onNavigateToInvoiceDetails) {
+                                onNavigateToInvoiceDetails(invoice.invoiceNo)
+                              } else {
+                                setPreviewInvoice(invoice)
+                              }
+                            }}
+                            className="text-[#0256e8] hover:text-blue-800 hover:underline flex items-center gap-1 font-mono font-bold text-left cursor-pointer group"
+                            title="Click to view full Invoice Details Report"
+                          >
+                            <FileText size={15} className="text-blue-600 group-hover:text-blue-800" />
+                            {invoice.invoiceNo}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
                         <TableCell className="font-semibold text-slate-800 text-sm">{supplier?.name || 'Unknown'}</TableCell>
                         <TableCell className="text-xs text-slate-600 max-w-[200px] truncate" title={itemNames}>
@@ -1836,12 +1854,25 @@ export default function InvoicesPage({
                         <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {onNavigateToInvoiceDetails && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onNavigateToInvoiceDetails(invoice.invoiceNo)}
+                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg"
+                                aria-label={`View Invoice Details Report for ${invoice.invoiceNo}`}
+                                title="View Invoice Details Report"
+                              >
+                                <FileText size={16} weight="bold" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => setPreviewInvoice(invoice)}
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
                               aria-label={`Preview invoice ${invoice.invoiceNo}`}
+                              title="Preview Invoice"
                             >
                               <Receipt size={16} weight="bold" />
                             </Button>

@@ -546,6 +546,12 @@ function App() {
   const [debitNotes, setDebitNotes] = useState<SupplierDebitNote[]>([])
   const [salesReturns, setSalesReturns] = useState<SalesReturn[]>([])
   const [purchaseReturns, setPurchaseReturns] = useState<PurchaseReturn[]>([])
+  const [selectedInvoiceDetailsNo, setSelectedInvoiceDetailsNo] = useState<string>('')
+
+  const handleNavigateToInvoiceDetails = (invoiceNo: string) => {
+    setSelectedInvoiceDetailsNo(invoiceNo)
+    setActiveView('invoice-details')
+  }
 
   
   const [isLocked, setIsLocked] = useState(false)
@@ -2012,6 +2018,7 @@ function App() {
                   return [...untouched, ...t]
                 })
               }}
+              onNavigateToInvoiceDetails={handleNavigateToInvoiceDetails}
             />
           )
         case 'payments':
@@ -2255,6 +2262,7 @@ function App() {
               expenseEntries={safeExpenseEntries}
               expenseTypes={safeExpenseTypes}
               currentFY={safeCurrentFY}
+              initialInvoiceNo={selectedInvoiceDetailsNo}
             />
           )
         case 'payment-details':

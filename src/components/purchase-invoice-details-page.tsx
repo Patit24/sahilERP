@@ -41,6 +41,7 @@ interface PurchaseInvoiceDetailsPageProps {
   expenseEntries: ExpenseEntry[]
   expenseTypes: ExpenseType[]
   currentFY: string
+  initialInvoiceNo?: string
 }
 
 interface DiscountBreakdown {
@@ -100,27 +101,48 @@ export default function PurchaseInvoiceDetailsPage({
   receivedDiscounts,
   expenseEntries,
   expenseTypes,
-  currentFY
+  currentFY,
+  initialInvoiceNo = ''
 }: PurchaseInvoiceDetailsPageProps) {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [searchInvoiceNo, setSearchInvoiceNo] = useState('')
+  const [searchInvoiceNo, setSearchInvoiceNo] = useState(initialInvoiceNo)
   const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(['all']))
   const [includeAnnualDiscount, setIncludeAnnualDiscount] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, Record<string, boolean>>>({})
+
+  // Update search when initialInvoiceNo is provided via navigation
+  useMemo(() => {
+    if (initialInvoiceNo) {
+      setSearchInvoiceNo(initialInvoiceNo)
+      setSelectedSupplier('all')
+      setSelectedStatus('all')
+      setSelectedMonths(new Set(['all']))
+    }
+  }, [initialInvoiceNo])
 
   const toggleSection = (invoiceId: string, section: string) => {
     setCollapsedSections(prev => ({
       ...prev,
       [invoiceId]: {
         ...(prev[invoiceId] || {}),
-        [section]: !(prev[invoiceId]?.[section] ?? false)
+        [section]: !(prev[invoiceId]?.[section] ?? (section === 'itemCost' && Boolean(searchInvoiceNo)))
       }
     }))
   }
 
   const isSectionOpen = (invoiceId: string, section: string) => {
-    return collapsedSections[invoiceId]?.[section] ?? false
+    if (collapsedSections[invoiceId]?.[section] !== undefined) {
+      return collapsedSections[invoiceId][section]
+    }
+    // Auto-open itemCost section if searching/filtering by invoice number
+    if (section === 'itemCost' && searchInvoiceNo.trim() !== '') {
+      const inv = invoices.find(i => i.id === invoiceId)
+      if (inv && inv.invoiceNo.toLowerCase().includes(searchInvoiceNo.trim().toLowerCase())) {
+        return true
+      }
+    }
+    return false
   }
 
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers])
