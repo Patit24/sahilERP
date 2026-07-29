@@ -278,23 +278,17 @@ export default function InventoryReportPage({
                   const secUnit = item.secondaryUnit
                 
                 const renderQtyWithAlt = (primaryQty: number, secQty?: number, _preferAlt?: boolean, colorClass?: string, prefix: string = '') => {
-                  // Always show alternative unit (secUnit) on top, measuring unit below
-                  const hasAlt = secUnit && typeof secQty === 'number'
-
-                  // Top value: alt unit if available, else primary
-                  const mainU = hasAlt ? secUnit : item.unit
-                  const mainQ = hasAlt ? secQty! : primaryQty
-
-                  // Bottom value: measuring unit (only shown when alt exists)
-                  const subU = hasAlt ? item.unit : undefined
-                  const subQ = hasAlt ? primaryQty : undefined
+                  // item.unit is always the alternative unit (KG/PCS) — show it on top
+                  // item.secondaryUnit (secUnit) is the measuring unit (MT/BUNDLE) — show below
+                  const mainU = item.unit
+                  const mainQ = primaryQty
 
                   if (mainQ === 0 && prefix === '') return '-'
                   const primaryStr = `${prefix}${mainQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${mainU}`
                   let secStr: string | null = null
 
-                  if (subU && subU !== mainU && typeof subQ === 'number') {
-                    secStr = `${prefix}${subQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${subU}`
+                  if (secUnit && secUnit !== mainU && typeof secQty === 'number') {
+                    secStr = `${prefix}${secQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${secUnit}`
                   }
 
                   return (

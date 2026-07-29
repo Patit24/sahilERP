@@ -278,14 +278,11 @@ export function calculateInventoryReport(
     const preferAltPurchase = Boolean(altUnit && purchaseAltUnitCount > 0 && purchaseAltUnitCount >= purchasePrimaryUnitCount)
     const preferAltSale = Boolean(altUnit && saleAltUnitCount > 0 && saleAltUnitCount >= salePrimaryUnitCount)
 
-    // For the main row unit, we can just use primaryUnit by default 
-    // unless all transactions (purchase + sales) predominantly use altUnit
-    const totalAltCount = purchaseAltUnitCount + saleAltUnitCount
-    const totalPrimaryCount = purchasePrimaryUnitCount + salePrimaryUnitCount
-    const preferAltOverall = Boolean(altUnit && totalAltCount > 0 && totalAltCount >= totalPrimaryCount)
+    // Always prefer alternative unit on top for display — alt unit (KG/PCS) is always mainUnit
+    const preferAltOverall = Boolean(altUnit)
 
-    const mainUnit = preferAltOverall ? (altUnit!) : primaryUnit
-    const secUnit = preferAltOverall ? primaryUnit : altUnit
+    const mainUnit = altUnit ? altUnit : primaryUnit
+    const secUnit = altUnit ? primaryUnit : undefined
 
     const openingStockMT = preferAltOverall ? openingAlt : openingPrimary
     const totalPurchaseMT = preferAltOverall ? totalPurchaseAlt : totalPurchasePrimary
