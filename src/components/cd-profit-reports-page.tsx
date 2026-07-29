@@ -554,8 +554,8 @@ export default function CDProfitReportsPage({
                       <th className="py-3 px-4">Customer</th>
                       <th className="py-3 px-4">Item</th>
                       <th className="py-3 px-4 text-right">Sold Qty</th>
-                      <th className="py-3 px-4 text-right">Selling Rate</th>
-                      <th className="py-3 px-4 text-right">FIFO Landing Cost</th>
+                      <th className="py-3 px-4 text-right">Selling Rate (Incl. GST)</th>
+                      <th className="py-3 px-4 text-right">FIFO Landing Cost / Unit</th>
                       <th className="py-3 px-4 text-right">Profit / Unit</th>
                       <th className="py-3 px-4 text-right font-extrabold">Total Profit</th>
                     </tr>

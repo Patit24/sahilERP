@@ -52,15 +52,16 @@ interface DiscountBreakdown {
 interface ItemCostBreakdown {
   itemId: string
   itemName: string
-  quantityMT: number
-  pricePerMT: number
-  fixedDiscPerMT: number
-  paymentCDPerMT: number
-  invoiceCloseCDPerMT: number
-  totalCDPerMT: number
-  expensePerMT: number
-  additionalCostPerMT: number
-  costPerMT: number
+  activeUnit: string
+  activeQuantity: number
+  pricePerUnit: number
+  fixedDiscPerUnit: number
+  paymentCDPerUnit: number
+  invoiceCloseCDPerUnit: number
+  totalCDPerUnit: number
+  expensePerUnit: number
+  additionalCostPerUnit: number
+  costPerUnit: number
 }
 
 interface InvoiceDetails {
@@ -215,13 +216,13 @@ export default function PurchaseInvoiceDetailsPage({
 
         const itemCostBreakdowns: ItemCostBreakdown[] = (invoice.items || []).map(item => {
           const itemData = itemMap.get(item.itemId)
-          const activeUnit = itemData?.unit || 'MT'
-          const unitWeightKG = item.weightKG && item.quantityMT > 0
-            ? item.weightKG / item.quantityMT
+          const activeUnit = item.entryUnit || itemData?.alternativeUnit || itemData?.unit || 'MT'
+          const itemQty = item.entryQuantity && item.entryQuantity > 0 ? item.entryQuantity : (item.quantityMT || 0)
+          const unitWeightKG = item.weightKG && itemQty > 0
+            ? item.weightKG / itemQty
             : (itemData?.conversionFactor || (activeUnit === 'MT' ? 1000 : 1))
 
-          const itemQty = item.quantityMT
-          const pricePerUnit = item.rate
+          const pricePerUnit = item.rate // GST-Inclusive Rate per activeUnit
 
           // Per-unit breakdown calculated by multiplying rate per KG by weight of 1 unit in KG
           const itemFixedDiscPerUnit = fixedDiscRatePerKG * unitWeightKG
@@ -232,20 +233,21 @@ export default function PurchaseInvoiceDetailsPage({
           const itemExpensePerUnit = expenseRatePerKG * unitWeightKG
           const itemAddCostPerUnit = addCostRatePerKG * unitWeightKG
 
-          const costPerUnit = pricePerUnit - itemTotalCDPerUnit - (includeAnnualDiscount ? annualDiscountPerMT : 0) + itemExpensePerUnit + itemAddCostPerUnit
+          const costPerUnit = pricePerUnit - itemTotalCDPerUnit - (includeAnnualDiscount ? annualDiscountPerMT * (unitWeightKG / 1000) : 0) + itemExpensePerUnit + itemAddCostPerUnit
 
           return {
             itemId: item.itemId,
             itemName: itemData?.name || 'Unknown Item',
-            quantityMT: itemQty,
-            pricePerMT: pricePerUnit,
-            fixedDiscPerMT: itemFixedDiscPerUnit,
-            paymentCDPerMT: itemPaymentCDPerUnit,
-            invoiceCloseCDPerMT: itemInvoiceCloseCDPerUnit,
-            totalCDPerMT: itemTotalCDPerUnit,
-            expensePerMT: itemExpensePerUnit,
-            additionalCostPerMT: itemAddCostPerUnit,
-            costPerMT: costPerUnit
+            activeUnit,
+            activeQuantity: itemQty,
+            pricePerUnit,
+            fixedDiscPerUnit: itemFixedDiscPerUnit,
+            paymentCDPerUnit: itemPaymentCDPerUnit,
+            invoiceCloseCDPerUnit: itemInvoiceCloseCDPerUnit,
+            totalCDPerUnit: itemTotalCDPerUnit,
+            expensePerUnit: itemExpensePerUnit,
+            additionalCostPerUnit: itemAddCostPerUnit,
+            costPerUnit
           }
         })
 
@@ -792,7 +794,7 @@ export default function PurchaseInvoiceDetailsPage({
                               <TableRow className="bg-muted/50">
                                 <TableHead>Item</TableHead>
                                 <TableHead className="text-right">Qty / Unit</TableHead>
-                                <TableHead className="text-right">Price / Unit</TableHead>
+                                <TableHead className="text-right">Price / Unit (Incl. GST)</TableHead>
                                 <TableHead className="text-right">Fixed Disc / Unit</TableHead>
                                 <TableHead className="text-right">Payment CD / Unit</TableHead>
                                 <TableHead className="text-right">Close CD / Unit</TableHead>
@@ -802,51 +804,47 @@ export default function PurchaseInvoiceDetailsPage({
                                 )}
                                 <TableHead className="text-right">Expense / Unit</TableHead>
                                 <TableHead className="text-right">Add. Cost / Unit</TableHead>
-                                <TableHead className="text-right font-semibold">Cost / Unit</TableHead>
+                                <TableHead className="text-right font-semibold">Landed Cost / Unit</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {detail.itemCostBreakdowns.map((breakdown, idx) => {
-                                const itemData = itemMap.get(breakdown.itemId)
-                                const itemUnit = itemData?.unit || 'MT'
-                                return (
-                                  <TableRow key={idx}>
-                                    <TableCell className="font-medium">
-                                      {breakdown.itemName}
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono font-medium">
-                                      {breakdown.quantityMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {itemUnit}
-                                    </TableCell>
-                                    <TableCell className="text-right">{formatCurrency(breakdown.pricePerMT)}</TableCell>
+                              {detail.itemCostBreakdowns.map((breakdown, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium">
+                                    {breakdown.itemName}
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono font-medium">
+                                    {breakdown.activeQuantity.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {breakdown.activeUnit}
+                                  </TableCell>
+                                  <TableCell className="text-right">{formatCurrency(breakdown.pricePerUnit)}</TableCell>
+                                  <TableCell className="text-right text-success">
+                                    {breakdown.fixedDiscPerUnit > 0 ? `-${formatCurrency(breakdown.fixedDiscPerUnit)}` : formatCurrency(0)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-success">
+                                    {breakdown.paymentCDPerUnit > 0 ? `-${formatCurrency(breakdown.paymentCDPerUnit)}` : formatCurrency(0)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-success">
+                                    {breakdown.invoiceCloseCDPerUnit > 0 ? `-${formatCurrency(breakdown.invoiceCloseCDPerUnit)}` : formatCurrency(0)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold text-accent">
+                                    {breakdown.totalCDPerUnit > 0 ? `-${formatCurrency(breakdown.totalCDPerUnit)}` : formatCurrency(0)}
+                                  </TableCell>
+                                  {includeAnnualDiscount && (
                                     <TableCell className="text-right text-success">
-                                      {breakdown.fixedDiscPerMT > 0 ? `-${formatCurrency(breakdown.fixedDiscPerMT)}` : formatCurrency(0)}
+                                      {detail.annualDiscountPerMT > 0 ? `-${formatCurrency(detail.annualDiscountPerMT)}` : formatCurrency(0)}
                                     </TableCell>
-                                    <TableCell className="text-right text-success">
-                                      {breakdown.paymentCDPerMT > 0 ? `-${formatCurrency(breakdown.paymentCDPerMT)}` : formatCurrency(0)}
-                                    </TableCell>
-                                    <TableCell className="text-right text-success">
-                                      {breakdown.invoiceCloseCDPerMT > 0 ? `-${formatCurrency(breakdown.invoiceCloseCDPerMT)}` : formatCurrency(0)}
-                                    </TableCell>
-                                    <TableCell className="text-right font-semibold text-accent">
-                                      {breakdown.totalCDPerMT > 0 ? `-${formatCurrency(breakdown.totalCDPerMT)}` : formatCurrency(0)}
-                                    </TableCell>
-                                    {includeAnnualDiscount && (
-                                      <TableCell className="text-right text-success">
-                                        {detail.annualDiscountPerMT > 0 ? `-${formatCurrency(detail.annualDiscountPerMT)}` : formatCurrency(0)}
-                                      </TableCell>
-                                    )}
-                                    <TableCell className="text-right text-warning">
-                                      {breakdown.expensePerMT > 0 ? `+${formatCurrency(breakdown.expensePerMT)}` : formatCurrency(0)}
-                                    </TableCell>
-                                    <TableCell className="text-right text-warning">
-                                      {breakdown.additionalCostPerMT > 0 ? `+${formatCurrency(breakdown.additionalCostPerMT)}` : formatCurrency(0)}
-                                    </TableCell>
-                                    <TableCell className="text-right font-bold text-primary">
-                                      {formatCurrency(breakdown.costPerMT)}
-                                    </TableCell>
-                                  </TableRow>
-                                )
-                              })}
+                                  )}
+                                  <TableCell className="text-right text-warning">
+                                    {breakdown.expensePerUnit > 0 ? `+${formatCurrency(breakdown.expensePerUnit)}` : formatCurrency(0)}
+                                  </TableCell>
+                                  <TableCell className="text-right text-warning">
+                                    {breakdown.additionalCostPerUnit > 0 ? `+${formatCurrency(breakdown.additionalCostPerUnit)}` : formatCurrency(0)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-bold text-primary">
+                                    {formatCurrency(breakdown.costPerUnit)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
                             </TableBody>
                           </Table>
                         </div>

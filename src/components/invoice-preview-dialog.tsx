@@ -172,8 +172,8 @@ export function InvoicePreviewDialog({
                         <th className="py-2 px-2">Item Name</th>
                         <th className="py-2 px-2 text-right">Allocated Qty</th>
                         <th className="py-2 px-2">From Purchase Lot</th>
-                        <th className="py-2 px-2 text-right">Landed Cost</th>
-                        <th className="py-2 px-2 text-right">Selling Rate</th>
+                        <th className="py-2 px-2 text-right">Landed Cost / Unit</th>
+                        <th className="py-2 px-2 text-right">Selling Rate (Incl. GST)</th>
                         <th className="py-2 px-2 text-right font-extrabold">Gross Profit / Unit</th>
                       </tr>
                     </thead>

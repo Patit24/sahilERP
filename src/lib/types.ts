@@ -439,6 +439,7 @@ export interface PurchaseLayer {
   itemName: string
   category?: string
   activeUnit: string
+  unitWeightKG: number
   purchaseDate: string
   qty: number
   remainingQty: number
