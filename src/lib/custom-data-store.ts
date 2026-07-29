@@ -1,4 +1,5 @@
 import { Item } from './types'
+import { getMetadata } from './storage-utils'
 
 export const DEFAULT_CATEGORIES: string[] = [
   'PIPE',
@@ -29,10 +30,30 @@ export const DEFAULT_UNITS: { value: string; label: string }[] = [
   { value: 'NOS', label: 'Numbers (NOS)' }
 ]
 
-export function getCustomCategories(): string[] {
+function getActiveCompanyId(): string {
+  try {
+    const meta = getMetadata()
+    return meta?.activeCompanyId || 'default'
+  } catch (e) {
+    return 'default'
+  }
+}
+
+function getCategoryStorageKey(companyId?: string): string {
+  const cid = companyId || getActiveCompanyId()
+  return `custom_item_categories_${cid}`
+}
+
+function getUnitStorageKey(companyId?: string): string {
+  const cid = companyId || getActiveCompanyId()
+  return `custom_item_units_${cid}`
+}
+
+export function getCustomCategories(companyId?: string): string[] {
   let categories = [...DEFAULT_CATEGORIES]
   try {
-    const saved = localStorage.getItem('custom_item_categories')
+    const key = getCategoryStorageKey(companyId)
+    const saved = localStorage.getItem(key)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed)) {
@@ -46,41 +67,70 @@ export function getCustomCategories(): string[] {
   return categories
 }
 
-export function saveCustomCategory(category: string): string[] {
+export function saveCustomCategory(category: string, companyId?: string): string[] {
   const clean = category.trim()
-  if (!clean) return getCustomCategories()
-  const current = getCustomCategories()
-  if (!current.includes(clean)) {
-    const updated = [...current, clean]
-    localStorage.setItem('custom_item_categories', JSON.stringify(updated))
+  if (!clean) return getCustomCategories(companyId)
+
+  const key = getCategoryStorageKey(companyId)
+  let storedCustom: string[] = []
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) storedCustom = parsed
+    }
+  } catch (e) {}
+
+  if (!storedCustom.includes(clean)) {
+    const updated = [...storedCustom, clean]
+    localStorage.setItem(key, JSON.stringify(updated))
     window.dispatchEvent(new Event('custom-categories-updated'))
-    return updated
   }
-  return current
+  return getCustomCategories(companyId)
 }
 
-export function updateCustomCategory(oldName: string, newName: string): string[] {
+export function updateCustomCategory(oldName: string, newName: string, companyId?: string): string[] {
   const clean = newName.trim()
-  if (!clean || clean === oldName) return getCustomCategories()
-  const current = getCustomCategories()
-  const updated = current.map(cat => cat === oldName ? clean : cat)
-  localStorage.setItem('custom_item_categories', JSON.stringify(updated))
+  if (!clean || clean === oldName) return getCustomCategories(companyId)
+
+  const key = getCategoryStorageKey(companyId)
+  let storedCustom: string[] = []
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) storedCustom = parsed
+    }
+  } catch (e) {}
+
+  const updated = storedCustom.map(cat => cat === oldName ? clean : cat)
+  localStorage.setItem(key, JSON.stringify(updated))
   window.dispatchEvent(new Event('custom-categories-updated'))
-  return updated
+  return getCustomCategories(companyId)
 }
 
-export function deleteCustomCategory(name: string): string[] {
-  const current = getCustomCategories()
-  const updated = current.filter(cat => cat !== name)
-  localStorage.setItem('custom_item_categories', JSON.stringify(updated))
+export function deleteCustomCategory(name: string, companyId?: string): string[] {
+  const key = getCategoryStorageKey(companyId)
+  let storedCustom: string[] = []
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) storedCustom = parsed
+    }
+  } catch (e) {}
+
+  const updated = storedCustom.filter(cat => cat !== name)
+  localStorage.setItem(key, JSON.stringify(updated))
   window.dispatchEvent(new Event('custom-categories-updated'))
-  return updated
+  return getCustomCategories(companyId)
 }
 
-export function getCustomUnits(): { value: string; label: string }[] {
+export function getCustomUnits(companyId?: string): { value: string; label: string }[] {
   let units = [...DEFAULT_UNITS]
   try {
-    const saved = localStorage.getItem('custom_item_units')
+    const key = getUnitStorageKey(companyId)
+    const saved = localStorage.getItem(key)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed)) {
@@ -98,44 +148,70 @@ export function getCustomUnits(): { value: string; label: string }[] {
   return units
 }
 
-export function saveCustomUnit(unitCode: string, unitLabel?: string): { value: string; label: string }[] {
+export function saveCustomUnit(unitCode: string, unitLabel?: string, companyId?: string): { value: string; label: string }[] {
   const code = unitCode.trim().toUpperCase()
   const label = unitLabel?.trim() || code
-  if (!code) return getCustomUnits()
+  if (!code) return getCustomUnits(companyId)
 
-  const current = getCustomUnits()
-  if (!current.some(u => u.value === code)) {
+  const key = getUnitStorageKey(companyId)
+  let storedCustom: { value: string; label: string }[] = []
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) storedCustom = parsed
+    }
+  } catch (e) {}
+
+  if (!storedCustom.some(u => u.value === code)) {
     const newUnit = { value: code, label: `${label} (${code})` }
-    const updated = [...current, newUnit]
-    localStorage.setItem('custom_item_units', JSON.stringify(updated))
+    const updated = [...storedCustom, newUnit]
+    localStorage.setItem(key, JSON.stringify(updated))
     window.dispatchEvent(new Event('custom-units-updated'))
-    return updated
   }
-  return current
+  return getCustomUnits(companyId)
 }
 
-export function updateCustomUnit(oldCode: string, newCode: string, newLabel?: string): { value: string; label: string }[] {
+export function updateCustomUnit(oldCode: string, newCode: string, newLabel?: string, companyId?: string): { value: string; label: string }[] {
   const code = newCode.trim().toUpperCase()
   const label = newLabel?.trim() || code
-  if (!code) return getCustomUnits()
+  if (!code) return getCustomUnits(companyId)
 
-  const current = getCustomUnits()
-  const updated = current.map(u => u.value === oldCode ? { value: code, label: `${label} (${code})` } : u)
-  localStorage.setItem('custom_item_units', JSON.stringify(updated))
+  const key = getUnitStorageKey(companyId)
+  let storedCustom: { value: string; label: string }[] = []
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) storedCustom = parsed
+    }
+  } catch (e) {}
+
+  const updated = storedCustom.map(u => u.value === oldCode ? { value: code, label: `${label} (${code})` } : u)
+  localStorage.setItem(key, JSON.stringify(updated))
   window.dispatchEvent(new Event('custom-units-updated'))
-  return updated
+  return getCustomUnits(companyId)
 }
 
-export function deleteCustomUnit(code: string): { value: string; label: string }[] {
-  const current = getCustomUnits()
-  const updated = current.filter(u => u.value !== code)
-  localStorage.setItem('custom_item_units', JSON.stringify(updated))
+export function deleteCustomUnit(code: string, companyId?: string): { value: string; label: string }[] {
+  const key = getUnitStorageKey(companyId)
+  let storedCustom: { value: string; label: string }[] = []
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) storedCustom = parsed
+    }
+  } catch (e) {}
+
+  const updated = storedCustom.filter(u => u.value !== code)
+  localStorage.setItem(key, JSON.stringify(updated))
   window.dispatchEvent(new Event('custom-units-updated'))
-  return updated
+  return getCustomUnits(companyId)
 }
 
-export function getAvailableUnits(items?: Item[]): { value: string; label: string }[] {
-  const customUnits = getCustomUnits()
+export function getAvailableUnits(items?: Item[], companyId?: string): { value: string; label: string }[] {
+  const customUnits = getCustomUnits(companyId)
   const unitMap = new Map<string, string>()
 
   customUnits.forEach(u => {
