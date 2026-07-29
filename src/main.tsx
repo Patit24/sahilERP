@@ -51,6 +51,14 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
+// Prevent mouse wheel from accidentally changing number input values when scrolling the page
+document.addEventListener('wheel', () => {
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl.tagName === 'INPUT' && (activeEl as HTMLInputElement).type === 'number') {
+    (activeEl as HTMLElement).blur();
+  }
+}, { passive: true });
+
 const debounce = (callback: Function, delay: number) => {
   let timeoutId: number;
   return (...args: any[]) => {
