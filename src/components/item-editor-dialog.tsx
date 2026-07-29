@@ -59,7 +59,8 @@ export function ItemEditorDialog({
   const [unit, setUnit] = useState('MT')
   const [alternativeUnit, setAlternativeUnit] = useState('KG')
   const [primaryUnitRatio, setPrimaryUnitRatio] = useState('1')
-  const [alternativeUnitRatio, setAlternativeUnitRatio] = useState('1000')
+  const [alternativeUnitRatio, setAlternativeUnitRatio] = useState('1')
+  const [unitWeightKG, setUnitWeightKG] = useState('1000')
   const [openingStock, setOpeningStock] = useState('')
 
   // Reactive Custom Categories & Units State
@@ -93,10 +94,15 @@ export function ItemEditorDialog({
     setGstRate(typeof item?.gstRate === 'number' ? item.gstRate.toString() : 'none')
     setPurchasePrice(item?.purchasePrice?.toString() || '')
     setSalesPrice(item?.salesPrice?.toString() || '')
-    setUnit(item?.unit || 'MT')
-    setAlternativeUnit(item?.alternativeUnit || (item?.unit === 'MT' || !item ? 'KG' : 'NONE'))
+    const initialUnit = item?.unit || 'MT'
+    setUnit(initialUnit)
+    setAlternativeUnit(item?.alternativeUnit || (initialUnit === 'MT' || !item ? 'KG' : 'NONE'))
     setPrimaryUnitRatio(item?.primaryUnitRatio?.toString() || '1')
-    setAlternativeUnitRatio(item?.alternativeUnitRatio?.toString() || (item?.unit === 'MT' || !item ? '1000' : '1'))
+    setAlternativeUnitRatio(item?.alternativeUnitRatio?.toString() || '1')
+    setUnitWeightKG(
+      item?.conversionFactor?.toString() ||
+      (initialUnit === 'MT' ? '1000' : (initialUnit === 'KG' ? '1' : '1'))
+    )
     setOpeningStock(item?.openingStock?.toString() || '')
   }, [open, item])
 
@@ -138,18 +144,14 @@ export function ItemEditorDialog({
   const handleUnitChange = (newUnit: string) => {
     setUnit(newUnit)
     if (newUnit === 'MT') {
-      setAlternativeUnit('KG')
-      setPrimaryUnitRatio('1')
-      setAlternativeUnitRatio('1000')
+      setUnitWeightKG('1000')
+      if (alternativeUnit === 'NONE') setAlternativeUnit('KG')
     } else if (newUnit === 'KG') {
-      setAlternativeUnit('MT')
-      setPrimaryUnitRatio('1000')
-      setAlternativeUnitRatio('1')
+      setUnitWeightKG('1')
+      if (alternativeUnit === 'NONE') setAlternativeUnit('MT')
     } else {
-      setAlternativeUnit('KG')
-      setPrimaryUnitRatio('1')
-      if (!alternativeUnitRatio || alternativeUnitRatio === '1000') {
-        setAlternativeUnitRatio('1')
+      if (!unitWeightKG || unitWeightKG === '1000') {
+        setUnitWeightKG('1')
       }
     }
   }
@@ -174,7 +176,8 @@ export function ItemEditorDialog({
 
     const primRatio = parseFloat(primaryUnitRatio) || 1
     const altRatio = parseFloat(alternativeUnitRatio) || 1
-    const conversionFactor = altRatio > 0 && primRatio > 0 ? altRatio / primRatio : 1
+    const parsedWeightKG = parseFloat(unitWeightKG) || 1
+    const conversionFactor = unit === 'MT' ? 1000 : (unit === 'KG' ? 1 : parsedWeightKG)
 
     onSave({
       ...(item || {}),
@@ -406,7 +409,7 @@ export function ItemEditorDialog({
                     </span>
                   </div>
                   <span className="font-mono font-extrabold text-emerald-800">
-                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : ((parseFloat(alternativeUnitRatio) || 1) / (parseFloat(primaryUnitRatio) || 1)).toLocaleString())} KG
+                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : (parseFloat(unitWeightKG) || 1).toLocaleString())} KG
                   </span>
                 </div>
 
@@ -458,7 +461,7 @@ export function ItemEditorDialog({
                     <span>Weight of 1 {unit} in Base Unit (KG)</span>
                   </Label>
                   <Badge variant="outline" className="bg-emerald-600 text-white border-none font-bold text-[10px] px-2 py-0.5 font-mono">
-                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : ((parseFloat(alternativeUnitRatio) || 1) / (parseFloat(primaryUnitRatio) || 1)).toLocaleString())} KG
+                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : (parseFloat(unitWeightKG) || 1).toLocaleString())} KG
                   </Badge>
                 </div>
 
@@ -471,12 +474,8 @@ export function ItemEditorDialog({
                         type="number"
                         step="0.001"
                         min="0.001"
-                        value={unit === 'KG' ? '1' : (unit === 'MT' ? '1000' : alternativeUnitRatio)}
-                        onChange={(e) => {
-                          setPrimaryUnitRatio('1')
-                          setAlternativeUnitRatio(e.target.value)
-                          if (alternativeUnit === 'NONE') setAlternativeUnit('KG')
-                        }}
+                        value={unit === 'KG' ? '1' : (unit === 'MT' ? '1000' : unitWeightKG)}
+                        onChange={(e) => setUnitWeightKG(e.target.value)}
                         placeholder="e.g. 5.5"
                         className="h-10 font-mono text-right border-emerald-300 focus:border-emerald-600 bg-white font-bold text-emerald-900"
                         disabled={unit === 'KG' || unit === 'MT'}
@@ -491,8 +490,8 @@ export function ItemEditorDialog({
                 </div>
               </div>
 
-              {/* ROW 5: Custom Unit Ratio when Alternate Unit is not KG or NONE */}
-              {alternativeUnit !== 'NONE' && alternativeUnit !== 'KG' && (
+              {/* ROW 5: Custom Unit Ratio when Alternate Unit is set */}
+              {alternativeUnit !== 'NONE' && (
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
                     <span>Alternate Unit Ratio ({unit} ➔ {alternativeUnit})</span>
