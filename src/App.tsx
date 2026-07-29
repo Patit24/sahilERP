@@ -113,8 +113,11 @@ import {
   Plus,
   Bank,
   UserGear,
-  Scales
+  Scales,
+  Percent
 } from '@phosphor-icons/react'
+
+import SupplierCDRulesPage from '@/components/supplier-cd-rules-page'
 import { toast, Toaster } from 'sonner'
 import { getCurrentFY } from '@/lib/calculations'
 import { cn } from '@/lib/utils'
@@ -430,6 +433,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Discount Configuration',
     items: [
+      { id: 'supplier-cd-rules', label: 'Supplier CD Rules', icon: Percent },
       { id: 'fixed-schemes', label: 'Fixed Schemes', icon: CalendarBlank },
       { id: 'mt-bookings', label: 'MT Booking Master', icon: BookBookmark },
     ]
@@ -2091,6 +2095,14 @@ function App() {
                   return [...untouched, ...t]
                 })
               }}
+            />
+          )
+        case 'supplier-cd-rules':
+          return (
+            <SupplierCDRulesPage
+              suppliers={safeSuppliers}
+              setSuppliers={setSuppliers}
+              isLocked={isViewReadOnly('supplier-cd-rules')}
             />
           )
         case 'fixed-schemes':
