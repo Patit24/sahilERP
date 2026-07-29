@@ -863,12 +863,14 @@ export default function InvoicesPage({
   const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
 
   const handleDownloadInvoicePDF = (invoice: PurchaseInvoice) => {
+    const allocs = calculatePaymentAllocations(payments, invoices).allocations
+    const allocatedPaid = allocs.filter((a) => a.invoiceId === invoice.id).reduce((sum, a) => sum + a.allocatedAmount, 0)
     const payment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     exportPurchaseInvoicePDF(invoice, supplierMap.get(invoice.supplierId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-      paidAmount: payment?.amount || 0,
+      paidAmount: allocatedPaid || payment?.amount || 0,
       paymentCounterName: payment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
@@ -1506,6 +1508,20 @@ export default function InvoicesPage({
                               <span>Discount / Adjustment</span>
                               <span className="value">- ₹{Math.abs(roundOffAdjustment).toFixed(2)}</span>
                             </div>
+                            {paidAmountPreview > 0 && (
+                              <>
+                                <div className="erp-summary-divider"></div>
+                                <div className="erp-summary-item text-emerald-600 font-bold">
+                                  <span>Amount Paid</span>
+                                  <span className="value text-emerald-600 font-bold">₹{paidAmountPreview.toFixed(2)}</span>
+                                </div>
+                                <div className="erp-summary-divider"></div>
+                                <div className="erp-summary-item text-[#5B5FEF] font-bold">
+                                  <span>Balance Due</span>
+                                  <span className="value text-[#5B5FEF] font-bold">₹{balanceAmountPreview.toFixed(2)}</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                           
                           <div className="erp-final-amount-block mt-auto">
@@ -1986,6 +2002,10 @@ export default function InvoicesPage({
           totalAmount={previewInvoice.invoiceAmount}
           additionalCost={previewInvoice.additionalCost}
           additionalCostRemarks={previewInvoice.additionalCostRemarks}
+          paidAmount={(() => {
+            const allocs = calculatePaymentAllocations(payments, invoices).allocations
+            return allocs.filter(a => a.invoiceId === previewInvoice.id).reduce((s, a) => s + a.allocatedAmount, 0)
+          })()}
         />
       )}
 

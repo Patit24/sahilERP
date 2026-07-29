@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, CaretLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple, FileText, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
-import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY, calculatePaymentAllocations } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
@@ -737,13 +737,32 @@ export default function SalesInvoicesPage({
   )
   const balanceAmountPreview = Math.max(finalInvoiceAmountPreview - receivedAmountPreview, 0)
 
+  const getSalesInvoicePaidAmount = (invoice: SalesInvoice) => {
+    const custPayments = customerPayments.filter((p) => p.customerId === invoice.customerId)
+    const totalCustPaid = custPayments.reduce((sum, p) => sum + p.amount, 0)
+    const custInvoices = salesInvoices
+      .filter((inv) => inv.customerId === invoice.customerId)
+      .sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
+
+    let accInv = 0
+    for (const inv of custInvoices) {
+      if (inv.id === invoice.id) {
+        const rem = Math.max(0, totalCustPaid - accInv)
+        return Math.min(rem, inv.invoiceAmount)
+      }
+      accInv += inv.invoiceAmount
+    }
+    return 0
+  }
+
   const handleDownloadInvoicePDF = (invoice: SalesInvoice) => {
+    const allocatedPaid = getSalesInvoicePaidAmount(invoice)
     const payment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     exportSalesInvoicePDF(invoice, customerMap.get(invoice.customerId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-      paidAmount: payment?.amount || 0,
+      paidAmount: allocatedPaid || payment?.amount || 0,
       paymentCounterName: payment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
@@ -1364,6 +1383,20 @@ export default function SalesInvoicesPage({
                                     <span>Discount / Adjustment</span>
                                     <span className="value">- ₹{Math.abs(roundOffAdjustment).toFixed(2)}</span>
                                   </div>
+                                  {receivedAmountPreview > 0 && (
+                                    <>
+                                      <div className="erp-summary-divider"></div>
+                                      <div className="erp-summary-item text-emerald-600 font-bold">
+                                        <span>Amount Paid</span>
+                                        <span className="value text-emerald-600 font-bold">₹{receivedAmountPreview.toFixed(2)}</span>
+                                      </div>
+                                      <div className="erp-summary-divider"></div>
+                                      <div className="erp-summary-item text-[#5B5FEF] font-bold">
+                                        <span>Balance Due</span>
+                                        <span className="value text-[#5B5FEF] font-bold">₹{balanceAmountPreview.toFixed(2)}</span>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                                 
                                 <div className="erp-final-amount-block mt-auto">
@@ -1822,6 +1855,7 @@ export default function SalesInvoicesPage({
           totalAmount={previewInvoice.invoiceAmount}
           additionalCost={previewInvoice.additionalCost}
           additionalCostRemarks={previewInvoice.additionalCostRemarks}
+          paidAmount={getSalesInvoicePaidAmount(previewInvoice)}
         />
       )}
 
