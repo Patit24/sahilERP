@@ -863,15 +863,16 @@ export default function InvoicesPage({
   const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
 
   const handleDownloadInvoicePDF = (invoice: PurchaseInvoice) => {
+    const directPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     const allocs = calculatePaymentAllocations(payments, invoices).allocations
     const allocatedPaid = allocs.filter((a) => a.invoiceId === invoice.id).reduce((sum, a) => sum + a.allocatedAmount, 0)
-    const payment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
+    const paidAmount = directPayment ? directPayment.amount : (allocatedPaid || 0)
     exportPurchaseInvoicePDF(invoice, supplierMap.get(invoice.supplierId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-      paidAmount: allocatedPaid || payment?.amount || 0,
-      paymentCounterName: payment?.counterName
+      paidAmount: paidAmount,
+      paymentCounterName: directPayment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
   }
@@ -2003,6 +2004,8 @@ export default function InvoicesPage({
           additionalCost={previewInvoice.additionalCost}
           additionalCostRemarks={previewInvoice.additionalCostRemarks}
           paidAmount={(() => {
+            const directPayment = payments.find((payment) => payment.id === getInvoicePaymentId(previewInvoice.id))
+            if (directPayment) return directPayment.amount
             const allocs = calculatePaymentAllocations(payments, invoices).allocations
             return allocs.filter(a => a.invoiceId === previewInvoice.id).reduce((s, a) => s + a.allocatedAmount, 0)
           })()}

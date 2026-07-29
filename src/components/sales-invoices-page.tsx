@@ -756,14 +756,15 @@ export default function SalesInvoicesPage({
   }
 
   const handleDownloadInvoicePDF = (invoice: SalesInvoice) => {
+    const directPayment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     const allocatedPaid = getSalesInvoicePaidAmount(invoice)
-    const payment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
+    const paidAmount = directPayment ? directPayment.amount : (allocatedPaid || 0)
     exportSalesInvoicePDF(invoice, customerMap.get(invoice.customerId), itemMap, {
       businessName: 'SK TRADERS',
       state: 'West Bengal',
       phone: '9083876218',
-      paidAmount: allocatedPaid || payment?.amount || 0,
-      paymentCounterName: payment?.counterName
+      paidAmount: paidAmount,
+      paymentCounterName: directPayment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
   }
@@ -1855,7 +1856,11 @@ export default function SalesInvoicesPage({
           totalAmount={previewInvoice.invoiceAmount}
           additionalCost={previewInvoice.additionalCost}
           additionalCostRemarks={previewInvoice.additionalCostRemarks}
-          paidAmount={getSalesInvoicePaidAmount(previewInvoice)}
+          paidAmount={(() => {
+            const directPayment = customerPayments.find((payment) => payment.id === getInvoicePaymentId(previewInvoice.id))
+            if (directPayment) return directPayment.amount
+            return getSalesInvoicePaidAmount(previewInvoice)
+          })()}
         />
       )}
 
