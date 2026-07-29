@@ -644,7 +644,35 @@ export default function PurchaseReturnPage({
                 <div className="erp-responsive-grid">
                   <div className="erp-party-picker-field">
                     <input type="hidden" name="supplierId" value={selectedSupplierId} />
-                    {!supplierPickerOpen && !selectedSupplier ? (
+                    {!supplierPickerOpen && selectedSupplier ? (
+                        <div className="flex items-center justify-between p-3.5 bg-[#5B5FEF]/10 border-2 border-[#5B5FEF] rounded-2xl shadow-sm">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-[#5B5FEF] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm">
+                              {selectedSupplier.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-extrabold text-slate-900 truncate">
+                                {selectedSupplier.name}
+                              </div>
+                              <div className="text-xs font-bold text-[#5B5FEF]">
+                                Balance: {formatCurrency(selectedSupplier.openingBalance || 0)}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSupplierPickerOpen(true)
+                              setSupplierSearch('')
+                            }}
+                            className="h-8 px-3 text-xs font-bold text-[#5B5FEF] bg-white border-[#5B5FEF]/30 hover:bg-[#5B5FEF] hover:text-white rounded-xl shadow-2xs transition-all shrink-0 ml-2"
+                          >
+                            Change Party
+                          </Button>
+                        </div>
+                      ) : !supplierPickerOpen && !selectedSupplier ? (
                       <button
                         type="button"
                         className="erp-party-add-box"
@@ -663,15 +691,15 @@ export default function PurchaseReturnPage({
                             value={supplierSearch}
                             onChange={(event) => setSupplierSearch(event.target.value)}
                             onFocus={() => setSupplierPickerOpen(true)}
-                            placeholder={selectedSupplier ? selectedSupplier.name : 'Search supplier by name or number'}
+                            placeholder="Search supplier by name or number"
                             autoComplete="off"
                           />
                           <button
                             type="button"
                             aria-label="Toggle supplier list"
-                            onClick={() => setSupplierPickerOpen((o) => !o)}
+                            onClick={() => setSupplierPickerOpen(false)}
                           >
-                            <span>⌄</span>
+                            <span>✕</span>
                           </button>
                         </div>
 

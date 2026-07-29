@@ -860,55 +860,70 @@ export default function SalesInvoicesPage({
                         <div className="erp-responsive-grid">
                           <div className="erp-party-picker-field">
                             <input type="hidden" name="customerId" value={selectedCustomerId} />
-                            {!customerPickerOpen && !selectedInvoiceCustomer ? (
-                              <button
-                                type="button"
-                                className="erp-party-add-box"
-                                onClick={() => setCustomerPickerOpen(true)}
-                              >
-                                <Plus size={18} weight="bold" />
-                                Add Party
-                              </button>
-                            ) : (
-                              <div className="erp-party-dropdown-card">
-                                <div className="erp-party-search-row">
-                                  <MagnifyingGlass size={20} />
-                                  <input
-                                    id="customerId"
-                                    type="text"
-                                    value={customerSearch}
-                                    onChange={(event) => setCustomerSearch(event.target.value)}
-                                    onFocus={() => setCustomerPickerOpen(true)}
-                                    placeholder={selectedInvoiceCustomer ? selectedInvoiceCustomer.name : 'Search party by name or number'}
-                                    autoComplete="off"
-                                  />
-                                  <button
+                              {!customerPickerOpen && selectedInvoiceCustomer ? (
+                                <div className="flex items-center justify-between p-3.5 bg-[#5B5FEF]/10 border-2 border-[#5B5FEF] rounded-2xl shadow-sm">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-10 h-10 rounded-xl bg-[#5B5FEF] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm">
+                                      {selectedInvoiceCustomer.name.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-extrabold text-slate-900 truncate">
+                                        {selectedInvoiceCustomer.name}
+                                      </div>
+                                      <div className="text-xs font-bold text-[#5B5FEF]">
+                                        Balance: {formatCurrency(selectedInvoiceCustomer.openingBalance || 0)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Button
                                     type="button"
-                                    aria-label="Toggle customer list"
-                                    onClick={() => setCustomerPickerOpen((open) => !open)}
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setCustomerPickerOpen(true)
+                                      setCustomerSearch('')
+                                    }}
+                                    className="h-8 px-3 text-xs font-bold text-[#5B5FEF] bg-white border-[#5B5FEF]/30 hover:bg-[#5B5FEF] hover:text-white rounded-xl shadow-2xs transition-all shrink-0 ml-2"
                                   >
-                                    <span>⌄</span>
-                                  </button>
+                                    Change Party
+                                  </Button>
                                 </div>
+                              ) : !customerPickerOpen && !selectedInvoiceCustomer ? (
+                                <button
+                                  type="button"
+                                  className="erp-party-add-box"
+                                  onClick={() => setCustomerPickerOpen(true)}
+                                >
+                                  <Plus size={18} weight="bold" />
+                                  Add Party
+                                </button>
+                              ) : (
+                                <div className="erp-party-dropdown-card">
+                                  <div className="erp-party-search-row">
+                                    <MagnifyingGlass size={20} />
+                                    <input
+                                      id="customerId"
+                                      type="text"
+                                      value={customerSearch}
+                                      onChange={(event) => setCustomerSearch(event.target.value)}
+                                      onFocus={() => setCustomerPickerOpen(true)}
+                                      placeholder="Search party by name or number"
+                                      autoComplete="off"
+                                    />
+                                    <button
+                                      type="button"
+                                      aria-label="Toggle customer list"
+                                      onClick={() => setCustomerPickerOpen(false)}
+                                    >
+                                      <span>✕</span>
+                                    </button>
+                                  </div>
 
-                                {customerPickerOpen && (
                                   <div className="erp-party-options">
                                     <div className="erp-party-options-head">
                                       <span>Party Name</span>
                                       <span>Balance</span>
                                     </div>
-                                    <button
-                                      type="button"
-                                      className="erp-party-option"
-                                      onClick={() => {
-                                        setSelectedCustomerId('')
-                                        setCustomerSearch('')
-                                        setCustomerPickerOpen(false)
-                                      }}
-                                    >
-                                      <span>Cash Sale</span>
-                                      <span>{formatCurrency(0)}</span>
-                                    </button>
                                     {filteredCustomers.map((customer) => (
                                       <button
                                         type="button"
@@ -936,10 +951,9 @@ export default function SalesInvoicesPage({
                                       Create Party
                                     </button>
                                   </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                                </div>
+                              )}
+                            </div>
 
                           <div className="space-y-1.5">
                             <Label htmlFor="invoiceNo" className="text-xs font-medium">Invoice Number <span className="text-destructive">*</span></Label>
@@ -1806,12 +1820,8 @@ export default function SalesInvoicesPage({
           items={previewInvoice.items || []}
           itemMap={itemMap}
           totalAmount={previewInvoice.invoiceAmount}
-          fifoAllocations={(() => {
-            if (!purchaseInvoices || purchaseInvoices.length === 0) return []
-            const layers = buildPurchaseLayers(purchaseInvoices, [], items)
-            const { allocations } = allocateSalesFIFO([previewInvoice], layers, items, customers)
-            return allocations
-          })()}
+          additionalCost={previewInvoice.additionalCost}
+          additionalCostRemarks={previewInvoice.additionalCostRemarks}
         />
       )}
 

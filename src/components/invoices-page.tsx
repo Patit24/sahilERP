@@ -1002,7 +1002,35 @@ export default function InvoicesPage({
                   <div className="erp-responsive-grid">
                     <div className="erp-party-picker-field">
                       <input type="hidden" name="supplierId" value={selectedSupplierId} />
-                      {!supplierPickerOpen && !selectedInvoiceSupplier ? (
+                      {!supplierPickerOpen && selectedInvoiceSupplier ? (
+                        <div className="flex items-center justify-between p-3.5 bg-[#5B5FEF]/10 border-2 border-[#5B5FEF] rounded-2xl shadow-sm">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-[#5B5FEF] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm">
+                              {selectedInvoiceSupplier.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-extrabold text-slate-900 truncate">
+                                {selectedInvoiceSupplier.name}
+                              </div>
+                              <div className="text-xs font-bold text-[#5B5FEF]">
+                                Balance: {formatCurrency(selectedInvoiceSupplier.openingBalance || 0)}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSupplierPickerOpen(true)
+                              setSupplierSearch('')
+                            }}
+                            className="h-8 px-3 text-xs font-bold text-[#5B5FEF] bg-white border-[#5B5FEF]/30 hover:bg-[#5B5FEF] hover:text-white rounded-xl shadow-2xs transition-all shrink-0 ml-2"
+                          >
+                            Change Party
+                          </Button>
+                        </div>
+                      ) : !supplierPickerOpen && !selectedInvoiceSupplier ? (
                         <button
                           type="button"
                           className="erp-party-add-box"
@@ -1021,64 +1049,50 @@ export default function InvoicesPage({
                               value={supplierSearch}
                               onChange={(event) => setSupplierSearch(event.target.value)}
                               onFocus={() => setSupplierPickerOpen(true)}
-                              placeholder={selectedInvoiceSupplier ? selectedInvoiceSupplier.name : 'Search party by name or number'}
+                              placeholder="Search party by name or number"
                               autoComplete="off"
                             />
                             <button
                               type="button"
                               aria-label="Toggle supplier list"
-                              onClick={() => setSupplierPickerOpen((open) => !open)}
+                              onClick={() => setSupplierPickerOpen(false)}
                             >
-                              <span>⌄</span>
+                              <span>✕</span>
                             </button>
                           </div>
 
-                          {supplierPickerOpen && (
-                            <div className="erp-party-options">
-                              <div className="erp-party-options-head">
-                                <span>Party Name</span>
-                                <span>Balance</span>
-                              </div>
+                          <div className="erp-party-options">
+                            <div className="erp-party-options-head">
+                              <span>Party Name</span>
+                              <span>Balance</span>
+                            </div>
+                            {filteredSuppliers.map((supplier) => (
                               <button
                                 type="button"
+                                key={supplier.id}
                                 className="erp-party-option"
                                 onClick={() => {
-                                  setSelectedSupplierId('')
+                                  setSelectedSupplierId(supplier.id)
                                   setSupplierSearch('')
                                   setSupplierPickerOpen(false)
                                 }}
                               >
-                                <span>Cash Sale</span>
-                                <span>{formatCurrency(0)}</span>
+                                <span>{supplier.name}</span>
+                                <span>{formatCurrency(supplier.openingBalance || 0)}</span>
                               </button>
-                              {filteredSuppliers.map((supplier) => (
-                                <button
-                                  type="button"
-                                  key={supplier.id}
-                                  className="erp-party-option"
-                                  onClick={() => {
-                                    setSelectedSupplierId(supplier.id)
-                                    setSupplierSearch('')
-                                    setSupplierPickerOpen(false)
-                                  }}
-                                >
-                                  <span>{supplier.name}</span>
-                                  <span>{formatCurrency(supplier.openingBalance || 0)}</span>
-                                </button>
-                              ))}
-                              <button
-                                type="button"
-                                className="erp-party-create-option"
-                                onClick={() => {
-                                  setSupplierPickerOpen(false)
-                                  setShowQuickSupplier(true)
-                                }}
-                              >
-                                <Plus size={16} weight="bold" />
-                                Create Party
-                              </button>
-                            </div>
-                          )}
+                            ))}
+                            <button
+                              type="button"
+                              className="erp-party-create-option"
+                              onClick={() => {
+                                setSupplierPickerOpen(false)
+                                setShowQuickSupplier(true)
+                              }}
+                            >
+                              <Plus size={16} weight="bold" />
+                              Create Party
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1970,6 +1984,8 @@ export default function InvoicesPage({
           items={previewInvoice.items || []}
           itemMap={itemMap}
           totalAmount={previewInvoice.invoiceAmount}
+          additionalCost={previewInvoice.additionalCost}
+          additionalCostRemarks={previewInvoice.additionalCostRemarks}
         />
       )}
 

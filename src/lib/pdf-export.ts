@@ -991,7 +991,7 @@ function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('Tax Invoice', pageWidth / 2, margin + 5, { align: 'center' });
+  doc.text('INVOICE', pageWidth / 2, margin + 5, { align: 'center' });
 
   // Outer Border
   doc.setDrawColor(0, 0, 0);
@@ -1137,6 +1137,22 @@ function exportStyledInvoicePDF(options: StyledInvoiceOptions) {
   let currentY = finalY;
   const rightColX = pageWidth - margin - 35; // Matches amount column
   
+  if (options.additionalCost && options.additionalCost > 0) {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, currentY, contentWidth, 8);
+    doc.line(pageWidth - margin - 35, currentY, pageWidth - margin - 35, currentY + 8);
+    
+    doc.setFont('helvetica', 'bold');
+    const costLabel = options.additionalCostRemarks 
+      ? `Additional Cost (${options.additionalCostRemarks})` 
+      : 'Additional Cost';
+    doc.text(costLabel, pageWidth - margin - 40, currentY + 5, { align: 'right' });
+    doc.text(options.additionalCost.toFixed(2), pageWidth - margin - 2, currentY + 5, { align: 'right' });
+    
+    currentY += 8;
+  }
+
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
   doc.rect(margin, currentY, contentWidth, 8);

@@ -643,7 +643,35 @@ export default function SalesReturnPage({
                 <div className="erp-responsive-grid">
                   <div className="erp-party-picker-field">
                     <input type="hidden" name="customerId" value={selectedCustomerId} />
-                    {!customerPickerOpen && !selectedCustomer ? (
+                    {!customerPickerOpen && selectedCustomer ? (
+                      <div className="flex items-center justify-between p-3.5 bg-[#5B5FEF]/10 border-2 border-[#5B5FEF] rounded-2xl shadow-sm">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-[#5B5FEF] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm">
+                            {selectedCustomer.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-extrabold text-slate-900 truncate">
+                              {selectedCustomer.name}
+                            </div>
+                            <div className="text-xs font-bold text-[#5B5FEF]">
+                              Balance: {formatCurrency(selectedCustomer.openingBalance || 0)}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCustomerPickerOpen(true)
+                            setCustomerSearch('')
+                          }}
+                          className="h-8 px-3 text-xs font-bold text-[#5B5FEF] bg-white border-[#5B5FEF]/30 hover:bg-[#5B5FEF] hover:text-white rounded-xl shadow-2xs transition-all shrink-0 ml-2"
+                        >
+                          Change Party
+                        </Button>
+                      </div>
+                    ) : !customerPickerOpen && !selectedCustomer ? (
                       <button
                         type="button"
                         className="erp-party-add-box"
@@ -662,54 +690,52 @@ export default function SalesReturnPage({
                             value={customerSearch}
                             onChange={(event) => setCustomerSearch(event.target.value)}
                             onFocus={() => setCustomerPickerOpen(true)}
-                            placeholder={selectedCustomer ? selectedCustomer.name : 'Search customer by name or number'}
+                            placeholder="Search customer by name or number"
                             autoComplete="off"
                           />
                           <button
                             type="button"
                             aria-label="Toggle customer list"
-                            onClick={() => setCustomerPickerOpen((o) => !o)}
+                            onClick={() => setCustomerPickerOpen(false)}
                           >
-                            <span>⌄</span>
+                            <span>✕</span>
                           </button>
                         </div>
 
-                        {customerPickerOpen && (
-                          <div className="erp-party-options">
-                            <div className="erp-party-options-head">
-                              <span>Customer Name</span>
-                              <span>Balance</span>
-                            </div>
-                            {filteredCustomers.map((customer) => (
-                              <button
-                                type="button"
-                                key={customer.id}
-                                className="erp-party-option"
-                                onClick={() => {
-                                  setSelectedCustomerId(customer.id)
-                                  setCustomerSearch('')
-                                  setCustomerPickerOpen(false)
-                                }}
-                              >
-                                <span>{customer.name}</span>
-                                <span>{formatCurrency(customer.openingBalance || 0)}</span>
-                              </button>
-                            ))}
-                            {setCustomers && (
-                              <button
-                                type="button"
-                                className="erp-party-create-option"
-                                onClick={() => {
-                                  setCustomerPickerOpen(false)
-                                  setShowQuickCustomer(true)
-                                }}
-                              >
-                                <Plus size={16} weight="bold" />
-                                Create Customer
-                              </button>
-                            )}
+                        <div className="erp-party-options">
+                          <div className="erp-party-options-head">
+                            <span>Customer Name</span>
+                            <span>Balance</span>
                           </div>
-                        )}
+                          {filteredCustomers.map((customer) => (
+                            <button
+                              type="button"
+                              key={customer.id}
+                              className="erp-party-option"
+                              onClick={() => {
+                                setSelectedCustomerId(customer.id)
+                                setCustomerSearch('')
+                                setCustomerPickerOpen(false)
+                              }}
+                            >
+                              <span>{customer.name}</span>
+                              <span>{formatCurrency(customer.openingBalance || 0)}</span>
+                            </button>
+                          ))}
+                          {setCustomers && (
+                            <button
+                              type="button"
+                              className="erp-party-create-option"
+                              onClick={() => {
+                                setCustomerPickerOpen(false)
+                                setShowQuickCustomer(true)
+                              }}
+                            >
+                              <Plus size={16} weight="bold" />
+                              Create Customer
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
