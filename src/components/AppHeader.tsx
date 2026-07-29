@@ -1,16 +1,18 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
-  CaretLeft,
-  CaretRight,
-  Keyboard,
-  Lock,
+  Bell,
+  MagnifyingGlass,
   List,
   User,
   Gear,
-  Plus
+  Sun,
+  Moon,
+  Lock,
+  Plus,
+  CaretDown,
 } from '@phosphor-icons/react'
+import { useState } from 'react'
 
 interface AppHeaderProps {
   sidebarExpanded: boolean
@@ -27,6 +29,27 @@ interface AppHeaderProps {
   setShortcutsDialogOpen: (open: boolean) => void
 }
 
+// Map view IDs to human-readable titles
+const VIEW_TITLES: Record<string, { title: string; sub: string }> = {
+  dashboard: { title: 'Dashboard', sub: 'Your business at a glance' },
+  sales: { title: 'Sales', sub: 'Invoices & revenue' },
+  purchases: { title: 'Purchases', sub: 'Bills & expenses' },
+  inventory: { title: 'Inventory', sub: 'Stock & items' },
+  customers: { title: 'Customers', sub: 'Customer ledger' },
+  suppliers: { title: 'Suppliers', sub: 'Supplier ledger' },
+  payments: { title: 'Payments', sub: 'Receipts & payouts' },
+  expenses: { title: 'Expenses', sub: 'Operational expenses' },
+  reports: { title: 'Reports', sub: 'Analytics & insights' },
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('')
+}
+
 export function AppHeader({
   sidebarExpanded,
   setSidebarExpanded,
@@ -41,97 +64,154 @@ export function AppHeader({
   currentUserRole,
   setShortcutsDialogOpen,
 }: AppHeaderProps) {
+  const [isDark, setIsDark] = useState(false)
+  const viewMeta = VIEW_TITLES[activeView] ?? {
+    title: activeView.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    sub: safeBusinessName,
+  }
+  const initials = getInitials(currentUserLabel || 'Master Admin')
+
   return (
-    <header className="app-header h-16 bg-white border-b border-slate-200/80 px-4 md:px-6 flex items-center justify-between z-30 shrink-0">
-      {/* Left side brand / collapse button */}
+    <header className="app-header h-16 bg-white border-b border-[#E8EAEF] px-4 md:px-6 flex items-center justify-between z-30 shrink-0 shadow-[0_1px_4px_rgba(91,95,239,0.06)]">
+      {/* ── Left: hamburger + page title ── */}
       <div className="flex items-center gap-3">
+        {/* Mobile hamburger */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          className="h-9 w-9 text-slate-600 md:hidden hover:bg-slate-100"
+          className="h-9 w-9 text-slate-500 md:hidden hover:bg-slate-100 rounded-xl"
           aria-label="Toggle navigation"
         >
           <List className="h-5 w-5" weight="bold" />
         </Button>
 
+        {/* Desktop collapse */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className="h-9 w-9 text-slate-500 hidden md:flex hover:bg-slate-100 rounded-lg"
-          title={sidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
+          className="h-9 w-9 text-slate-500 hidden md:flex hover:bg-[#F1F3F9] rounded-xl"
+          title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           <List className="h-5 w-5" weight="bold" />
         </Button>
 
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            SK ERP
+        {/* Page title + subtitle */}
+        <motion.div
+          key={activeView}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+          className="hidden sm:flex flex-col"
+        >
+          <h1 className="text-[17px] font-extrabold text-slate-900 leading-tight tracking-tight">
+            {viewMeta.title}
           </h1>
-          <div className="h-4 w-[1px] bg-slate-200 hidden sm:block" />
-          <button
+          <p className="text-[11px] text-slate-400 font-medium leading-none">
+            {viewMeta.sub}
+          </p>
+        </motion.div>
+      </div>
+
+      {/* ── Center: search bar ── */}
+      <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+        <div className="relative w-full">
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            readOnly
             onClick={() => setShortcutsDialogOpen(true)}
-            className="relative px-2 py-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hidden sm:flex items-center gap-1 group"
-          >
-            <span>Shortcuts</span>
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-full" />
-          </button>
+            placeholder="Search anything..."
+            className="w-full h-9 pl-9 pr-16 text-sm text-slate-500 bg-[#F5F6FA] border border-[#E8EAEF] rounded-xl outline-none cursor-pointer hover:border-[#5B5FEF]/40 transition-colors placeholder:text-slate-400"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+            <kbd className="text-[10px] font-bold text-slate-400 bg-white border border-[#E8EAEF] rounded-md px-1.5 py-0.5 shadow-sm">⌘</kbd>
+            <kbd className="text-[10px] font-bold text-slate-400 bg-white border border-[#E8EAEF] rounded-md px-1.5 py-0.5 shadow-sm">K</kbd>
+          </span>
         </div>
       </div>
 
-      {/* Right side controls */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* ── Right: controls ── */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+
+        {/* Locked badge */}
         {safeIsLocked && (
-          <span className="hidden sm:inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
+          <span className="hidden sm:inline-flex items-center gap-1 bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
             <Lock className="h-3.5 w-3.5" weight="fill" />
             Read Only
           </span>
         )}
 
-        {/* FY Pill Badge */}
-        <span className="bg-blue-50 text-[#0256e8] font-bold px-3.5 py-1 rounded-full text-xs border border-blue-100/80 shadow-2xs font-mono">
-          {safeCurrentFY}
-        </span>
-
-        {/* User Profile Pill */}
-        <div className="hidden md:flex items-center gap-2 bg-slate-100/80 text-slate-800 px-3 py-1 rounded-full text-xs font-semibold border border-slate-200/60">
-          <div className="h-5 w-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-            <User className="h-3 w-3" weight="bold" />
-          </div>
-          <span>{currentUserLabel || 'Master Admin'}</span>
-          <span className="text-slate-400 font-normal">· {currentUserRole}</span>
-        </div>
-
-        {/* Lock button */}
+        {/* Light / dark toggle */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={onLockApp}
-          className="h-9 w-9 text-slate-600 hover:bg-slate-100 rounded-lg"
-          title="Lock session"
+          onClick={() => setIsDark(d => !d)}
+          className="h-9 w-9 text-slate-500 hover:bg-[#F1F3F9] rounded-xl"
+          title="Toggle theme"
         >
-          <Lock className="h-4 w-4" weight="bold" />
+          {isDark
+            ? <Sun className="h-4.5 w-4.5" weight="bold" />
+            : <Moon className="h-4.5 w-4.5" weight="bold" />
+          }
         </Button>
 
-        {/* Settings button */}
+        {/* Notification bell */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-slate-500 hover:bg-[#F1F3F9] rounded-xl relative"
+          title="Notifications"
+        >
+          <Bell className="h-4.5 w-4.5" weight="bold" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#5B5FEF] ring-2 ring-white" />
+        </Button>
+
+        {/* Settings / shortcuts */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setShortcutsDialogOpen(true)}
-          className="h-9 w-9 text-slate-600 hover:bg-slate-100 rounded-lg"
+          className="h-9 w-9 text-slate-500 hover:bg-[#F1F3F9] rounded-xl"
           title="Shortcuts & settings"
         >
-          <Gear className="h-4 w-4" weight="bold" />
+          <Gear className="h-4.5 w-4.5" weight="bold" />
         </Button>
 
-        {/* Header circular action button */}
+        {/* Divider */}
+        <div className="h-6 w-px bg-[#E8EAEF] mx-0.5 hidden sm:block" />
+
+        {/* FY pill */}
+        <button
+          onClick={() => setShortcutsDialogOpen(true)}
+          className="hidden sm:inline-flex items-center gap-1.5 bg-[#5B5FEF]/10 text-[#5B5FEF] font-bold px-3 py-1.5 rounded-xl text-xs border border-[#5B5FEF]/20 hover:bg-[#5B5FEF]/15 transition-colors"
+        >
+          {safeCurrentFY}
+          <CaretDown className="h-3 w-3" weight="bold" />
+        </button>
+
+        {/* User avatar pill */}
+        <div className="hidden md:flex items-center gap-2 bg-[#F5F6FA] border border-[#E8EAEF] rounded-xl px-3 py-1.5 cursor-pointer hover:bg-[#EEF0F8] transition-colors">
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#5B5FEF] to-[#7C3AED] text-white flex items-center justify-center text-[11px] font-extrabold shadow-sm">
+            {initials || <User className="h-3.5 w-3.5" weight="bold" />}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[12px] font-bold text-slate-900 leading-tight truncate max-w-[100px]">
+              {currentUserLabel || 'Master Admin'}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium leading-tight capitalize">
+              {currentUserRole || 'Administrator'}
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Action button */}
         <Button
-          size="icon"
-          className="h-9 w-9 rounded-full bg-[#0256e8] hover:bg-[#0046cd] text-white shadow-sm"
+          className="hidden sm:inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#5B5FEF] hover:bg-[#4A4ED8] text-white text-xs font-bold shadow-md shadow-[#5B5FEF]/25 transition-all"
           title="Quick action"
         >
-          <Plus className="h-5 w-5" weight="bold" />
+          <Plus className="h-4 w-4" weight="bold" />
+          <span>Quick Action</span>
         </Button>
       </div>
     </header>
