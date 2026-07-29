@@ -54,6 +54,9 @@ interface ItemCostBreakdown {
   itemName: string
   activeUnit: string
   activeQuantity: number
+  altUnit?: string
+  altQuantity?: number
+  displayQtyUnit: string
   pricePerUnit: number
   fixedDiscPerUnit: number
   paymentCDPerUnit: number
@@ -216,13 +219,42 @@ export default function PurchaseInvoiceDetailsPage({
 
         const itemCostBreakdowns: ItemCostBreakdown[] = (invoice.items || []).map(item => {
           const itemData = itemMap.get(item.itemId)
-          const activeUnit = (itemData?.alternativeUnit && itemData.alternativeUnit !== 'NONE' && itemData.alternativeUnit.trim() !== '')
-            ? itemData.alternativeUnit
-            : (item.entryUnit || itemData?.unit || 'MT')
+          const activeUnit = item.entryUnit || itemData?.unit || 'MT'
           const itemQty = item.entryQuantity && item.entryQuantity > 0 ? item.entryQuantity : (item.quantityMT || 0)
-          const unitWeightKG = item.weightKG && itemQty > 0
-            ? item.weightKG / itemQty
-            : (itemData?.conversionFactor || (activeUnit === 'MT' ? 1000 : 1))
+
+          let unitWeightKG = 1000
+          if (item.weightKG && itemQty > 0) {
+            unitWeightKG = item.weightKG / itemQty
+          } else if (activeUnit === 'KG') {
+            unitWeightKG = 1
+          } else if (activeUnit === 'MT') {
+            unitWeightKG = 1000
+          } else if (itemData?.conversionFactor && itemData.conversionFactor > 0) {
+            unitWeightKG = itemData.conversionFactor
+          }
+
+          let altUnit: string | undefined = undefined
+          let altQty: number | undefined = undefined
+          if (itemData?.alternativeUnit && itemData.alternativeUnit !== 'NONE' && itemData.alternativeUnit !== activeUnit) {
+            altUnit = itemData.alternativeUnit
+            if (itemData.alternativeUnitRatio && itemData.alternativeUnitRatio > 0) {
+              if (activeUnit === itemData.unit) {
+                altQty = itemQty * itemData.alternativeUnitRatio
+              } else if (activeUnit === itemData.alternativeUnit) {
+                altQty = itemQty / itemData.alternativeUnitRatio
+              } else {
+                altQty = itemQty * itemData.alternativeUnitRatio
+              }
+            } else if (item.weightKG && item.weightKG > 0) {
+              if (altUnit === 'KG') altQty = item.weightKG
+              else if (altUnit === 'MT') altQty = item.weightKG / 1000
+            }
+          }
+
+          let displayQtyUnit = `${itemQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${activeUnit}`
+          if (altUnit && altQty && altQty > 0) {
+            displayQtyUnit += ` (${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit})`
+          }
 
           const pricePerUnit = item.rate // GST-Inclusive Rate per activeUnit
 
@@ -242,6 +274,9 @@ export default function PurchaseInvoiceDetailsPage({
             itemName: itemData?.name || 'Unknown Item',
             activeUnit,
             activeQuantity: itemQty,
+            altUnit,
+            altQuantity: altQty,
+            displayQtyUnit,
             pricePerUnit,
             fixedDiscPerUnit: itemFixedDiscPerUnit,
             paymentCDPerUnit: itemPaymentCDPerUnit,
@@ -683,14 +718,32 @@ export default function PurchaseInvoiceDetailsPage({
                         <TableBody>
                           {detail.invoice.items.map((item, idx) => {
                             const itemData = itemMap.get(item.itemId)
-                            const itemUnit = itemData?.unit || 'MT'
+                            const activeUnit = item.entryUnit || itemData?.unit || 'MT'
+                            const activeQty = item.entryQuantity && item.entryQuantity > 0 ? item.entryQuantity : (item.quantityMT || 0)
+                            let altUnit: string | undefined = undefined
+                            let altQty: number | undefined = undefined
+                            if (itemData?.alternativeUnit && itemData.alternativeUnit !== 'NONE' && itemData.alternativeUnit !== activeUnit) {
+                              altUnit = itemData.alternativeUnit
+                              if (itemData.alternativeUnitRatio && itemData.alternativeUnitRatio > 0) {
+                                if (activeUnit === itemData.unit) altQty = activeQty * itemData.alternativeUnitRatio
+                                else if (activeUnit === itemData.alternativeUnit) altQty = activeQty / itemData.alternativeUnitRatio
+                                else altQty = activeQty * itemData.alternativeUnitRatio
+                              } else if (item.weightKG && item.weightKG > 0) {
+                                if (altUnit === 'KG') altQty = item.weightKG
+                                else if (altUnit === 'MT') altQty = item.weightKG / 1000
+                              }
+                            }
+                            let displayQty = `${activeQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${activeUnit}`
+                            if (altUnit && altQty && altQty > 0) {
+                              displayQty += ` (${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit})`
+                            }
                             return (
                               <TableRow key={idx}>
                                 <TableCell className="font-medium">
                                   {itemData?.name || 'Unknown Item'}
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-medium">
-                                  {item.quantityMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {itemUnit}
+                                  {displayQty}
                                 </TableCell>
                                 <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(item.amount)}</TableCell>
@@ -816,7 +869,7 @@ export default function PurchaseInvoiceDetailsPage({
                                     {breakdown.itemName}
                                   </TableCell>
                                   <TableCell className="text-right font-mono font-medium">
-                                    {breakdown.activeQuantity.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {breakdown.activeUnit}
+                                    {breakdown.displayQtyUnit}
                                   </TableCell>
                                   <TableCell className="text-right">{formatCurrency(breakdown.pricePerUnit)}</TableCell>
                                   <TableCell className="text-right text-success">
