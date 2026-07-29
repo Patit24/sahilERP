@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Supplier, PaymentCDRule, InvoiceCloseCDRule, CDRuleChangeLog } from '@/lib/types'
+import { Supplier, PaymentCDRule, InvoiceCloseCDRule } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,13 +37,17 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
   const [editPaymentModalOpen, setEditPaymentModalOpen] = useState<boolean>(false)
   const [editCloseModalOpen, setEditCloseModalOpen] = useState<boolean>(false)
   const [editTargetModalOpen, setEditTargetModalOpen] = useState<boolean>(false)
-  const [historyModalOpen, setHistoryModalOpen] = useState<boolean>(false)
+
+  // Separate History Category State (PaymentCD vs InvoiceClosedCD)
+  const [historyCategory, setHistoryCategory] = useState<'PaymentCD' | 'InvoiceClosedCD' | null>(null)
 
   // Expandable History Accordion tracking state
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([])
 
-  // Shared Effective From Date across all 3 modals
-  const [draftEffectiveDate, setDraftEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
+  // SEPARATE / INDEPENDENT Effective From Dates for each section
+  const [payEffectiveDate, setPayEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [closeEffectiveDate, setCloseEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [targetEffectiveDate, setTargetEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
 
   // Draft form states for Payment CD Rules modal (FRESH START)
   const [draftAdvanceCD, setDraftAdvanceCD] = useState<string>('')
@@ -138,12 +142,11 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     const currentVersions = selectedSupplier.cdRuleVersions || []
     const newVersionNumber = currentVersions.length + 1
 
-    // Archive current rules as historical record
     const historyEntry = {
-      id: `${selectedSupplier.id}-v${newVersionNumber}`,
+      id: `${selectedSupplier.id}-pay-v${newVersionNumber}`,
       version: newVersionNumber,
       ruleName: `Payment CD Rules v${newVersionNumber}`,
-      effectiveFrom: draftEffectiveDate,
+      effectiveFrom: payEffectiveDate,
       paymentCDRules: draftPaymentRules,
       invoiceCloseCDRules: selectedSupplier.invoiceCloseCDRules || [],
       advanceCDPercentage: advNum > 0 ? advNum : undefined,
@@ -173,9 +176,9 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
             paymentCDRules: draftPaymentRules,
             invoiceCloseCDRules: selectedSupplier.invoiceCloseCDRules || [],
             advanceCDPercentage: advNum > 0 ? advNum : undefined,
-            effectiveFrom: draftEffectiveDate
+            effectiveFrom: payEffectiveDate
           },
-          effectiveDate: draftEffectiveDate,
+          effectiveDate: payEffectiveDate,
           changedBy: 'Master Admin',
           changedAt: new Date().toISOString(),
           reason: payChangeReason || 'Updated Payment CD Rules',
@@ -220,10 +223,10 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     const newVersionNumber = currentVersions.length + 1
 
     const historyEntry = {
-      id: `${selectedSupplier.id}-v${newVersionNumber}`,
+      id: `${selectedSupplier.id}-close-v${newVersionNumber}`,
       version: newVersionNumber,
       ruleName: `Invoice Closed CD Rules v${newVersionNumber}`,
-      effectiveFrom: draftEffectiveDate,
+      effectiveFrom: closeEffectiveDate,
       paymentCDRules: selectedSupplier.paymentCDRules || [],
       invoiceCloseCDRules: draftCloseRules,
       advanceCDPercentage: selectedSupplier.advanceCDPercentage,
@@ -252,9 +255,9 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
             paymentCDRules: selectedSupplier.paymentCDRules || [],
             invoiceCloseCDRules: draftCloseRules,
             advanceCDPercentage: selectedSupplier.advanceCDPercentage,
-            effectiveFrom: draftEffectiveDate
+            effectiveFrom: closeEffectiveDate
           },
-          effectiveDate: draftEffectiveDate,
+          effectiveDate: closeEffectiveDate,
           changedBy: 'Master Admin',
           changedAt: new Date().toISOString(),
           reason: closeChangeReason || 'Updated Invoice Closed CD Rules',
@@ -280,10 +283,10 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     const newVersionNumber = currentVersions.length + 1
 
     const historyEntry = {
-      id: `${selectedSupplier.id}-v${newVersionNumber}`,
+      id: `${selectedSupplier.id}-target-v${newVersionNumber}`,
       version: newVersionNumber,
       ruleName: `Annual Target v${newVersionNumber}`,
-      effectiveFrom: draftEffectiveDate,
+      effectiveFrom: targetEffectiveDate,
       paymentCDRules: selectedSupplier.paymentCDRules || [],
       invoiceCloseCDRules: selectedSupplier.invoiceCloseCDRules || [],
       advanceCDPercentage: selectedSupplier.advanceCDPercentage,
@@ -304,7 +307,22 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     toast.success(`Annual Target updated for ${selectedSupplier.name}!`)
   }
 
-  const effectiveFromDisplay = selectedSupplier?.cdRuleVersions?.[0]?.effectiveFrom || draftEffectiveDate
+  // Filter history log entries specifically for Payment CD or Invoice Closed CD
+  const filteredHistoryVersions = (selectedSupplier?.cdRuleVersions || []).filter((ver) => {
+    if (historyCategory === 'PaymentCD') {
+      return ver.ruleName.toLowerCase().includes('payment cd')
+    }
+    if (historyCategory === 'InvoiceClosedCD') {
+      return ver.ruleName.toLowerCase().includes('invoice closed cd')
+    }
+    return true
+  })
+
+  // Get active effective date for payment CD card
+  const paymentCDActiveVersionDate = selectedSupplier?.cdRuleVersions?.find(v => v.ruleName.toLowerCase().includes('payment cd'))?.effectiveFrom || payEffectiveDate
+
+  // Get active effective date for invoice closed CD card
+  const invoiceCloseActiveVersionDate = selectedSupplier?.cdRuleVersions?.find(v => v.ruleName.toLowerCase().includes('invoice closed cd'))?.effectiveFrom || closeEffectiveDate
 
   return (
     <div className="space-y-6 pb-16">
@@ -358,17 +376,17 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                   <span>Payment CD Rules</span>
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Effect from applicable date: <span className="font-bold text-slate-800">{effectiveFromDisplay}</span>
+                  Effect from applicable date: <span className="font-bold text-slate-800">{paymentCDActiveVersionDate}</span>
                 </p>
               </div>
 
-              {/* Action Buttons: UPDATE HISTORY BTN & EDIT/UPDATE rules BTN */}
+              {/* Action Buttons: UPDATE HISTORY BTN (Opens ONLY Payment CD History) & EDIT/UPDATE rules BTN */}
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setHistoryModalOpen(true)}
+                  onClick={() => setHistoryCategory('PaymentCD')}
                   className="h-8 text-xs font-bold bg-white text-slate-700 border-slate-300 hover:bg-slate-50 rounded-xl px-3"
                 >
                   <Clock className="mr-1.5 h-3.5 w-3.5 text-[#0256e8]" />
@@ -427,17 +445,17 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                   <span>INVOICE CLOSED CD Rules</span>
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Effect from applicable date: <span className="font-bold text-slate-800">{effectiveFromDisplay}</span>
+                  Effect from applicable date: <span className="font-bold text-slate-800">{invoiceCloseActiveVersionDate}</span>
                 </p>
               </div>
 
-              {/* Action Buttons: UPDATE HISTORY BTN & EDIT/UPDATE rules BTN */}
+              {/* Action Buttons: UPDATE HISTORY BTN (Opens ONLY Invoice Closed CD History) & EDIT/UPDATE rules BTN */}
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setHistoryModalOpen(true)}
+                  onClick={() => setHistoryCategory('InvoiceClosedCD')}
                   className="h-8 text-xs font-bold bg-white text-slate-700 border-slate-300 hover:bg-slate-50 rounded-xl px-3"
                 >
                   <Clock className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />
@@ -532,14 +550,14 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* Effective From Date (Shared across all modals!) */}
+            {/* Payment CD Independent Effective From Date */}
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Effective From Date *</Label>
               <Input
                 type="date"
-                value={draftEffectiveDate}
-                onChange={(e) => setDraftEffectiveDate(e.target.value)}
-                className="h-9 text-xs bg-white font-mono font-bold"
+                value={payEffectiveDate}
+                onChange={(e) => setPayEffectiveDate(e.target.value)}
+                className="h-9 text-xs bg-white font-mono font-bold text-[#0256e8]"
                 required
               />
             </div>
@@ -650,14 +668,14 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* Effective From Date (Shared across all modals!) */}
+            {/* Invoice Closed CD Independent Effective From Date */}
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Effective From Date *</Label>
               <Input
                 type="date"
-                value={draftEffectiveDate}
-                onChange={(e) => setDraftEffectiveDate(e.target.value)}
-                className="h-9 text-xs bg-white font-mono font-bold"
+                value={closeEffectiveDate}
+                onChange={(e) => setCloseEffectiveDate(e.target.value)}
+                className="h-9 text-xs bg-white font-mono font-bold text-indigo-700"
                 required
               />
             </div>
@@ -764,14 +782,14 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* Effective From Date (Shared across all modals!) */}
+            {/* Annual Target Independent Effective From Date */}
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Effective From Date *</Label>
               <Input
                 type="date"
-                value={draftEffectiveDate}
-                onChange={(e) => setDraftEffectiveDate(e.target.value)}
-                className="h-9 text-xs bg-white font-mono font-bold"
+                value={targetEffectiveDate}
+                onChange={(e) => setTargetEffectiveDate(e.target.value)}
+                className="h-9 text-xs bg-white font-mono font-bold text-emerald-700"
                 required
               />
             </div>
@@ -819,24 +837,30 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 4: UPDATE HISTORY DIALOG WITH EXPANDABLE ACCORDION SYSTEM */}
-      <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
+      {/* MODAL 4: FILTERED HISTORY DIALOG (PAYMENT CD VS INVOICE CLOSED CD) */}
+      <Dialog open={historyCategory !== null} onOpenChange={(open) => { if (!open) setHistoryCategory(null) }}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader className="border-b border-slate-100 pb-3">
             <DialogTitle className="flex items-center gap-2 text-slate-900 text-lg">
               <Clock className="h-5 w-5 text-[#0256e8]" weight="bold" />
-              <span>CD Rules Update History</span>
+              <span>
+                {historyCategory === 'PaymentCD'
+                  ? 'Payment CD Rules Update History'
+                  : 'Invoice Closed CD Rules Update History'}
+              </span>
             </DialogTitle>
             <p className="text-xs text-slate-500 font-medium">
-              Expand any version item below to view full historical rule details for <span className="font-bold text-slate-800">{selectedSupplier?.name}</span>
+              Audit log of historical {historyCategory === 'PaymentCD' ? 'Payment CD' : 'Invoice Closed CD'} rule changes for <span className="font-bold text-slate-800">{selectedSupplier?.name}</span>
             </p>
           </DialogHeader>
 
           <div className="space-y-3 pt-2 text-xs">
-            {!selectedSupplier?.cdRuleVersions || selectedSupplier.cdRuleVersions.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-6">No historical update versions recorded yet.</p>
+            {filteredHistoryVersions.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-6">
+                No historical {historyCategory === 'PaymentCD' ? 'Payment CD' : 'Invoice Closed CD'} update versions recorded yet.
+              </p>
             ) : (
-              selectedSupplier.cdRuleVersions.map((ver) => {
+              filteredHistoryVersions.map((ver) => {
                 const isExpanded = expandedHistoryIds.includes(ver.id)
                 return (
                   <Collapsible
@@ -877,51 +901,53 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
 
                       {/* Detailed Breakdown of Historical Rules */}
                       <div className="space-y-3">
-                        {/* Historical Payment CD Rules */}
-                        <div>
-                          <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                            Payment CD Rules (Historical)
-                          </div>
-                          <div className="space-y-1">
-                            <div className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between text-xs">
-                              <span className="text-slate-600 font-medium">Advance CD</span>
-                              <span className="font-mono font-bold text-[#0256e8]">
-                                {ver.advanceCDPercentage !== undefined ? `${ver.advanceCDPercentage}%` : 'None'}
-                              </span>
+                        {historyCategory === 'PaymentCD' && (
+                          <div>
+                            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                              Payment CD Rules (Historical)
                             </div>
-                            {ver.paymentCDRules && ver.paymentCDRules.length > 0 ? (
-                              ver.paymentCDRules.map((rule, rIdx) => (
-                                <div key={rIdx} className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between text-xs">
-                                  <span className="text-slate-700">{rule.minDays} to {rule.maxDays} Days</span>
-                                  <span className="font-mono font-bold text-[#0256e8]">{rule.percentageRate}% CD</span>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-[11px] text-slate-400 italic">No prompt CD tiers recorded in this version.</p>
-                            )}
+                            <div className="space-y-1">
+                              <div className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between text-xs">
+                                <span className="text-slate-600 font-medium">Advance CD</span>
+                                <span className="font-mono font-bold text-[#0256e8]">
+                                  {ver.advanceCDPercentage !== undefined ? `${ver.advanceCDPercentage}%` : 'None'}
+                                </span>
+                              </div>
+                              {ver.paymentCDRules && ver.paymentCDRules.length > 0 ? (
+                                ver.paymentCDRules.map((rule, rIdx) => (
+                                  <div key={rIdx} className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between text-xs">
+                                    <span className="text-slate-700">{rule.minDays} to {rule.maxDays} Days</span>
+                                    <span className="font-mono font-bold text-[#0256e8]">{rule.percentageRate}% CD</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-[11px] text-slate-400 italic">No prompt CD tiers recorded in this version.</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        {/* Historical Invoice Closed CD Rules */}
-                        <div>
-                          <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                            Invoice Closed CD Rules (Historical)
+                        {historyCategory === 'InvoiceClosedCD' && (
+                          <div>
+                            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                              Invoice Closed CD Rules (Historical)
+                            </div>
+                            <div className="space-y-1">
+                              {ver.invoiceCloseCDRules && ver.invoiceCloseCDRules.length > 0 ? (
+                                ver.invoiceCloseCDRules.map((rule, cIdx) => (
+                                  <div key={cIdx} className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between text-xs">
+                                    <span className="text-slate-700">{rule.minDays} to {rule.maxDays} Days</span>
+                                    <span className="font-mono font-bold text-indigo-700">
+                                      {formatCurrency(rule.ratePerMT)} / {rule.unit || 'MT'}
+                                    </span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-[11px] text-slate-400 italic">No invoice closing CD rules recorded in this version.</p>
+                              )}
+                            </div>
                           </div>
-                          <div className="space-y-1">
-                            {ver.invoiceCloseCDRules && ver.invoiceCloseCDRules.length > 0 ? (
-                              ver.invoiceCloseCDRules.map((rule, cIdx) => (
-                                <div key={cIdx} className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between text-xs">
-                                  <span className="text-slate-700">{rule.minDays} to {rule.maxDays} Days</span>
-                                  <span className="font-mono font-bold text-indigo-700">
-                                    {formatCurrency(rule.ratePerMT)} / {rule.unit || 'MT'}
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-[11px] text-slate-400 italic">No invoice closing CD rules recorded in this version.</p>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
@@ -931,7 +957,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
           </div>
 
           <DialogFooter className="border-t border-slate-100 pt-3">
-            <Button size="sm" onClick={() => setHistoryModalOpen(false)} className="bg-[#0256e8] text-white font-bold">
+            <Button size="sm" onClick={() => setHistoryCategory(null)} className="bg-[#0256e8] text-white font-bold">
               Close
             </Button>
           </DialogFooter>
