@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog'
-import { PurchaseInvoiceDetailsDialog } from '@/components/purchase-invoice-details-dialog'
+import { PurchaseInvoiceDetailsView } from '@/components/purchase-invoice-details-view'
 import { exportPurchaseInvoicePDF } from '@/lib/pdf-export'
 import { PartyEditorDialog } from '@/components/party-editor-dialog'
 import { ItemEditorDialog } from '@/components/item-editor-dialog'
@@ -863,6 +863,20 @@ export default function InvoicesPage({
       paymentCounterName: payment?.counterName
     })
     toast.success(`Downloaded invoice ${invoice.invoiceNo}`)
+  }
+
+  if (detailsInvoice) {
+    return (
+      <PurchaseInvoiceDetailsView
+        invoice={detailsInvoice}
+        payments={payments}
+        suppliers={suppliers}
+        items={items}
+        fixedSchemes={[]}
+        expenseEntries={[]}
+        onBack={() => setDetailsInvoice(null)}
+      />
+    )
   }
 
   return (
@@ -1942,18 +1956,6 @@ export default function InvoicesPage({
           items={previewInvoice.items || []}
           itemMap={itemMap}
           totalAmount={previewInvoice.invoiceAmount}
-        />
-      )}
-
-      {detailsInvoice && (
-        <PurchaseInvoiceDetailsDialog
-          open={Boolean(detailsInvoice)}
-          onOpenChange={(open) => !open && setDetailsInvoice(null)}
-          invoice={detailsInvoice}
-          payments={payments}
-          suppliers={suppliers}
-          items={items}
-          fixedSchemes={[]}
         />
       )}
 
