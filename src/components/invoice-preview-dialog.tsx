@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatMT } from '@/lib/calculations'
-import { Item, InvoiceItem } from '@/lib/types'
+import { Item, InvoiceItem, SaleAllocation } from '@/lib/types'
 
 interface InvoicePreviewDialogProps {
   open: boolean
@@ -15,6 +15,7 @@ interface InvoicePreviewDialogProps {
   items: InvoiceItem[]
   itemMap: Map<string, Item>
   totalAmount: number
+  fifoAllocations?: SaleAllocation[]
 }
 
 function getActiveBusinessName() {
@@ -38,7 +39,8 @@ export function InvoicePreviewDialog({
   partyPhone,
   items,
   itemMap,
-  totalAmount
+  totalAmount,
+  fifoAllocations
 }: InvoicePreviewDialogProps) {
   const businessName = getActiveBusinessName()
   const title = mode === 'sales' ? 'TAX INVOICE' : 'BILL OF SUPPLY'
@@ -150,6 +152,49 @@ export function InvoicePreviewDialog({
                 </tr>
               </tfoot>
             </table>
+
+            {/* Module 9: Invoice-Level Cost Details & FIFO Traceability */}
+            {mode === 'sales' && fifoAllocations && fifoAllocations.length > 0 && (
+              <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 print:break-inside-avoid">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    FIFO Cost Allocation & Profit Traceability
+                  </h4>
+                  <span className="text-[11px] font-semibold text-slate-500 font-mono">
+                    Batch-to-Lot Mapping
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                        <th className="py-2 px-2">Item Name</th>
+                        <th className="py-2 px-2 text-right">Allocated Qty</th>
+                        <th className="py-2 px-2">From Purchase Lot</th>
+                        <th className="py-2 px-2 text-right">Landed Cost</th>
+                        <th className="py-2 px-2 text-right">Selling Rate</th>
+                        <th className="py-2 px-2 text-right font-extrabold">Gross Profit / Unit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200/60 font-mono">
+                      {fifoAllocations.map((alloc, idx) => (
+                        <tr key={idx} className="hover:bg-white/80">
+                          <td className="py-2 px-2 font-sans font-semibold text-slate-800">{alloc.itemName}</td>
+                          <td className="py-2 px-2 text-right font-bold text-slate-900">{alloc.allocatedQty.toLocaleString()} {alloc.activeUnit}</td>
+                          <td className="py-2 px-2 font-sans font-bold text-blue-700">{alloc.purchaseInvoiceNo} ({alloc.supplierName})</td>
+                          <td className="py-2 px-2 text-right text-amber-900 font-bold">{formatCurrency(alloc.fifoCostPerUnit)}</td>
+                          <td className="py-2 px-2 text-right font-bold">{formatCurrency(alloc.sellingPricePerUnit)}</td>
+                          <td className={`py-2 px-2 text-right font-extrabold ${alloc.profitPerUnit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            {alloc.profitPerUnit >= 0 ? '+' : ''}{formatCurrency(alloc.profitPerUnit)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

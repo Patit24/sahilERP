@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { SalesInvoice, Customer, Item, InvoiceItem, CustomerPayment, PurchaseInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
+import { buildPurchaseLayers, allocateSalesFIFO } from '@/lib/fifo-engine'
 import { calculateItemStockMap } from '@/lib/report-calculations'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
@@ -1805,6 +1806,12 @@ export default function SalesInvoicesPage({
           items={previewInvoice.items || []}
           itemMap={itemMap}
           totalAmount={previewInvoice.invoiceAmount}
+          fifoAllocations={(() => {
+            if (!purchaseInvoices || purchaseInvoices.length === 0) return []
+            const layers = buildPurchaseLayers(purchaseInvoices, [], items)
+            const { allocations } = allocateSalesFIFO([previewInvoice], layers, items, customers)
+            return allocations
+          })()}
         />
       )}
 

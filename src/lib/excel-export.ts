@@ -596,3 +596,13 @@ export function exportPaymentDetailsToExcel(
   const filename = `Payment_Details_${paymentDetails.supplier?.name.replace(/\s+/g, '_')}_${new Date(paymentDetails.payment.paymentDate).toISOString().split('T')[0]}_${new Date().toISOString().split('T')[0]}.csv`
   downloadCSV(csv, filename)
 }
+
+export function exportGenericTableToCSV(data: any[], filename: string) {
+  if (!data || data.length === 0) return
+  const headers = Object.keys(data[0])
+  let csv = headers.map(escapeCSV).join(',') + '\n'
+  data.forEach(row => {
+    csv += headers.map(h => escapeCSV(row[h])).join(',') + '\n'
+  })
+  downloadCSV(csv, filename.endsWith('.csv') ? filename : `${filename}.csv`)
+}

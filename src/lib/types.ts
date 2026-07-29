@@ -428,3 +428,103 @@ export interface PurchaseReturn {
   createdAt?: number
 }
 
+// FIFO Inventory Layer
+export interface PurchaseLayer {
+  id: string
+  purchaseInvoiceId: string
+  invoiceNo: string
+  supplierId: string
+  supplierName: string
+  itemId: string
+  itemName: string
+  category?: string
+  activeUnit: string
+  purchaseDate: string
+  qty: number
+  remainingQty: number
+  purchaseRate: number
+  landingCost: number
+  paymentCD: number
+  invoiceCloseCD: number
+  schemeCD: number
+  expense: number
+  batchNo?: string
+}
+
+// Sale Allocation from FIFO Layers
+export interface SaleAllocation {
+  id: string
+  salesInvoiceId: string
+  salesInvoiceNo: string
+  customerId: string
+  customerName: string
+  purchaseLayerId: string
+  purchaseInvoiceId: string
+  purchaseInvoiceNo: string
+  supplierName: string
+  itemId: string
+  itemName: string
+  activeUnit: string
+  allocatedQty: number
+  fifoCostPerUnit: number
+  sellingPricePerUnit: number
+  profitPerUnit: number
+  totalProfit: number
+  saleDate: string
+}
+
+// Payment CD Report Row
+export interface PaymentCDReportRow {
+  id: string
+  date: string
+  supplierId: string
+  supplierName: string
+  invoiceId: string
+  invoiceNo: string
+  itemId: string
+  itemName: string
+  category?: string
+  qty: number
+  activeUnit: string
+  purchaseAmount: number
+  paymentCD: number
+  closeCD: number
+  schemeCD: number
+  totalCD: number
+  netLandingCostSaved: number
+  avgCDPerUnit: number
+}
+
+// Payment CD Summary Stats
+export interface PaymentCDSummaryStats {
+  purchaseAmount: number
+  paymentCDEarned: number
+  invoiceCloseCD: number
+  schemeCD: number
+  totalCDEarned: number
+  avgCDPerUnit: number
+  netLandingCostSaved: number
+  totalQty: number
+}
+
+// Item Profit Analysis Row
+export interface ItemProfitAnalysisRow {
+  id: string
+  saleDate: string
+  salesInvoiceId: string
+  salesInvoiceNo: string
+  customerId: string
+  customerName: string
+  itemId: string
+  itemName: string
+  category?: string
+  soldQty: number
+  activeUnit: string
+  sellingRate: number
+  fifoCost: number
+  profitPerUnit: number
+  totalProfit: number
+  allocations: SaleAllocation[]
+}
+
+

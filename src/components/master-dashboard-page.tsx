@@ -32,6 +32,7 @@ import {
   calculateInventoryReport,
   calculateCDAtRisk
 } from '@/lib/report-calculations'
+import { buildPurchaseLayers, allocateSalesFIFO } from '@/lib/fifo-engine'
 import {
   TrendUp,
   TrendDown,

@@ -219,6 +219,7 @@ import FixedSchemesPage from '@/components/fixed-schemes-page'
 import MTBookingsPage from '@/components/pages/MTBookingsPage'
 import InventoryReportPage from '@/components/inventory-report-page'
 import CDAtRiskReportPage from '@/components/cd-at-risk-report-page'
+import CDProfitReportsPage from '@/components/cd-profit-reports-page'
 import MasterDashboardPage from '@/components/master-dashboard-page'
 import PurchaseInvoiceDetailsPage from '@/components/purchase-invoice-details-page'
 import PaymentDetailsPage from '@/components/payment-details-page'
@@ -422,6 +423,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Reports',
     items: [
+      { id: 'cd-profit-report', label: 'Payment CD & Profit Analytics', icon: Scales },
       { id: 'inventory', label: 'Inventory Report', icon: Cube },
       { id: 'cd-risk', label: 'CD at Risk', icon: ChartBar },
       { id: 'wallet', label: 'Discount Wallet', icon: Wallet },
@@ -466,6 +468,7 @@ const viewNames: Record<string, string> = {
   'sales-invoices': 'Sales Invoices',
   'customer-payments': 'Customer Payments',
   'expense-entries': 'Expense Entries',
+  'cd-profit-report': 'Payment CD & Profit Analytics',
   'inventory': 'Inventory Report',
   'cd-risk': 'CD at Risk',
   'wallet': 'Discount Wallet',
@@ -1883,6 +1886,7 @@ function App() {
       case 'sales-invoices':
       case 'customer-payments':
       case 'expense-entries':
+      case 'cd-profit-report':
       case 'inventory':
       case 'cd-risk':
       case 'wallet':
@@ -2200,6 +2204,21 @@ function App() {
                   return [...untouched, ...t]
                 })
               }}
+            />
+          )
+        case 'cd-profit-report':
+          return (
+            <CDProfitReportsPage
+              purchaseInvoices={safeInvoices}
+              salesInvoices={safeSalesInvoices}
+              suppliers={safeSuppliers}
+              customers={safeCustomers}
+              items={safeItems}
+              payments={safePayments}
+              fixedSchemes={safeFixedSchemes}
+              expenseEntries={safeExpenseEntries}
+              currentFY={safeCurrentFY}
+              businessName={safeBusinessName}
             />
           )
         case 'inventory':

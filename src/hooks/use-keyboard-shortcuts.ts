@@ -13,6 +13,7 @@ export type ShortcutAction =
   | 'sales-invoices'
   | 'customer-payments'
   | 'expense-entries'
+  | 'cd-profit-report'
   | 'inventory'
   | 'cd-risk'
   | 'wallet'
