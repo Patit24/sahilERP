@@ -26,6 +26,7 @@ import {
   ExpenseType
 } from '@/lib/types'
 import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths } from '@/lib/calculations'
+import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
 import { FileText, Calendar, Package, CurrencyDollar, CreditCard, TrendDown, Calculator, CaretDown, Check } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -219,71 +220,50 @@ export default function PurchaseInvoiceDetailsPage({
 
         const itemCostBreakdowns: ItemCostBreakdown[] = (invoice.items || []).map(item => {
           const itemData = itemMap.get(item.itemId)
-          const activeUnit = item.entryUnit || itemData?.unit || 'MT'
-          const itemQty = item.entryQuantity && item.entryQuantity > 0 ? item.entryQuantity : (item.quantityMT || 0)
+          const active = getItemActiveUnitAndQty(itemData, item.entryUnit, item.entryQuantity, item.quantityMT, item.weightKG)
 
-          let unitWeightKG = 1000
-          if (item.weightKG && itemQty > 0) {
-            unitWeightKG = item.weightKG / itemQty
-          } else if (activeUnit === 'KG') {
-            unitWeightKG = 1
-          } else if (activeUnit === 'MT') {
-            unitWeightKG = 1000
-          } else if (itemData?.conversionFactor && itemData.conversionFactor > 0) {
-            unitWeightKG = itemData.conversionFactor
-          }
+          const activeUnit = active.unit
+          const activeQuantity = active.qty
+          const displayQtyUnit = active.displayQtyUnit
 
-          let altUnit: string | undefined = undefined
-          let altQty: number | undefined = undefined
-          if (itemData?.alternativeUnit && itemData.alternativeUnit !== 'NONE' && itemData.alternativeUnit !== activeUnit) {
-            altUnit = itemData.alternativeUnit
-            if (itemData.alternativeUnitRatio && itemData.alternativeUnitRatio > 0) {
-              if (activeUnit === itemData.unit) {
-                altQty = itemQty * itemData.alternativeUnitRatio
-              } else if (activeUnit === itemData.alternativeUnit) {
-                altQty = itemQty / itemData.alternativeUnitRatio
-              } else {
-                altQty = itemQty * itemData.alternativeUnitRatio
-              }
-            } else if (item.weightKG && item.weightKG > 0) {
-              if (altUnit === 'KG') altQty = item.weightKG
-              else if (altUnit === 'MT') altQty = item.weightKG / 1000
-            }
-          }
+          const baseQty = item.entryQuantity || item.quantityMT || 1
+          const totalItemAmount = item.amount || ((item.rate || 0) * baseQty)
+          const pricePerUnit = activeQuantity > 0 ? totalItemAmount / activeQuantity : (item.rate || 0)
 
-          let displayQtyUnit = `${itemQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${activeUnit}`
-          if (altUnit && altQty && altQty > 0) {
-            displayQtyUnit += ` (${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit})`
-          }
+          const itemWeightKG = item.weightKG || (item.quantityMT ? item.quantityMT * 1000 : 0) || (activeQuantity * (itemData?.conversionFactor || 1))
+          const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : 0
 
-          const pricePerUnit = item.rate // GST-Inclusive Rate per activeUnit
+          const itemFixedDiscTotal = fixedSchemeTotal * weightShare
+          const itemPaymentCDTotal = paymentCDTotal * weightShare
+          const itemCloseCDTotal = invoiceCloseCDTotal * weightShare
+          const itemTotalCDTotal = totalCDEarned * weightShare
 
-          // Per-unit breakdown calculated by multiplying rate per KG by weight of 1 unit in KG
-          const itemFixedDiscPerUnit = fixedDiscRatePerKG * unitWeightKG
-          const itemPaymentCDPerUnit = paymentCDRatePerKG * unitWeightKG
-          const itemInvoiceCloseCDPerUnit = closeCDRatePerKG * unitWeightKG
-          const itemTotalCDPerUnit = totalCDRatePerKG * unitWeightKG
+          const itemExpenseTotal = totalLinkedExpense * weightShare
+          const itemAddCostTotal = totalAdditionalCost * weightShare
 
-          const itemExpensePerUnit = expenseRatePerKG * unitWeightKG
-          const itemAddCostPerUnit = addCostRatePerKG * unitWeightKG
+          const fixedDiscPerUnit = activeQuantity > 0 ? itemFixedDiscTotal / activeQuantity : 0
+          const paymentCDPerUnit = activeQuantity > 0 ? itemPaymentCDTotal / activeQuantity : 0
+          const invoiceCloseCDPerUnit = activeQuantity > 0 ? itemCloseCDTotal / activeQuantity : 0
+          const totalCDPerUnit = activeQuantity > 0 ? itemTotalCDTotal / activeQuantity : 0
 
-          const costPerUnit = pricePerUnit - itemTotalCDPerUnit - (includeAnnualDiscount ? annualDiscountPerMT * (unitWeightKG / 1000) : 0) + itemExpensePerUnit + itemAddCostPerUnit
+          const expensePerUnit = activeQuantity > 0 ? itemExpenseTotal / activeQuantity : 0
+          const additionalCostPerUnit = activeQuantity > 0 ? itemAddCostTotal / activeQuantity : 0
+
+          const costPerUnit = pricePerUnit - totalCDPerUnit - (includeAnnualDiscount ? annualDiscountPerMT * (itemWeightKG / 1000 / (activeQuantity || 1)) : 0) + expensePerUnit + additionalCostPerUnit
 
           return {
             itemId: item.itemId,
             itemName: itemData?.name || 'Unknown Item',
             activeUnit,
-            activeQuantity: itemQty,
-            altUnit,
-            altQuantity: altQty,
+            activeQuantity,
             displayQtyUnit,
             pricePerUnit,
-            fixedDiscPerUnit: itemFixedDiscPerUnit,
-            paymentCDPerUnit: itemPaymentCDPerUnit,
-            invoiceCloseCDPerUnit: itemInvoiceCloseCDPerUnit,
-            totalCDPerUnit: itemTotalCDPerUnit,
-            expensePerUnit: itemExpensePerUnit,
-            additionalCostPerUnit: itemAddCostPerUnit,
+            fixedDiscPerUnit,
+            paymentCDPerUnit,
+            invoiceCloseCDPerUnit,
+            totalCDPerUnit,
+            expensePerUnit,
+            additionalCostPerUnit,
             costPerUnit
           }
         })

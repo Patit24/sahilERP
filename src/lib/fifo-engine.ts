@@ -27,18 +27,66 @@ export interface ReportFilterOptions {
   godown?: string
 }
 
+export interface ActiveUnitQtyResult {
+  unit: string
+  qty: number
+  isAlt: boolean
+  displayQtyUnit: string
+}
+
 /**
- * Returns the preferred reporting unit for an item.
- * If the item has an alternativeUnit configured (and not 'NONE'), alternativeUnit is ALWAYS used.
+ * Returns active unit and converted quantity for an item row.
+ * If alternativeUnit is configured on itemDef (and not 'NONE'), it converts the line item into alternativeUnit!
  */
-export function getItemPreferredUnit(itemDef?: Item | null, entryUnit?: string): string {
+export function getItemActiveUnitAndQty(
+  itemDef?: Item | null,
+  entryUnit?: string,
+  entryQty?: number,
+  quantityMT?: number,
+  weightKG?: number
+): ActiveUnitQtyResult {
+  const baseUnit = entryUnit || itemDef?.unit || 'MT'
+  const baseQty = (entryQty && entryQty > 0) ? entryQty : (quantityMT || 0)
+
   if (itemDef?.alternativeUnit && itemDef.alternativeUnit !== 'NONE' && itemDef.alternativeUnit.trim() !== '') {
-    return itemDef.alternativeUnit
+    const altUnit = itemDef.alternativeUnit
+    let altQty = 0
+
+    if (itemDef.alternativeUnitRatio && itemDef.alternativeUnitRatio > 0) {
+      if (baseUnit === itemDef.unit) {
+        altQty = baseQty * itemDef.alternativeUnitRatio
+      } else if (baseUnit === itemDef.alternativeUnit) {
+        altQty = baseQty
+      } else {
+        altQty = baseQty * itemDef.alternativeUnitRatio
+      }
+    } else {
+      const itemWeightKG = weightKG || (quantityMT ? quantityMT * 1000 : 0) || (baseQty * (itemDef.conversionFactor || 1000))
+      if (altUnit === 'KG') {
+        altQty = itemWeightKG
+      } else if (altUnit === 'MT') {
+        altQty = itemWeightKG / 1000
+      } else if (itemDef.conversionFactor && itemDef.conversionFactor > 0) {
+        altQty = itemWeightKG / itemDef.conversionFactor
+      }
+    }
+
+    if (altQty > 0) {
+      return {
+        unit: altUnit,
+        qty: altQty,
+        isAlt: true,
+        displayQtyUnit: `${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit} (${baseQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${baseUnit})`
+      }
+    }
   }
-  if (entryUnit && entryUnit !== 'NONE' && entryUnit.trim() !== '') {
-    return entryUnit
+
+  return {
+    unit: baseUnit,
+    qty: baseQty,
+    isAlt: false,
+    displayQtyUnit: `${baseQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${baseUnit}`
   }
-  return itemDef?.unit || 'MT'
 }
 
 /**
@@ -60,7 +108,7 @@ export function getUnitWeightKG(itemDef?: Item | null, targetUnit?: string, rowW
 
 /**
  * Builds chronological Purchase Layers from Purchase Invoices.
- * Each purchase item row forms a layer calculated in the item's preferred/alternative unit (GST-inclusive).
+ * Each purchase item row forms a layer calculated in the active/alternative unit (GST-inclusive).
  */
 export function buildPurchaseLayers(
   invoices: PurchaseInvoice[],
@@ -72,7 +120,6 @@ export function buildPurchaseLayers(
   const supplierMap = new Map(suppliers.map(s => [s.id, s]))
   const itemMap = new Map(items.map(i => [i.id, i]))
 
-  // Sort purchase invoices chronologically
   const sortedInvoices = [...invoices].sort((a, b) => {
     const dateDiff = new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime()
     if (dateDiff !== 0) return dateDiff
@@ -103,54 +150,44 @@ export function buildPurchaseLayers(
     const additionalCost = inv.additionalCost || 0
     const totalExpenses = linkedExpenses + additionalCost
 
-    // Total Base Weight in KG for this invoice
     const totalInvoiceWeightKG = (inv.items || []).reduce((sum, itemRow) => {
       const itemDef = itemMap.get(itemRow.itemId)
-      const preferredUnit = getItemPreferredUnit(itemDef, itemRow.entryUnit)
-      const unitWeight = getUnitWeightKG(itemDef, preferredUnit, itemRow.weightKG, itemRow.entryQuantity)
-      const itemWeight = itemRow.weightKG || ((itemRow.entryQuantity || itemRow.quantityMT || 0) * unitWeight)
+      const baseQty = itemRow.entryQuantity || itemRow.quantityMT || 0
+      const unitWeight = itemRow.weightKG && baseQty > 0
+        ? itemRow.weightKG / baseQty
+        : (itemDef?.conversionFactor || (itemRow.entryUnit === 'MT' || itemDef?.unit === 'MT' ? 1000 : 1))
+      const itemWeight = itemRow.weightKG || (baseQty * unitWeight)
       return sum + itemWeight
-    }, 0)
-
-    const paymentCDRatePerKG = totalInvoiceWeightKG > 0 ? paymentCDTotal / totalInvoiceWeightKG : 0
-    const closeCDRatePerKG = totalInvoiceWeightKG > 0 ? closeCDTotal / totalInvoiceWeightKG : 0
-    const schemeCDRatePerKG = totalInvoiceWeightKG > 0 ? fixedSchemeTotal / totalInvoiceWeightKG : 0
-    const expenseRatePerKG = totalInvoiceWeightKG > 0 ? totalExpenses / totalInvoiceWeightKG : 0;
+    }, 0);
 
     (inv.items || []).forEach((itemRow, idx) => {
       if (!itemRow.itemId) return
       const itemDef = itemMap.get(itemRow.itemId)
-      const preferredUnit = getItemPreferredUnit(itemDef, itemRow.entryUnit)
-      const unitWeightKG = getUnitWeightKG(itemDef, preferredUnit, itemRow.weightKG, itemRow.entryQuantity)
+      const active = getItemActiveUnitAndQty(itemDef, itemRow.entryUnit, itemRow.entryQuantity, itemRow.quantityMT, itemRow.weightKG)
 
-      let itemQty = 0
-      if (itemRow.entryUnit === preferredUnit && itemRow.entryQuantity && itemRow.entryQuantity > 0) {
-        itemQty = itemRow.entryQuantity
-      } else if (itemRow.weightKG && itemRow.weightKG > 0 && unitWeightKG > 0) {
-        itemQty = itemRow.weightKG / unitWeightKG
-      } else if (itemRow.quantityMT && itemRow.quantityMT > 0 && unitWeightKG > 0) {
-        itemQty = (itemRow.quantityMT * 1000) / unitWeightKG
-      } else {
-        itemQty = itemRow.entryQuantity || itemRow.quantityMT || 0
-      }
+      if (active.qty <= 0) return
 
-      if (itemQty <= 0) return
+      const baseQty = itemRow.entryQuantity || itemRow.quantityMT || 1
+      const totalItemAmount = itemRow.amount || ((itemRow.rate || 0) * baseQty)
+      const purchaseRate = totalItemAmount / active.qty
 
-      // Rate inclusive of GST per preferredUnit
-      let purchaseRate = itemRow.rate || 0
-      if (itemRow.entryUnit !== preferredUnit) {
-        const totalAmount = itemRow.amount || (itemRow.rate * (itemRow.entryQuantity || itemRow.quantityMT || 1))
-        purchaseRate = totalAmount / itemQty
-      }
+      const itemWeightKG = itemRow.weightKG || (itemRow.quantityMT ? itemRow.quantityMT * 1000 : 0) || (active.qty * (itemDef?.conversionFactor || 1))
+      const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : 0
 
-      // Per preferredUnit CD & Expense calculations
-      const itemPaymentCDPerUnit = paymentCDRatePerKG * unitWeightKG
-      const itemCloseCDPerUnit = closeCDRatePerKG * unitWeightKG
-      const itemSchemeCDPerUnit = schemeCDRatePerKG * unitWeightKG
-      const itemExpensePerUnit = expenseRatePerKG * unitWeightKG
+      const itemPaymentCDTotal = paymentCDTotal * weightShare
+      const itemCloseCDTotal = closeCDTotal * weightShare
+      const itemSchemeCDTotal = fixedSchemeTotal * weightShare
+      const itemExpenseTotal = totalExpenses * weightShare
 
-      const totalCDPerUnit = itemPaymentCDPerUnit + itemCloseCDPerUnit + itemSchemeCDPerUnit
-      const landingCost = purchaseRate - totalCDPerUnit + itemExpensePerUnit
+      const itemPaymentCD = itemPaymentCDTotal / active.qty
+      const itemInvoiceCloseCD = itemCloseCDTotal / active.qty
+      const itemSchemeCD = itemSchemeCDTotal / active.qty
+      const itemExpense = itemExpenseTotal / active.qty
+
+      const totalCD = itemPaymentCD + itemInvoiceCloseCD + itemSchemeCD
+      const landingCost = purchaseRate - totalCD + itemExpense
+
+      const unitWeightKG = active.qty > 0 ? itemWeightKG / active.qty : 1
 
       layers.push({
         id: `layer-${inv.id}-${idx}`,
@@ -161,17 +198,17 @@ export function buildPurchaseLayers(
         itemId: itemRow.itemId,
         itemName: itemDef?.name || 'Unknown Item',
         category: itemDef?.category || 'General',
-        activeUnit: preferredUnit,
+        activeUnit: active.unit,
         unitWeightKG,
         purchaseDate: inv.invoiceDate,
-        qty: itemQty,
-        remainingQty: itemQty,
+        qty: active.qty,
+        remainingQty: active.qty,
         purchaseRate,
         landingCost,
-        paymentCD: itemPaymentCDPerUnit,
-        invoiceCloseCD: itemCloseCDPerUnit,
-        schemeCD: itemSchemeCDPerUnit,
-        expense: itemExpensePerUnit,
+        paymentCD: itemPaymentCD,
+        invoiceCloseCD: itemInvoiceCloseCD,
+        schemeCD: itemSchemeCD,
+        expense: itemExpense,
         batchNo: `LOT-${inv.invoiceNo}-${idx + 1}`
       })
     })
@@ -182,7 +219,7 @@ export function buildPurchaseLayers(
 
 /**
  * Runs FIFO consumption logic on Sales Invoices against Purchase Layers.
- * Always calculates and displays allocations in the item's preferred/alternative unit.
+ * Always calculates allocations in the item's active/alternative unit.
  */
 export function allocateSalesFIFO(
   salesInvoices: SalesInvoice[],
@@ -193,10 +230,8 @@ export function allocateSalesFIFO(
   const customerMap = new Map(customers.map(c => [c.id, c]))
   const itemMap = new Map(items.map(i => [i.id, i]))
 
-  // Clone purchase layers so we can track remaining quantities
   const layers = purchaseLayers.map(l => ({ ...l }))
 
-  // Sort sales invoices chronologically
   const sortedSales = [...salesInvoices].sort((a, b) => {
     const dateDiff = new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime()
     if (dateDiff !== 0) return dateDiff
@@ -212,34 +247,18 @@ export function allocateSalesFIFO(
     (saleInv.items || []).forEach((saleRow, idx) => {
       if (!saleRow.itemId) return
       const itemDef = itemMap.get(saleRow.itemId)
-      const preferredUnit = getItemPreferredUnit(itemDef, saleRow.entryUnit)
-      const saleUnitWeightKG = getUnitWeightKG(itemDef, preferredUnit, saleRow.weightKG, saleRow.entryQuantity)
+      const active = getItemActiveUnitAndQty(itemDef, saleRow.entryUnit, saleRow.entryQuantity, saleRow.quantityMT, saleRow.weightKG)
 
-      let neededQty = 0
-      if (saleRow.entryUnit === preferredUnit && saleRow.entryQuantity && saleRow.entryQuantity > 0) {
-        neededQty = saleRow.entryQuantity
-      } else if (saleRow.weightKG && saleRow.weightKG > 0 && saleUnitWeightKG > 0) {
-        neededQty = saleRow.weightKG / saleUnitWeightKG
-      } else if (saleRow.quantityMT && saleRow.quantityMT > 0 && saleUnitWeightKG > 0) {
-        neededQty = (saleRow.quantityMT * 1000) / saleUnitWeightKG
-      } else {
-        neededQty = saleRow.entryQuantity || saleRow.quantityMT || 0
-      }
-
+      let neededQty = active.qty
       if (neededQty <= 0) return
 
-      // Selling rate per preferredUnit (GST inclusive)
-      let sellingPrice = saleRow.rate || 0
-      if (saleRow.entryUnit !== preferredUnit) {
-        const totalAmount = saleRow.amount || (saleRow.rate * (saleRow.entryQuantity || saleRow.quantityMT || 1))
-        sellingPrice = totalAmount / neededQty
-      }
+      const baseQty = saleRow.entryQuantity || saleRow.quantityMT || 1
+      const totalSaleAmount = saleRow.amount || ((saleRow.rate || 0) * baseQty)
+      const sellingPrice = totalSaleAmount / active.qty
 
-      // Find available purchase layers for this item in FIFO order (oldest first)
       const itemLayers = layers.filter(l => l.itemId === saleRow.itemId && l.remainingQty > 0)
 
       if (itemLayers.length === 0) {
-        // Fallback if no purchase layer available yet
         const defaultLandingCost = itemDef?.purchasePrice || sellingPrice
         allocations.push({
           id: `alloc-${saleInv.id}-${idx}-unallocated`,
@@ -253,7 +272,7 @@ export function allocateSalesFIFO(
           supplierName: 'Opening Stock',
           itemId: saleRow.itemId,
           itemName: itemDef?.name || 'Unknown Item',
-          activeUnit: preferredUnit,
+          activeUnit: active.unit,
           allocatedQty: neededQty,
           fifoCostPerUnit: defaultLandingCost,
           sellingPricePerUnit: sellingPrice,
@@ -271,14 +290,14 @@ export function allocateSalesFIFO(
         layer.remainingQty -= takeQty
         neededQty -= takeQty
 
-        // Convert layer landing cost to the preferred unit if different
-        let fifoCostInPreferredUnit = layer.landingCost
-        if (layer.activeUnit !== preferredUnit) {
+        let fifoCostInActiveUnit = layer.landingCost
+        if (layer.activeUnit !== active.unit) {
+          const saleUnitWeightKG = active.qty > 0 ? (saleRow.weightKG || (saleRow.quantityMT ? saleRow.quantityMT * 1000 : 0) || (active.qty * (itemDef?.conversionFactor || 1))) / active.qty : 1
           const layerCostPerKG = layer.unitWeightKG > 0 ? layer.landingCost / layer.unitWeightKG : layer.landingCost / 1000
-          fifoCostInPreferredUnit = layerCostPerKG * saleUnitWeightKG
+          fifoCostInActiveUnit = layerCostPerKG * saleUnitWeightKG
         }
 
-        const profitPerUnit = sellingPrice - fifoCostInPreferredUnit
+        const profitPerUnit = sellingPrice - fifoCostInActiveUnit
         const totalProfit = profitPerUnit * takeQty
 
         allocations.push({
@@ -293,9 +312,9 @@ export function allocateSalesFIFO(
           supplierName: layer.supplierName,
           itemId: saleRow.itemId,
           itemName: itemDef?.name || 'Unknown Item',
-          activeUnit: preferredUnit,
+          activeUnit: active.unit,
           allocatedQty: takeQty,
-          fifoCostPerUnit: fifoCostInPreferredUnit,
+          fifoCostPerUnit: fifoCostInActiveUnit,
           sellingPricePerUnit: sellingPrice,
           profitPerUnit,
           totalProfit,
@@ -303,14 +322,16 @@ export function allocateSalesFIFO(
         })
       }
 
-      // If still remaining unallocated qty after exhausting layers
       if (neededQty > 0) {
         const lastLayer = itemLayers[itemLayers.length - 1]
         let lastLayerCost = itemDef?.purchasePrice || sellingPrice
         if (lastLayer) {
-          lastLayerCost = lastLayer.activeUnit === preferredUnit
-            ? lastLayer.landingCost
-            : (lastLayer.unitWeightKG > 0 ? (lastLayer.landingCost / lastLayer.unitWeightKG) * saleUnitWeightKG : lastLayer.landingCost)
+          if (lastLayer.activeUnit === active.unit) {
+            lastLayerCost = lastLayer.landingCost
+          } else {
+            const saleUnitWeightKG = active.qty > 0 ? (saleRow.weightKG || (saleRow.quantityMT ? saleRow.quantityMT * 1000 : 0) || (active.qty * (itemDef?.conversionFactor || 1))) / active.qty : 1
+            lastLayerCost = lastLayer.unitWeightKG > 0 ? (lastLayer.landingCost / lastLayer.unitWeightKG) * saleUnitWeightKG : lastLayer.landingCost
+          }
         }
 
         allocations.push({
@@ -325,7 +346,7 @@ export function allocateSalesFIFO(
           supplierName: 'Unallocated Lot',
           itemId: saleRow.itemId,
           itemName: itemDef?.name || 'Unknown Item',
-          activeUnit: preferredUnit,
+          activeUnit: active.unit,
           allocatedQty: neededQty,
           fifoCostPerUnit: lastLayerCost,
           sellingPricePerUnit: sellingPrice,
@@ -341,7 +362,7 @@ export function allocateSalesFIFO(
 }
 
 /**
- * Filter items by date range (Daily, Weekly, Monthly, Custom)
+ * Filter items by date range
  */
 export function isDateInPeriod(
   dateStr: string,
@@ -365,7 +386,7 @@ export function isDateInPeriod(
   if (period === 'weekly') {
     const startOfWeek = new Date(today)
     const day = today.getDay()
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1) // Monday as first day
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
     startOfWeek.setDate(diff)
     startOfWeek.setHours(0, 0, 0, 0)
 
@@ -438,15 +459,13 @@ export function calculatePaymentCDReport(
 
     const totalInvoiceWeightKG = (inv.items || []).reduce((sum, itemRow) => {
       const itemDef = itemMap.get(itemRow.itemId)
-      const preferredUnit = getItemPreferredUnit(itemDef, itemRow.entryUnit)
-      const unitWeight = getUnitWeightKG(itemDef, preferredUnit, itemRow.weightKG, itemRow.entryQuantity)
-      const itemWeight = itemRow.weightKG || ((itemRow.entryQuantity || itemRow.quantityMT || 0) * unitWeight)
+      const baseQty = itemRow.entryQuantity || itemRow.quantityMT || 0
+      const unitWeight = itemRow.weightKG && baseQty > 0
+        ? itemRow.weightKG / baseQty
+        : (itemDef?.conversionFactor || (itemRow.entryUnit === 'MT' || itemDef?.unit === 'MT' ? 1000 : 1))
+      const itemWeight = itemRow.weightKG || (baseQty * unitWeight)
       return sum + itemWeight
-    }, 0)
-
-    const paymentCDRatePerKG = totalInvoiceWeightKG > 0 ? paymentCDTotal / totalInvoiceWeightKG : 0
-    const closeCDRatePerKG = totalInvoiceWeightKG > 0 ? closeCDTotal / totalInvoiceWeightKG : 0
-    const schemeCDRatePerKG = totalInvoiceWeightKG > 0 ? fixedSchemeTotal / totalInvoiceWeightKG : 0;
+    }, 0);
 
     (inv.items || []).forEach((itemRow, idx) => {
       if (!itemRow.itemId) return
@@ -455,35 +474,21 @@ export function calculatePaymentCDReport(
       const itemDef = itemMap.get(itemRow.itemId)
       if (filters?.category && filters.category !== 'all' && itemDef?.category !== filters.category) return
 
-      const preferredUnit = getItemPreferredUnit(itemDef, itemRow.entryUnit)
-      const unitWeightKG = getUnitWeightKG(itemDef, preferredUnit, itemRow.weightKG, itemRow.entryQuantity)
+      const active = getItemActiveUnitAndQty(itemDef, itemRow.entryUnit, itemRow.entryQuantity, itemRow.quantityMT, itemRow.weightKG)
 
-      let itemQty = 0
-      if (itemRow.entryUnit === preferredUnit && itemRow.entryQuantity && itemRow.entryQuantity > 0) {
-        itemQty = itemRow.entryQuantity
-      } else if (itemRow.weightKG && itemRow.weightKG > 0 && unitWeightKG > 0) {
-        itemQty = itemRow.weightKG / unitWeightKG
-      } else if (itemRow.quantityMT && itemRow.quantityMT > 0 && unitWeightKG > 0) {
-        itemQty = (itemRow.quantityMT * 1000) / unitWeightKG
-      } else {
-        itemQty = itemRow.entryQuantity || itemRow.quantityMT || 0
-      }
+      if (active.qty <= 0) return
 
-      if (itemQty <= 0) return
+      const itemWeightKG = itemRow.weightKG || (itemRow.quantityMT ? itemRow.quantityMT * 1000 : 0) || (active.qty * (itemDef?.conversionFactor || 1))
+      const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : 0
 
-      const itemPaymentCD = paymentCDRatePerKG * unitWeightKG * itemQty
-      const itemCloseCD = closeCDRatePerKG * unitWeightKG * itemQty
-      const itemSchemeCD = schemeCDRatePerKG * unitWeightKG * itemQty
+      const itemPaymentCD = paymentCDTotal * weightShare
+      const itemCloseCD = closeCDTotal * weightShare
+      const itemSchemeCD = fixedSchemeTotal * weightShare
       const itemTotalCD = itemPaymentCD + itemCloseCD + itemSchemeCD
 
-      let purchaseRate = itemRow.rate || 0
-      if (itemRow.entryUnit !== preferredUnit) {
-        const totalAmount = itemRow.amount || (itemRow.rate * (itemRow.entryQuantity || itemRow.quantityMT || 1))
-        purchaseRate = totalAmount / itemQty
-      }
-
-      const purchaseAmount = purchaseRate * itemQty
-      const avgCDPerUnit = itemQty > 0 ? itemTotalCD / itemQty : 0
+      const baseQty = itemRow.entryQuantity || itemRow.quantityMT || 1
+      const purchaseAmount = itemRow.amount || ((itemRow.rate || 0) * baseQty)
+      const avgCDPerUnit = active.qty > 0 ? itemTotalCD / active.qty : 0
 
       rows.push({
         id: `cd-row-${inv.id}-${idx}`,
@@ -495,8 +500,8 @@ export function calculatePaymentCDReport(
         itemId: itemRow.itemId,
         itemName: itemDef?.name || 'Unknown Item',
         category: itemDef?.category,
-        qty: itemQty,
-        activeUnit: preferredUnit,
+        qty: active.qty,
+        activeUnit: active.unit,
         purchaseAmount,
         paymentCD: itemPaymentCD,
         closeCD: itemCloseCD,
@@ -508,7 +513,6 @@ export function calculatePaymentCDReport(
     })
   })
 
-  // Summary statistics calculation
   const summary: PaymentCDSummaryStats = rows.reduce(
     (acc, row) => {
       acc.purchaseAmount += row.purchaseAmount
@@ -551,7 +555,6 @@ export function calculateItemProfitAnalysis(
 ): ItemProfitAnalysisRow[] {
   const itemMap = new Map(items.map(i => [i.id, i]))
 
-  // Group allocations by Sales Invoice ID and Item ID
   const groupedMap = new Map<string, SaleAllocation[]>()
   allocations.forEach(alloc => {
     if (!isDateInPeriod(alloc.saleDate, period, customRange)) return
@@ -579,7 +582,6 @@ export function calculateItemProfitAnalysis(
     const totalSoldQty = allocs.reduce((sum, a) => sum + a.allocatedQty, 0)
     const totalProfit = allocs.reduce((sum, a) => sum + a.totalProfit, 0)
 
-    // Weighted average FIFO cost per unit
     const totalFifoCostSum = allocs.reduce((sum, a) => sum + a.fifoCostPerUnit * a.allocatedQty, 0)
     const weightedFifoCost = totalSoldQty > 0 ? totalFifoCostSum / totalSoldQty : first.fifoCostPerUnit
 
