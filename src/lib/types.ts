@@ -141,6 +141,7 @@ export interface Customer {
 export interface InvoiceItem {
   itemId: string
   quantityMT: number
+  weightKG?: number
   basicRate?: number
   rate: number
   amount: number

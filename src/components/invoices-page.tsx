@@ -140,7 +140,9 @@ export default function InvoicesPage({
         }
       }
 
-      const weightKG = entryQty * kgFactor
+      const weightKG = (row.weightKG !== undefined && row.weightKG !== null && row.weightKG > 0)
+        ? row.weightKG
+        : (entryQty * kgFactor)
       totalWeightKG += weightKG
       return { row, itemDef, entryQty, activeUnit, kgFactor, weightKG }
     })
@@ -151,7 +153,7 @@ export default function InvoicesPage({
     let totalLandedCost = 0
     const rows = rowWeightsKG.map(({ row, itemDef, entryQty, activeUnit, kgFactor, weightKG }) => {
       const basicPricePerUnit = row.basicRate || 0
-      const allocatedExpensePerUnit = expenseRatePerKG * kgFactor
+      const allocatedExpensePerUnit = entryQty > 0 ? ((weightKG * expenseRatePerKG) / entryQty) : (expenseRatePerKG * kgFactor)
       const landedCostPerUnit = basicPricePerUnit + allocatedExpensePerUnit
       const totalItemLandedAmount = entryQty * landedCostPerUnit
       const totalAllocatedExpense = entryQty * allocatedExpensePerUnit
@@ -466,6 +468,10 @@ export default function InvoicesPage({
         } else {
           itemRow.quantityMT = numVal
         }
+      } else if (field === 'weightKG') {
+        const valStr = value as string
+        const numVal = valStr !== '' ? parseFloat(valStr) : undefined
+        itemRow.weightKG = numVal !== undefined && !isNaN(numVal) ? numVal : undefined
       } else if (field === 'basicRate') {
         const basicRate = parseFloat(value as string) || 0
         const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
@@ -1082,6 +1088,7 @@ export default function InvoicesPage({
                         <span>Items</span>
                         <span>HSN/ SAC</span>
                         <span>Qty</span>
+                        <span>Weight (KG)</span>
                         <span>Price (excl. Tax)</span>
                         <span>Price (incl. Tax)</span>
                         <span>Discount</span>
@@ -1134,6 +1141,30 @@ export default function InvoicesPage({
                                 </select>
                               )
                             })()}
+                          </div>
+                          {/* SEPARATE MANUAL FIELD FOR WEIGHT IN KG */}
+                          <div className="relative flex items-center">
+                            <Input
+                              type="number"
+                              step="0.001"
+                              min="0"
+                              value={invoiceItem.weightKG !== undefined && invoiceItem.weightKG !== null ? invoiceItem.weightKG : ''}
+                              onChange={(e) => updateInvoiceItem(index, 'weightKG', e.target.value)}
+                              placeholder={(() => {
+                                const sel = items.find(i => i.id === invoiceItem.itemId)
+                                const entryQty = (invoiceItem.entryQuantity || 0) > 0 ? (invoiceItem.entryQuantity || 0) : (invoiceItem.quantityMT || 0)
+                                const activeUnit = invoiceItem.entryUnit || sel?.unit || 'MT'
+                                let kgFactor = 1000
+                                if (activeUnit === 'KG') kgFactor = 1
+                                else if (sel) {
+                                  if (activeUnit === sel.unit) kgFactor = sel.conversionFactor || (sel.unit === 'MT' ? 1000 : 1)
+                                  else if (activeUnit === sel.alternativeUnit) kgFactor = (sel.conversionFactor || 1000) / (sel.alternativeUnitRatio || 1)
+                                  else kgFactor = sel.conversionFactor || (sel.unit === 'MT' ? 1000 : 1)
+                                }
+                                return (entryQty * kgFactor) > 0 ? (entryQty * kgFactor).toString() : '0 KG'
+                              })()}
+                              className="erp-reference-cell-input font-mono text-right font-bold text-emerald-800 bg-emerald-50/50 border-emerald-200 focus:border-emerald-500"
+                            />
                           </div>
                           <Input
                             type="number"
