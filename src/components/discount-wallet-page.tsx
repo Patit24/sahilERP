@@ -228,10 +228,11 @@ export default function DiscountWalletPage({
         : [{
             id: `${supplier.id}-current`,
             version: 1,
-            ruleName: 'Current CD Rule',
+            ruleName: 'Supplier CD Rules',
             effectiveFrom: new Date().toISOString().split('T')[0],
             paymentCDRules: supplier.paymentCDRules || [],
             invoiceCloseCDRules: supplier.invoiceCloseCDRules || [],
+            advanceCDPercentage: supplier.advanceCDPercentage,
             approvalStatus: 'Approved' as const,
             changedBy: 'System',
             changedAt: new Date().toISOString(),
@@ -240,25 +241,44 @@ export default function DiscountWalletPage({
 
       for (const ver of versions) {
         const key = ver.id
-        const paymentCDSummary = ver.paymentCDRules && ver.paymentCDRules.length > 0
-          ? ver.paymentCDRules.map((r) => `${r.percentageRate}% (${r.minDays}-${r.maxDays}d)`).join(', ')
-          : undefined
-        const invoiceCloseCDSummary = ver.invoiceCloseCDRules && ver.invoiceCloseCDRules.length > 0
-          ? ver.invoiceCloseCDRules.map((r) => `${formatCurrency(r.ratePerMT)}/MT (${r.minDays}-${r.maxDays}d)`).join(', ')
-          : undefined
 
-        const rateLabelParts: string[] = []
-        if (paymentCDSummary) rateLabelParts.push(paymentCDSummary)
-        if (invoiceCloseCDSummary) rateLabelParts.push(invoiceCloseCDSummary)
+        // Extract Payment CD rules + Advance CD %
+        const payRules = (ver.paymentCDRules && ver.paymentCDRules.length > 0)
+          ? ver.paymentCDRules
+          : (supplier.paymentCDRules || [])
+        const advPct = ver.advanceCDPercentage ?? supplier.advanceCDPercentage
+
+        const payParts: string[] = []
+        if (advPct && advPct > 0) {
+          payParts.push(`Advance: ${advPct}%`)
+        }
+        if (payRules.length > 0) {
+          payRules.forEach((r) => {
+            payParts.push(`${r.percentageRate}% (${r.minDays}-${r.maxDays}d)`)
+          })
+        }
+        const paymentCDSummary = payParts.length > 0 ? payParts.join(', ') : undefined
+
+        // Extract Invoice Close CD rules
+        const invCloseRules = (ver.invoiceCloseCDRules && ver.invoiceCloseCDRules.length > 0)
+          ? ver.invoiceCloseCDRules
+          : (supplier.invoiceCloseCDRules || [])
+
+        const invoiceCloseCDSummary = invCloseRules.length > 0
+          ? invCloseRules.map((r) => {
+              const unitStr = r.unit ? `/${r.unit}` : '/MT'
+              return `${formatCurrency(r.ratePerMT)}${unitStr} (${r.minDays}-${r.maxDays}d)`
+            }).join(', ')
+          : undefined
 
         const isOld = Boolean(ver.effectiveTo && new Date(ver.effectiveTo) < new Date())
 
         groups.set(key, {
           key,
           supplierName: supplier.name,
-          ruleName: ver.ruleName || 'CD Rule',
+          ruleName: ver.ruleName || 'Supplier CD Rules',
           versionLabel: `v${ver.version || 1}`,
-          rateLabel: rateLabelParts.join(' | ') || '-',
+          rateLabel: '',
           effectiveLabel: ver.effectiveTo ? `Effective up to ${ver.effectiveTo}` : `Effective from ${ver.effectiveFrom}`,
           paymentCDSummary,
           invoiceCloseCDSummary,
@@ -296,7 +316,7 @@ export default function DiscountWalletPage({
           supplierName: supplier?.name || 'Unknown Supplier',
           ruleName: supplierVersion?.ruleName || fixedScheme?.schemeName || typeLabel,
           versionLabel: `v${versionNumber}`,
-          rateLabel: expected.ratePerMT > 0 ? `${formatCurrency(expected.ratePerMT)}/MT` : '-',
+          rateLabel: expected.ratePerMT > 0 ? `${formatCurrency(expected.ratePerMT)}/MT` : '',
           effectiveLabel: effectiveTo ? `Effective up to ${effectiveTo}` : `Effective from ${effectiveFrom}`,
           expectedAmount: 0,
           receivedAmount: 0,
@@ -1393,25 +1413,29 @@ export default function DiscountWalletPage({
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {item.isOld ? 'Old CD rule' : 'New CD rule'} · {item.versionLabel}
                       </div>
-                      <div className="mt-1 text-base font-semibold">{item.ruleName}: {item.rateLabel}</div>
+                      <div className="mt-1 text-base font-semibold">{item.ruleName}{item.rateLabel ? `: ${item.rateLabel}` : ''}</div>
                       <div className="text-xs text-muted-foreground">{item.supplierName}</div>
                     </div>
                     <Badge variant={item.isOld ? 'outline' : 'default'}>{item.isOld ? 'Historical' : 'Current'}</Badge>
                   </div>
-                  <div className="mt-3 text-xs text-muted-foreground">{item.effectiveLabel}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{item.effectiveLabel}</div>
                   
                   {(item.paymentCDSummary || item.invoiceCloseCDSummary) && (
-                    <div className="mt-2.5 space-y-1 bg-slate-50 border border-slate-200/60 rounded-md p-2 text-xs">
+                    <div className="mt-2.5 space-y-1.5 bg-slate-50/90 border border-slate-200/70 rounded-md p-2 text-xs">
                       {item.paymentCDSummary && (
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-medium text-slate-700">Payment CD:</span>
-                          <span className="font-mono text-slate-800 font-semibold">{item.paymentCDSummary}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span className="font-semibold text-slate-700">Payment CD:</span>
+                          <span className="font-mono text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100/60">
+                            {item.paymentCDSummary}
+                          </span>
                         </div>
                       )}
                       {item.invoiceCloseCDSummary && (
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-medium text-slate-700">Invoice Close CD:</span>
-                          <span className="font-mono text-slate-800 font-semibold">{item.invoiceCloseCDSummary}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span className="font-semibold text-slate-700">Invoice Close CD:</span>
+                          <span className="font-mono text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-100/60">
+                            {item.invoiceCloseCDSummary}
+                          </span>
                         </div>
                       )}
                     </div>
