@@ -172,6 +172,28 @@ export default function PurchaseInvoiceDetailsPage({
           .reduce((sum, ed) => sum + ed.expectedAmount, 0)
         
         const totalCDEarned = invoiceExpectedDiscounts.reduce((sum, ed) => sum + ed.expectedAmount, 0)
+
+        const linkedExpenses = expenseEntries
+          .filter(exp => exp.linkedInvoiceId === invoice.id)
+          .map(expense => {
+            const expenseType = expenseTypeMap.get(expense.expenseTypeId)!
+            return { expense, expenseType }
+          })
+
+        const totalLinkedExpense = linkedExpenses.reduce((sum, le) => sum + le.expense.amount, 0)
+        const totalAdditionalCost = invoice.additionalCost || 0
+
+        // Calculate total Base Weight in KG for all items in the invoice
+        const totalInvoiceWeightKG = (invoice.items || []).reduce((sum, item) => {
+          const itemData = itemMap.get(item.itemId)
+          const activeUnit = itemData?.unit || 'MT'
+          const unitWeightKG = item.weightKG && item.quantityMT > 0
+            ? item.weightKG / item.quantityMT
+            : (itemData?.conversionFactor || (activeUnit === 'MT' ? 1000 : 1))
+          const itemWeight = item.weightKG || (item.quantityMT * unitWeightKG)
+          return sum + itemWeight
+        }, 0)
+
         const cdPerMT = invoice.quantityMT > 0 ? totalCDEarned / invoice.quantityMT : 0
 
         const discountBreakdown: DiscountBreakdown = {
@@ -183,41 +205,47 @@ export default function PurchaseInvoiceDetailsPage({
 
         const annualDiscountPerMT = supplier.annualTarget?.ratePerMT || 0
 
-        const linkedExpenses = expenseEntries
-          .filter(exp => exp.linkedInvoiceId === invoice.id)
-          .map(expense => {
-            const expenseType = expenseTypeMap.get(expense.expenseTypeId)!
-            return { expense, expenseType }
-          })
-
-        const totalLinkedExpense = linkedExpenses.reduce((sum, le) => sum + le.expense.amount, 0)
-        const expensePerMT = invoice.quantityMT > 0 ? totalLinkedExpense / invoice.quantityMT : 0
-        const additionalCostPerMT = invoice.quantityMT > 0 && invoice.additionalCost ? invoice.additionalCost / invoice.quantityMT : 0
+        // Per KG allocation rates
+        const expenseRatePerKG = totalInvoiceWeightKG > 0 ? totalLinkedExpense / totalInvoiceWeightKG : 0
+        const addCostRatePerKG = totalInvoiceWeightKG > 0 ? totalAdditionalCost / totalInvoiceWeightKG : 0
+        const fixedDiscRatePerKG = totalInvoiceWeightKG > 0 ? fixedSchemeTotal / totalInvoiceWeightKG : 0
+        const paymentCDRatePerKG = totalInvoiceWeightKG > 0 ? paymentCDTotal / totalInvoiceWeightKG : 0
+        const closeCDRatePerKG = totalInvoiceWeightKG > 0 ? invoiceCloseCDTotal / totalInvoiceWeightKG : 0
+        const totalCDRatePerKG = totalInvoiceWeightKG > 0 ? totalCDEarned / totalInvoiceWeightKG : 0
 
         const itemCostBreakdowns: ItemCostBreakdown[] = (invoice.items || []).map(item => {
           const itemData = itemMap.get(item.itemId)
+          const activeUnit = itemData?.unit || 'MT'
+          const unitWeightKG = item.weightKG && item.quantityMT > 0
+            ? item.weightKG / item.quantityMT
+            : (itemData?.conversionFactor || (activeUnit === 'MT' ? 1000 : 1))
+
           const itemQty = item.quantityMT
-          const pricePerMT = item.rate
-          
-          const itemFixedDiscPerMT = discountBreakdown.fixedSchemePerMT
-          const itemPaymentCDPerMT = discountBreakdown.paymentCDPerMT
-          const itemInvoiceCloseCDPerMT = discountBreakdown.invoiceCloseCDPerMT
-          const itemTotalCDPerMT = itemFixedDiscPerMT + itemPaymentCDPerMT + itemInvoiceCloseCDPerMT
-          
-          const costPerMT = pricePerMT - itemTotalCDPerMT - (includeAnnualDiscount ? annualDiscountPerMT : 0) + expensePerMT + additionalCostPerMT
-          
+          const pricePerUnit = item.rate
+
+          // Per-unit breakdown calculated by multiplying rate per KG by weight of 1 unit in KG
+          const itemFixedDiscPerUnit = fixedDiscRatePerKG * unitWeightKG
+          const itemPaymentCDPerUnit = paymentCDRatePerKG * unitWeightKG
+          const itemInvoiceCloseCDPerUnit = closeCDRatePerKG * unitWeightKG
+          const itemTotalCDPerUnit = totalCDRatePerKG * unitWeightKG
+
+          const itemExpensePerUnit = expenseRatePerKG * unitWeightKG
+          const itemAddCostPerUnit = addCostRatePerKG * unitWeightKG
+
+          const costPerUnit = pricePerUnit - itemTotalCDPerUnit - (includeAnnualDiscount ? annualDiscountPerMT : 0) + itemExpensePerUnit + itemAddCostPerUnit
+
           return {
             itemId: item.itemId,
             itemName: itemData?.name || 'Unknown Item',
             quantityMT: itemQty,
-            pricePerMT,
-            fixedDiscPerMT: itemFixedDiscPerMT,
-            paymentCDPerMT: itemPaymentCDPerMT,
-            invoiceCloseCDPerMT: itemInvoiceCloseCDPerMT,
-            totalCDPerMT: itemTotalCDPerMT,
-            expensePerMT,
-            additionalCostPerMT,
-            costPerMT
+            pricePerMT: pricePerUnit,
+            fixedDiscPerMT: itemFixedDiscPerUnit,
+            paymentCDPerMT: itemPaymentCDPerUnit,
+            invoiceCloseCDPerMT: itemInvoiceCloseCDPerUnit,
+            totalCDPerMT: itemTotalCDPerUnit,
+            expensePerMT: itemExpensePerUnit,
+            additionalCostPerMT: itemAddCostPerUnit,
+            costPerMT: costPerUnit
           }
         })
 
