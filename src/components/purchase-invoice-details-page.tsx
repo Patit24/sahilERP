@@ -384,22 +384,6 @@ export default function PurchaseInvoiceDetailsPage({
       icon: Calculator,
       tone: 'text-accent',
       surface: 'bg-accent/10'
-    },
-    {
-      label: 'Quantity',
-      value: formatMT(summaryStats.totalQty),
-      helper: 'Material volume',
-      icon: Package,
-      tone: 'text-foreground',
-      surface: 'bg-muted'
-    },
-    {
-      label: 'Avg CD / Unit',
-      value: formatCurrency(summaryStats.avgCDPerMT),
-      helper: 'Discount efficiency',
-      icon: Calendar,
-      tone: 'text-accent',
-      surface: 'bg-accent/10'
     }
   ]
 
@@ -570,7 +554,7 @@ export default function PurchaseInvoiceDetailsPage({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {statCards.map((stat) => {
           const Icon = stat.icon
           return (
@@ -631,7 +615,7 @@ export default function PurchaseInvoiceDetailsPage({
                             </div>
                           </div>
 
-                          <div className="grid gap-2 text-left text-sm sm:grid-cols-3">
+                          <div className="grid gap-2 text-left text-sm sm:grid-cols-2">
                             <div className="rounded-2xl bg-muted/30 px-3 py-2">
                               <div className="text-[11px] font-semibold uppercase text-muted-foreground">Invoice date</div>
                               <div className="font-medium text-foreground">{format(new Date(detail.invoice.invoiceDate), 'dd MMM yyyy')}</div>
@@ -647,10 +631,6 @@ export default function PurchaseInvoiceDetailsPage({
                                 <div className="font-medium text-muted-foreground">Not set</div>
                               </div>
                             )}
-                            <div className="rounded-2xl bg-muted/30 px-3 py-2">
-                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">Quantity</div>
-                              <div className="font-mono font-bold text-foreground [font-variant-numeric:tabular-nums]">{formatMT(detail.invoice.quantityMT)}</div>
-                            </div>
                           </div>
                         </div>
 
@@ -673,14 +653,10 @@ export default function PurchaseInvoiceDetailsPage({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <CardContent className="space-y-4 border-t border-border/70 bg-background/70 p-4">
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                           <div className="text-xs font-semibold uppercase text-muted-foreground">CD Earned</div>
                           <div className="mt-1 font-mono text-xl font-bold text-accent">{formatCurrency(detail.totalCDEarned)}</div>
-                        </div>
-                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
-                          <div className="text-xs font-semibold uppercase text-muted-foreground">CD / Unit</div>
-                          <div className="mt-1 font-mono text-xl font-bold text-accent">{formatCurrency(detail.cdPerMT)}</div>
                         </div>
                         <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                           <div className="text-xs font-semibold uppercase text-muted-foreground">Linked Expense</div>
@@ -720,25 +696,15 @@ export default function PurchaseInvoiceDetailsPage({
                         <TableBody>
                           {detail.invoice.items.map((item, idx) => {
                             const itemData = itemMap.get(item.itemId)
-                            const activeUnit = item.entryUnit || itemData?.unit || 'MT'
-                            const activeQty = item.entryQuantity && item.entryQuantity > 0 ? item.entryQuantity : (item.quantityMT || 0)
-                            let altUnit: string | undefined = undefined
-                            let altQty: number | undefined = undefined
-                            if (itemData?.alternativeUnit && itemData.alternativeUnit !== 'NONE' && itemData.alternativeUnit !== activeUnit) {
-                              altUnit = itemData.alternativeUnit
-                              if (itemData.alternativeUnitRatio && itemData.alternativeUnitRatio > 0) {
-                                if (activeUnit === itemData.unit) altQty = activeQty * itemData.alternativeUnitRatio
-                                else if (activeUnit === itemData.alternativeUnit) altQty = activeQty / itemData.alternativeUnitRatio
-                                else altQty = activeQty * itemData.alternativeUnitRatio
-                              } else if (item.weightKG && item.weightKG > 0) {
-                                if (altUnit === 'KG') altQty = item.weightKG
-                                else if (altUnit === 'MT') altQty = item.weightKG / 1000
-                              }
-                            }
-                            let displayQty = `${activeQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${activeUnit}`
-                            if (altUnit && altQty && altQty > 0) {
-                              displayQty += ` (${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit})`
-                            }
+                            const active = getItemActiveUnitAndQty(itemData, item.entryUnit, item.entryQuantity, item.quantityMT, item.weightKG)
+                            const altUnit = active.unit
+                            const altQty = active.qty
+                            const totalItemAmount = item.amount || ((item.rate || 0) * (item.entryQuantity || item.quantityMT || 1))
+                            const ratePerAltUnit = altQty > 0 ? totalItemAmount / altQty : item.rate
+
+                            const displayQty = `${altQty.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${altUnit}`
+                            const displayRate = `${formatCurrency(ratePerAltUnit)} / ${altUnit}`
+
                             return (
                               <TableRow key={idx}>
                                 <TableCell className="font-medium">
@@ -747,7 +713,9 @@ export default function PurchaseInvoiceDetailsPage({
                                 <TableCell className="text-right font-mono font-medium">
                                   {displayQty}
                                 </TableCell>
-                                <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
+                                <TableCell className="text-right font-mono font-medium">
+                                  {displayRate}
+                                </TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(item.amount)}</TableCell>
                               </TableRow>
                             )
@@ -757,7 +725,7 @@ export default function PurchaseInvoiceDetailsPage({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="max-w-md">
                     <div>
                       <h4 className="font-semibold mb-2 flex items-center gap-2">
                         <CurrencyDollar size={16} className="text-success" />
@@ -787,39 +755,6 @@ export default function PurchaseInvoiceDetailsPage({
                         <div className="flex justify-between border-t pt-2">
                           <span className="text-sm text-muted-foreground">Pending Amount:</span>
                           <span className="font-bold text-destructive">{formatCurrency(detail.pendingAmount)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold mb-2 flex items-center gap-2">
-                        <Calculator size={16} className="text-accent" />
-                        CD Breakdown
-                      </h4>
-                      <div className="bg-accent/10 rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Fixed Scheme / Unit:</span>
-                          <span className="font-semibold text-success">{formatCurrency(detail.discountBreakdown.fixedSchemePerMT)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Payment CD / Unit:</span>
-                          <span className="font-semibold text-success">{formatCurrency(detail.discountBreakdown.paymentCDPerMT)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Invoice Close CD / Unit:</span>
-                          <span className="font-semibold text-success">{formatCurrency(detail.discountBreakdown.invoiceCloseCDPerMT)}</span>
-                        </div>
-                        <div className="flex justify-between border-t pt-2">
-                          <span className="text-sm text-muted-foreground">Total CD / Unit:</span>
-                          <span className="font-bold text-accent">{formatCurrency(detail.discountBreakdown.totalCDPerMT)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-muted-foreground mt-2 pt-2 border-t">
-                          <span>Total CD Earned:</span>
-                          <span className="font-semibold">{formatCurrency(detail.totalCDEarned)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Invoice Qty:</span>
-                          <span className="font-semibold">{detail.invoice.quantityMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })}</span>
                         </div>
                       </div>
                     </div>
