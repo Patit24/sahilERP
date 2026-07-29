@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Tag, Trash, Info, Percent, Clock, PencilSimple, CaretDown, CaretRight } from '@phosphor-icons/react'
+import { Tag, Trash, Info, Percent, Clock, Gear, CaretDown, CaretRight } from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
 
@@ -41,10 +41,10 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
   // Separate History Category State (PaymentCD vs InvoiceClosedCD)
   const [historyCategory, setHistoryCategory] = useState<'PaymentCD' | 'InvoiceClosedCD' | null>(null)
 
-  // Expandable History Accordion tracking state
-  const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([])
+  // Single Expandable History Accordion tracking state (only 1 item open at a time; previous expands collapse automatically)
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
 
-  // SEPARATE / INDEPENDENT Effective From Dates for each section
+  // SEPARATE / INDEPENDENT Effective From Dates for each section (Defaults to current date)
   const [payEffectiveDate, setPayEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [closeEffectiveDate, setCloseEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [targetEffectiveDate, setTargetEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0])
@@ -72,9 +72,10 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
 
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId)
 
-  // Open FRESH Payment CD Rules Modal (Clean slate inputs)
+  // Open FRESH Payment CD Rules Modal (Clean slate inputs & Current Date as default effective date)
   const openEditPaymentModal = () => {
     if (!selectedSupplier) return
+    setPayEffectiveDate(new Date().toISOString().split('T')[0])
     setDraftAdvanceCD('')
     setDraftPaymentRules([])
     setPayChangeReason('')
@@ -84,9 +85,10 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     setEditPaymentModalOpen(true)
   }
 
-  // Open FRESH Invoice Closed CD Rules Modal (Clean slate inputs)
+  // Open FRESH Invoice Closed CD Rules Modal (Clean slate inputs & Current Date as default effective date)
   const openEditCloseModal = () => {
     if (!selectedSupplier) return
+    setCloseEffectiveDate(new Date().toISOString().split('T')[0])
     setDraftCloseRules([])
     setCloseChangeReason('')
     setNewCloseMin('')
@@ -96,20 +98,19 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     setEditCloseModalOpen(true)
   }
 
-  // Open FRESH Annual Target Modal (Clean slate inputs)
+  // Open FRESH Annual Target Modal (Clean slate inputs & Current Date as default effective date)
   const openEditTargetModal = () => {
     if (!selectedSupplier) return
+    setTargetEffectiveDate(new Date().toISOString().split('T')[0])
     setDraftTargetMT('')
     setDraftTargetRate('')
     setTargetChangeReason('')
     setEditTargetModalOpen(true)
   }
 
-  // Toggle History Item Expansion
+  // Single Accordion Toggle: Expand current item, collapse previous
   const toggleHistoryItem = (id: string) => {
-    setExpandedHistoryIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    )
+    setExpandedHistoryId((prev) => (prev === id ? null : id))
   }
 
   // Add Tier in Payment Modal
@@ -380,13 +381,13 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                 </p>
               </div>
 
-              {/* Action Buttons: UPDATE HISTORY BTN (Opens ONLY Payment CD History) & EDIT/UPDATE rules BTN */}
+              {/* Action Buttons: UPDATE HISTORY BTN & UPDATE RULES BTN with Gear icon */}
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setHistoryCategory('PaymentCD')}
+                  onClick={() => { setHistoryCategory('PaymentCD'); setExpandedHistoryId(null); }}
                   className="h-8 text-xs font-bold bg-white text-slate-700 border-slate-300 hover:bg-slate-50 rounded-xl px-3"
                 >
                   <Clock className="mr-1.5 h-3.5 w-3.5 text-[#0256e8]" />
@@ -399,8 +400,8 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                   disabled={isLocked}
                   className="h-8 text-xs font-bold bg-[#0256e8] hover:bg-[#0046cd] text-white rounded-xl px-4 shadow-2xs gap-1.5"
                 >
-                  <PencilSimple className="h-3.5 w-3.5" weight="bold" />
-                  EDIT / UPDATE RULES
+                  <Gear className="h-3.5 w-3.5" weight="bold" />
+                  UPDATE RULES
                 </Button>
               </div>
             </div>
@@ -418,7 +419,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
               {/* Prompt CD Tiers Rows */}
               {!selectedSupplier.paymentCDRules || selectedSupplier.paymentCDRules.length === 0 ? (
                 <div className="p-3 bg-white/60 rounded-xl border border-dashed border-slate-200 text-slate-400 font-medium">
-                  No payment CD tiers configured. Click 'EDIT / UPDATE RULES' above to configure.
+                  No payment CD tiers configured. Click 'UPDATE RULES' above to configure.
                 </div>
               ) : (
                 selectedSupplier.paymentCDRules.map((rule, idx) => (
@@ -449,13 +450,13 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                 </p>
               </div>
 
-              {/* Action Buttons: UPDATE HISTORY BTN (Opens ONLY Invoice Closed CD History) & EDIT/UPDATE rules BTN */}
+              {/* Action Buttons: UPDATE HISTORY BTN & UPDATE RULES BTN with Gear icon */}
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setHistoryCategory('InvoiceClosedCD')}
+                  onClick={() => { setHistoryCategory('InvoiceClosedCD'); setExpandedHistoryId(null); }}
                   className="h-8 text-xs font-bold bg-white text-slate-700 border-slate-300 hover:bg-slate-50 rounded-xl px-3"
                 >
                   <Clock className="mr-1.5 h-3.5 w-3.5 text-indigo-600" />
@@ -468,8 +469,8 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                   disabled={isLocked}
                   className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 shadow-2xs gap-1.5"
                 >
-                  <PencilSimple className="h-3.5 w-3.5" weight="bold" />
-                  EDIT / UPDATE RULES
+                  <Gear className="h-3.5 w-3.5" weight="bold" />
+                  UPDATE RULES
                 </Button>
               </div>
             </div>
@@ -478,7 +479,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
             <div className="space-y-2 text-xs">
               {!selectedSupplier.invoiceCloseCDRules || selectedSupplier.invoiceCloseCDRules.length === 0 ? (
                 <div className="p-3 bg-white/60 rounded-xl border border-dashed border-slate-200 text-slate-400 font-medium">
-                  No invoice closing CD rules configured. Click 'EDIT / UPDATE RULES' above to configure.
+                  No invoice closing CD rules configured. Click 'UPDATE RULES' above to configure.
                 </div>
               ) : (
                 selectedSupplier.invoiceCloseCDRules.map((rule, idx) => (
@@ -506,7 +507,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                 </h3>
               </div>
 
-              {/* Action Button: EDIT/UPDATE BTN */}
+              {/* Action Button: UPDATE TARGET BTN with Gear icon */}
               <Button
                 type="button"
                 size="sm"
@@ -514,8 +515,8 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
                 disabled={isLocked}
                 className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 shadow-2xs gap-1.5"
               >
-                <PencilSimple className="h-3.5 w-3.5" weight="bold" />
-                EDIT / UPDATE
+                <Gear className="h-3.5 w-3.5" weight="bold" />
+                UPDATE TARGET
               </Button>
             </div>
 
@@ -544,13 +545,13 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
         <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader className="border-b border-slate-100 pb-3">
             <DialogTitle className="flex items-center gap-2 text-slate-900 text-lg">
-              <Tag className="h-5 w-5 text-[#0256e8]" weight="bold" />
-              <span>Edit Payment CD Rules</span>
+              <Gear className="h-5 w-5 text-[#0256e8]" weight="bold" />
+              <span>Update Payment CD Rules</span>
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* Payment CD Independent Effective From Date */}
+            {/* Payment CD Independent Effective From Date (Defaults to current date) */}
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Effective From Date *</Label>
               <Input
@@ -662,13 +663,13 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
         <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader className="border-b border-slate-100 pb-3">
             <DialogTitle className="flex items-center gap-2 text-slate-900 text-lg">
-              <Tag className="h-5 w-5 text-indigo-600" weight="bold" />
-              <span>Edit Invoice Closed CD Rules</span>
+              <Gear className="h-5 w-5 text-indigo-600" weight="bold" />
+              <span>Update Invoice Closed CD Rules</span>
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* Invoice Closed CD Independent Effective From Date */}
+            {/* Invoice Closed CD Independent Effective From Date (Defaults to current date) */}
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Effective From Date *</Label>
               <Input
@@ -776,13 +777,13 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="border-b border-slate-100 pb-3">
             <DialogTitle className="flex items-center gap-2 text-slate-900 text-lg">
-              <Tag className="h-5 w-5 text-emerald-600" weight="bold" />
-              <span>Edit Annual Target</span>
+              <Gear className="h-5 w-5 text-emerald-600" weight="bold" />
+              <span>Update Annual Target</span>
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* Annual Target Independent Effective From Date */}
+            {/* Annual Target Independent Effective From Date (Defaults to current date) */}
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Effective From Date *</Label>
               <Input
@@ -861,7 +862,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
               </p>
             ) : (
               filteredHistoryVersions.map((ver) => {
-                const isExpanded = expandedHistoryIds.includes(ver.id)
+                const isExpanded = expandedHistoryId === ver.id
                 return (
                   <Collapsible
                     key={ver.id}
