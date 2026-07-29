@@ -791,27 +791,27 @@ export default function PurchaseInvoiceDetailsPage({
                                     </TableCell>
                                     <TableCell className="text-right">{formatCurrency(breakdown.pricePerMT)}</TableCell>
                                     <TableCell className="text-right text-success">
-                                      {breakdown.fixedDiscPerMT > 0 ? `-${formatCurrency(breakdown.fixedDiscPerMT)}` : '-'}
+                                      {breakdown.fixedDiscPerMT > 0 ? `-${formatCurrency(breakdown.fixedDiscPerMT)}` : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="text-right text-success">
-                                      {breakdown.paymentCDPerMT > 0 ? `-${formatCurrency(breakdown.paymentCDPerMT)}` : '-'}
+                                      {breakdown.paymentCDPerMT > 0 ? `-${formatCurrency(breakdown.paymentCDPerMT)}` : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="text-right text-success">
-                                      {breakdown.invoiceCloseCDPerMT > 0 ? `-${formatCurrency(breakdown.invoiceCloseCDPerMT)}` : '-'}
+                                      {breakdown.invoiceCloseCDPerMT > 0 ? `-${formatCurrency(breakdown.invoiceCloseCDPerMT)}` : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="text-right font-semibold text-accent">
-                                      {breakdown.totalCDPerMT > 0 ? `-${formatCurrency(breakdown.totalCDPerMT)}` : '-'}
+                                      {breakdown.totalCDPerMT > 0 ? `-${formatCurrency(breakdown.totalCDPerMT)}` : formatCurrency(0)}
                                     </TableCell>
                                     {includeAnnualDiscount && (
                                       <TableCell className="text-right text-success">
-                                        {detail.annualDiscountPerMT > 0 ? `-${formatCurrency(detail.annualDiscountPerMT)}` : '-'}
+                                        {detail.annualDiscountPerMT > 0 ? `-${formatCurrency(detail.annualDiscountPerMT)}` : formatCurrency(0)}
                                       </TableCell>
                                     )}
                                     <TableCell className="text-right text-warning">
-                                      {breakdown.expensePerMT > 0 ? `+${formatCurrency(breakdown.expensePerMT)}` : '-'}
+                                      {breakdown.expensePerMT > 0 ? `+${formatCurrency(breakdown.expensePerMT)}` : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="text-right text-warning">
-                                      {breakdown.additionalCostPerMT > 0 ? `+${formatCurrency(breakdown.additionalCostPerMT)}` : '-'}
+                                      {breakdown.additionalCostPerMT > 0 ? `+${formatCurrency(breakdown.additionalCostPerMT)}` : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="text-right font-bold text-primary">
                                       {formatCurrency(breakdown.costPerMT)}

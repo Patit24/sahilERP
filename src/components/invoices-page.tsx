@@ -1210,68 +1210,7 @@ export default function InvoicesPage({
                     </div>
                   </div>
 
-                  {/* ITEM-WISE COST BREAKDOWN (Base Unit: KG) */}
-                  {costBreakdownDetails.rows.length > 0 && (
-                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 shadow-2xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                            <Scales className="h-4 w-4 text-emerald-600" weight="bold" />
-                            <span>Item-Wise Cost Breakdown & Expense Allocation</span>
-                          </h4>
-                          <p className="text-[11px] text-slate-500">
-                            Total linked expenses (₹{additionalCostFinal.toFixed(2)}) ÷ Total Base Weight ({costBreakdownDetails.totalWeightKG.toLocaleString()} KG) = <span className="font-bold text-emerald-700 font-mono">₹{costBreakdownDetails.expenseRatePerKG.toFixed(4)} / KG</span>
-                          </p>
-                        </div>
 
-                        <div className="flex items-center gap-2 text-xs font-semibold">
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-mono text-[11px]">
-                            Base Unit: KG
-                          </Badge>
-                          {additionalCostFinal > 0 && (
-                            <Badge variant="outline" className="bg-blue-50 text-[#0256e8] border-blue-200 font-mono text-[11px]">
-                              Total Expenses: ₹{additionalCostFinal.toFixed(2)}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="border-b border-slate-200 text-slate-500 uppercase text-[10px] tracking-wider text-left bg-slate-100/70">
-                              <th className="py-2.5 px-3 font-bold">Item Name</th>
-                              <th className="py-2.5 px-3 font-bold text-right">Invoice Qty</th>
-                              <th className="py-2.5 px-3 font-bold text-right">Base Weight (KG)</th>
-                              <th className="py-2.5 px-3 font-bold text-right">Purchase Price (excl. Tax)</th>
-                              <th className="py-2.5 px-3 font-bold text-right">Allocated Expense / Unit</th>
-                              <th className="py-2.5 px-3 font-bold text-right">Final Landed Cost / Unit</th>
-                              <th className="py-2.5 px-3 font-bold text-right">Total Landed Amount (₹)</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200/60 font-mono">
-                            {costBreakdownDetails.rows.map((r, idx) => (
-                              <tr key={idx} className="hover:bg-white/80 transition-colors">
-                                <td className="py-2.5 px-3 font-sans font-semibold text-slate-800">{r.name}</td>
-                                <td className="py-2.5 px-3 text-right">{r.entryQty.toLocaleString()} {r.activeUnit}</td>
-                                <td className="py-2.5 px-3 text-right font-bold text-slate-700">{r.weightKG.toLocaleString()} KG</td>
-                                <td className="py-2.5 px-3 text-right">₹{r.basicPricePerUnit.toFixed(2)}</td>
-                                <td className="py-2.5 px-3 text-right text-emerald-700 font-bold">
-                                  +{formatCurrency(r.allocatedExpensePerUnit)} / {r.activeUnit}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-extrabold text-blue-900 bg-blue-50/50">
-                                  ₹{r.landedCostPerUnit.toFixed(2)} / {r.activeUnit}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-extrabold text-slate-900">
-                                  ₹{r.totalItemLandedAmount.toFixed(2)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="erp-invoice-reference-footer">
                     {/* Column 1: Invoice Information */}
