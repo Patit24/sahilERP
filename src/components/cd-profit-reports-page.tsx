@@ -73,7 +73,7 @@ export default function CDProfitReportsPage({
   expenseEntries = [],
   currentFY,
   businessName,
-  initialTab = 'payment-cd'
+  initialTab = 'profit-analysis'
 }: CDProfitReportsPageProps) {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [period, setPeriod] = useState<PeriodFilter>('monthly')
@@ -389,11 +389,7 @@ export default function CDProfitReportsPage({
 
       {/* Main Tabbed Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-slate-200/60 p-1 rounded-2xl w-full sm:w-auto grid grid-cols-2 md:grid-cols-4 h-auto">
-          <TabsTrigger value="payment-cd" className="py-2.5 text-xs font-bold rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-2xs">
-            <Receipt className="h-4 w-4 mr-2 text-emerald-600" />
-            Payment CD Reports
-          </TabsTrigger>
+        <TabsList className="bg-slate-200/60 p-1 rounded-2xl w-full sm:w-auto grid grid-cols-1 md:grid-cols-3 h-auto">
           <TabsTrigger value="profit-analysis" className="py-2.5 text-xs font-bold rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-2xs">
             <TrendUp className="h-4 w-4 mr-2 text-blue-600" />
             Item Profit Analysis

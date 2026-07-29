@@ -277,19 +277,24 @@ export default function InventoryReportPage({
                 filteredInventoryData.map((item) => {
                   const secUnit = item.secondaryUnit
                 
-                const renderQtyWithAlt = (primaryQty: number, secQty?: number, preferAlt?: boolean, colorClass?: string, prefix: string = '') => {
-                  const mainU = preferAlt && secUnit ? secUnit : item.unit
-                  const mainQ = preferAlt && typeof secQty === 'number' ? secQty : primaryQty
-                  
-                  const secU = preferAlt && secUnit ? item.unit : secUnit
-                  const secQ = preferAlt && typeof secQty === 'number' ? primaryQty : secQty
+                const renderQtyWithAlt = (primaryQty: number, secQty?: number, _preferAlt?: boolean, colorClass?: string, prefix: string = '') => {
+                  // Always show alternative unit (secUnit) on top, measuring unit below
+                  const hasAlt = secUnit && typeof secQty === 'number'
+
+                  // Top value: alt unit if available, else primary
+                  const mainU = hasAlt ? secUnit : item.unit
+                  const mainQ = hasAlt ? secQty! : primaryQty
+
+                  // Bottom value: measuring unit (only shown when alt exists)
+                  const subU = hasAlt ? item.unit : undefined
+                  const subQ = hasAlt ? primaryQty : undefined
 
                   if (mainQ === 0 && prefix === '') return '-'
                   const primaryStr = `${prefix}${mainQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${mainU}`
                   let secStr: string | null = null
 
-                  if (secU && secU !== mainU && typeof secQ === 'number') {
-                    secStr = `${prefix}${secQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${secU}`
+                  if (subU && subU !== mainU && typeof subQ === 'number') {
+                    secStr = `${prefix}${subQ.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${subU}`
                   }
 
                   return (
