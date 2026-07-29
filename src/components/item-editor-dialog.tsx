@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { CaretDown, Check, MagnifyingGlass, Package, Plus, Scales, SquaresFour } from '@phosphor-icons/react'
@@ -374,12 +375,12 @@ export function ItemEditorDialog({
                 </div>
               </div>
 
-              {/* ROW 4: ADD UNIT BTN Section (Measuring Unit & Alternate Unit) */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-3">
+              {/* ROW 4: ADD UNIT BTN Section (Measuring Unit & Alternate Unit & Base Unit in KG) */}
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Scales size={18} className="text-emerald-600" weight="bold" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">ADD UNIT BTN</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">UNIT & BASE UNIT (KG) CONFIGURATION</span>
                   </div>
                   <Button
                     type="button"
@@ -390,6 +391,21 @@ export function ItemEditorDialog({
                   >
                     <Plus size={13} className="mr-1" weight="bold" /> Add Custom Unit
                   </Button>
+                </div>
+
+                {/* Base Unit Info Banner */}
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-emerald-600 text-white border-none font-bold text-[11px] px-2 py-0.5">
+                      Base Unit: KG
+                    </Badge>
+                    <span className="text-emerald-900 font-medium">
+                      All invoice linked expenses are divided by KG and allocated item-wise.
+                    </span>
+                  </div>
+                  <span className="font-mono font-extrabold text-emerald-800">
+                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : ((parseFloat(alternativeUnitRatio) || 1) / (parseFloat(primaryUnitRatio) || 1)).toLocaleString())} KG
+                  </span>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
