@@ -146,8 +146,10 @@ export function ItemEditorDialog({
       setPrimaryUnitRatio('1000')
       setAlternativeUnitRatio('1')
     } else {
-      if (alternativeUnit === newUnit) {
-        setAlternativeUnit('NONE')
+      setAlternativeUnit('KG')
+      setPrimaryUnitRatio('1')
+      if (!alternativeUnitRatio || alternativeUnitRatio === '1000') {
+        setAlternativeUnitRatio('1')
       }
     }
   }
@@ -448,11 +450,52 @@ export function ItemEditorDialog({
                 </div>
               </div>
 
-              {/* ROW 5: INPUT UNIT beside UNIT Name from selected & alternate UNIT */}
-              {alternativeUnit !== 'NONE' && (
+              {/* Item Weight in Base Unit (KG) Section */}
+              <div className="p-4 bg-emerald-50/60 border border-emerald-200/90 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                    <Scales size={16} className="text-emerald-700" weight="bold" />
+                    <span>Weight of 1 {unit} in Base Unit (KG)</span>
+                  </Label>
+                  <Badge variant="outline" className="bg-emerald-600 text-white border-none font-bold text-[10px] px-2 py-0.5 font-mono">
+                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : ((parseFloat(alternativeUnitRatio) || 1) / (parseFloat(primaryUnitRatio) || 1)).toLocaleString())} KG
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-slate-600 font-semibold">Weight per 1 {unit} (in KG)</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700 min-w-[50px]">1 {unit} =</span>
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        value={unit === 'KG' ? '1' : (unit === 'MT' ? '1000' : alternativeUnitRatio)}
+                        onChange={(e) => {
+                          setPrimaryUnitRatio('1')
+                          setAlternativeUnitRatio(e.target.value)
+                          if (alternativeUnit === 'NONE') setAlternativeUnit('KG')
+                        }}
+                        placeholder="e.g. 5.5"
+                        className="h-10 font-mono text-right border-emerald-300 focus:border-emerald-600 bg-white font-bold text-emerald-900"
+                        disabled={unit === 'KG' || unit === 'MT'}
+                      />
+                      <span className="font-bold text-sm text-emerald-800 min-w-[30px]">KG</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-slate-600 leading-tight">
+                    <span className="font-semibold text-slate-800">Note:</span> When buying or selling items in <span className="font-bold text-emerald-900">{unit}</span>, this weight in KGs is used to divide and allocate invoice freight & expenses item-wise.
+                  </div>
+                </div>
+              </div>
+
+              {/* ROW 5: Custom Unit Ratio when Alternate Unit is not KG or NONE */}
+              {alternativeUnit !== 'NONE' && alternativeUnit !== 'KG' && (
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
-                    <span>Unit Conversion Ratio</span>
+                    <span>Alternate Unit Ratio ({unit} ➔ {alternativeUnit})</span>
                     <span className="text-[11px] font-mono text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-semibold">
                       1 {unit} = {((parseFloat(alternativeUnitRatio) || 1) / (parseFloat(primaryUnitRatio) || 1)).toLocaleString()} {alternativeUnit}
                     </span>
