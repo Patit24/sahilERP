@@ -325,7 +325,7 @@ export default function PurchaseInvoiceDetailsPage({
       surface: 'bg-muted'
     },
     {
-      label: 'Avg CD/MT',
+      label: 'Avg CD / Unit',
       value: formatCurrency(summaryStats.avgCDPerMT),
       helper: 'Discount efficiency',
       icon: Calendar,
@@ -449,11 +449,9 @@ export default function PurchaseInvoiceDetailsPage({
                               newSet.delete('all')
                               if (newSet.has(month.value)) {
                                 newSet.delete(month.value)
+                                if (newSet.size === 0) newSet.add('all')
                               } else {
                                 newSet.add(month.value)
-                              }
-                              if (newSet.size === 0) {
-                                return new Set(['all'])
                               }
                               return newSet
                             })
@@ -477,25 +475,25 @@ export default function PurchaseInvoiceDetailsPage({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">Search Invoice No</Label>
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">Search Invoice</Label>
             <Input
-              className="h-11 rounded-2xl bg-background/80 shadow-sm"
               placeholder="Search by invoice number..."
               value={searchInvoiceNo}
               onChange={(e) => setSearchInvoiceNo(e.target.value)}
+              className="h-11 rounded-2xl bg-background/80 shadow-sm"
             />
           </div>
 
           <div className="flex items-end">
             <Button
-              variant="outline"
-              className="h-11 w-full rounded-2xl bg-background/80 px-5 shadow-sm xl:w-auto"
+              variant="ghost"
               onClick={() => {
                 setSelectedSupplier('all')
                 setSelectedStatus('all')
                 setSearchInvoiceNo('')
                 setSelectedMonths(new Set(['all']))
               }}
+              className="h-11 rounded-2xl"
             >
               Clear Filters
             </Button>
@@ -612,7 +610,7 @@ export default function PurchaseInvoiceDetailsPage({
                           <div className="mt-1 font-mono text-xl font-bold text-accent">{formatCurrency(detail.totalCDEarned)}</div>
                         </div>
                         <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
-                          <div className="text-xs font-semibold uppercase text-muted-foreground">CD / MT</div>
+                          <div className="text-xs font-semibold uppercase text-muted-foreground">CD / Unit</div>
                           <div className="mt-1 font-mono text-xl font-bold text-accent">{formatCurrency(detail.cdPerMT)}</div>
                         </div>
                         <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
@@ -628,7 +626,7 @@ export default function PurchaseInvoiceDetailsPage({
                       </div>
                       <div className="text-sm">
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Annual Discount per MT:</span>
+                          <span className="text-muted-foreground">Annual Discount per Unit:</span>
                           <span className="font-bold text-accent text-lg">{formatCurrency(detail.annualDiscountPerMT)}</span>
                         </div>
                       </div>
@@ -645,7 +643,7 @@ export default function PurchaseInvoiceDetailsPage({
                         <TableHeader>
                           <TableRow>
                             <TableHead>Item</TableHead>
-                            <TableHead className="text-right">Quantity (MT)</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
                             <TableHead className="text-right">Rate</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
                           </TableRow>
@@ -653,12 +651,15 @@ export default function PurchaseInvoiceDetailsPage({
                         <TableBody>
                           {detail.invoice.items.map((item, idx) => {
                             const itemData = itemMap.get(item.itemId)
+                            const itemUnit = itemData?.unit || 'MT'
                             return (
                               <TableRow key={idx}>
                                 <TableCell className="font-medium">
                                   {itemData?.name || 'Unknown Item'}
                                 </TableCell>
-                                <TableCell className="text-right">{formatMT(item.quantityMT)}</TableCell>
+                                <TableCell className="text-right font-mono font-medium">
+                                  {item.quantityMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {itemUnit}
+                                </TableCell>
                                 <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(item.amount)}</TableCell>
                               </TableRow>
@@ -710,19 +711,19 @@ export default function PurchaseInvoiceDetailsPage({
                       </h4>
                       <div className="bg-accent/10 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Fixed Scheme/MT:</span>
+                          <span className="text-sm text-muted-foreground">Fixed Scheme / Unit:</span>
                           <span className="font-semibold text-success">{formatCurrency(detail.discountBreakdown.fixedSchemePerMT)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Payment CD/MT:</span>
+                          <span className="text-sm text-muted-foreground">Payment CD / Unit:</span>
                           <span className="font-semibold text-success">{formatCurrency(detail.discountBreakdown.paymentCDPerMT)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Invoice Close CD/MT:</span>
+                          <span className="text-sm text-muted-foreground">Invoice Close CD / Unit:</span>
                           <span className="font-semibold text-success">{formatCurrency(detail.discountBreakdown.invoiceCloseCDPerMT)}</span>
                         </div>
                         <div className="flex justify-between border-t pt-2">
-                          <span className="text-sm text-muted-foreground">Total CD/MT:</span>
+                          <span className="text-sm text-muted-foreground">Total CD / Unit:</span>
                           <span className="font-bold text-accent">{formatCurrency(detail.discountBreakdown.totalCDPerMT)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-2 pt-2 border-t">
@@ -731,7 +732,7 @@ export default function PurchaseInvoiceDetailsPage({
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Invoice Qty:</span>
-                          <span className="font-semibold">{formatMT(detail.invoice.quantityMT)}</span>
+                          <span className="font-semibold">{detail.invoice.quantityMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })}</span>
                         </div>
                       </div>
                     </div>
@@ -762,56 +763,62 @@ export default function PurchaseInvoiceDetailsPage({
                             <TableHeader>
                               <TableRow className="bg-muted/50">
                                 <TableHead>Item</TableHead>
-                                <TableHead className="text-right">Qty (MT)</TableHead>
-                                <TableHead className="text-right">Price/MT</TableHead>
-                                <TableHead className="text-right">Fixed Disc/MT</TableHead>
-                                <TableHead className="text-right">Payment CD/MT</TableHead>
-                                <TableHead className="text-right">Close CD/MT</TableHead>
-                                <TableHead className="text-right">Total CD/MT</TableHead>
+                                <TableHead className="text-right">Qty / Unit</TableHead>
+                                <TableHead className="text-right">Price / Unit</TableHead>
+                                <TableHead className="text-right">Fixed Disc / Unit</TableHead>
+                                <TableHead className="text-right">Payment CD / Unit</TableHead>
+                                <TableHead className="text-right">Close CD / Unit</TableHead>
+                                <TableHead className="text-right">Total CD / Unit</TableHead>
                                 {includeAnnualDiscount && (
-                                  <TableHead className="text-right">Annual Disc/MT</TableHead>
+                                  <TableHead className="text-right">Annual Disc / Unit</TableHead>
                                 )}
-                                <TableHead className="text-right">Expense/MT</TableHead>
-                                <TableHead className="text-right">Add. Cost/MT</TableHead>
-                                <TableHead className="text-right font-semibold">Cost/MT</TableHead>
+                                <TableHead className="text-right">Expense / Unit</TableHead>
+                                <TableHead className="text-right">Add. Cost / Unit</TableHead>
+                                <TableHead className="text-right font-semibold">Cost / Unit</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {detail.itemCostBreakdowns.map((breakdown, idx) => (
-                                <TableRow key={idx}>
-                                  <TableCell className="font-medium">
-                                    {breakdown.itemName}
-                                  </TableCell>
-                                  <TableCell className="text-right">{formatMT(breakdown.quantityMT)}</TableCell>
-                                  <TableCell className="text-right">{formatCurrency(breakdown.pricePerMT)}</TableCell>
-                                  <TableCell className="text-right text-success">
-                                    {breakdown.fixedDiscPerMT > 0 ? `-${formatCurrency(breakdown.fixedDiscPerMT)}` : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right text-success">
-                                    {breakdown.paymentCDPerMT > 0 ? `-${formatCurrency(breakdown.paymentCDPerMT)}` : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right text-success">
-                                    {breakdown.invoiceCloseCDPerMT > 0 ? `-${formatCurrency(breakdown.invoiceCloseCDPerMT)}` : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right font-semibold text-accent">
-                                    {breakdown.totalCDPerMT > 0 ? `-${formatCurrency(breakdown.totalCDPerMT)}` : '-'}
-                                  </TableCell>
-                                  {includeAnnualDiscount && (
-                                    <TableCell className="text-right text-success">
-                                      {detail.annualDiscountPerMT > 0 ? `-${formatCurrency(detail.annualDiscountPerMT)}` : '-'}
+                              {detail.itemCostBreakdowns.map((breakdown, idx) => {
+                                const itemData = itemMap.get(breakdown.itemId)
+                                const itemUnit = itemData?.unit || 'MT'
+                                return (
+                                  <TableRow key={idx}>
+                                    <TableCell className="font-medium">
+                                      {breakdown.itemName}
                                     </TableCell>
-                                  )}
-                                  <TableCell className="text-right text-warning">
-                                    {breakdown.expensePerMT > 0 ? `+${formatCurrency(breakdown.expensePerMT)}` : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right text-warning">
-                                    {breakdown.additionalCostPerMT > 0 ? `+${formatCurrency(breakdown.additionalCostPerMT)}` : '-'}
-                                  </TableCell>
-                                  <TableCell className="text-right font-bold text-primary">
-                                    {formatCurrency(breakdown.costPerMT)}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                                    <TableCell className="text-right font-mono font-medium">
+                                      {breakdown.quantityMT.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {itemUnit}
+                                    </TableCell>
+                                    <TableCell className="text-right">{formatCurrency(breakdown.pricePerMT)}</TableCell>
+                                    <TableCell className="text-right text-success">
+                                      {breakdown.fixedDiscPerMT > 0 ? `-${formatCurrency(breakdown.fixedDiscPerMT)}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right text-success">
+                                      {breakdown.paymentCDPerMT > 0 ? `-${formatCurrency(breakdown.paymentCDPerMT)}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right text-success">
+                                      {breakdown.invoiceCloseCDPerMT > 0 ? `-${formatCurrency(breakdown.invoiceCloseCDPerMT)}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold text-accent">
+                                      {breakdown.totalCDPerMT > 0 ? `-${formatCurrency(breakdown.totalCDPerMT)}` : '-'}
+                                    </TableCell>
+                                    {includeAnnualDiscount && (
+                                      <TableCell className="text-right text-success">
+                                        {detail.annualDiscountPerMT > 0 ? `-${formatCurrency(detail.annualDiscountPerMT)}` : '-'}
+                                      </TableCell>
+                                    )}
+                                    <TableCell className="text-right text-warning">
+                                      {breakdown.expensePerMT > 0 ? `+${formatCurrency(breakdown.expensePerMT)}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right text-warning">
+                                      {breakdown.additionalCostPerMT > 0 ? `+${formatCurrency(breakdown.additionalCostPerMT)}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right font-bold text-primary">
+                                      {formatCurrency(breakdown.costPerMT)}
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })}
                             </TableBody>
                           </Table>
                         </div>
