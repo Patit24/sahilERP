@@ -1,22 +1,49 @@
 import { Item } from './types'
 
-export const DEFAULT_CATEGORIES: string[] = []
+export const DEFAULT_CATEGORIES: string[] = [
+  'PIPE',
+  'TMT BARS',
+  'STEEL & STRUCTURE',
+  'SHEETS & PLATES',
+  'BEAMS & CHANNELS',
+  'ANGLES & FLATS',
+  'FASTENERS & HARDWARE',
+  'CEMENT & CONCRETE',
+  'GENERAL TRADING'
+]
 
-export const DEFAULT_UNITS: { value: string; label: string }[] = []
+export const DEFAULT_UNITS: { value: string; label: string }[] = [
+  { value: 'MT', label: 'Metric Tonne (MT)' },
+  { value: 'KG', label: 'Kilogram (KG)' },
+  { value: 'PCS', label: 'Pieces (PCS)' },
+  { value: 'BOX', label: 'Box (BOX)' },
+  { value: 'PKT', label: 'Packet (PKT)' },
+  { value: 'BTL', label: 'Bottle (BTL)' },
+  { value: 'JAR', label: 'Jar (JAR)' },
+  { value: 'TIN', label: 'Tin (TIN)' },
+  { value: 'MTR', label: 'Meter (MTR)' },
+  { value: 'FT', label: 'Feet (FT)' },
+  { value: 'SET', label: 'Set (SET)' },
+  { value: 'QTL', label: 'Quintal (QTL)' },
+  { value: 'BUNDLE', label: 'Bundle (BUNDLE)' },
+  { value: 'NOS', label: 'Numbers (NOS)' }
+]
 
 export function getCustomCategories(): string[] {
+  let categories = [...DEFAULT_CATEGORIES]
   try {
     const saved = localStorage.getItem('custom_item_categories')
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed)) {
-        return Array.from(new Set(parsed.map(c => String(c).trim()).filter(Boolean)))
+        const customCats = parsed.map(c => String(c).trim()).filter(Boolean)
+        categories = Array.from(new Set([...categories, ...customCats]))
       }
     }
   } catch (e) {
     console.error('Failed to load categories', e)
   }
-  return DEFAULT_CATEGORIES
+  return categories
 }
 
 export function saveCustomCategory(category: string): string[] {
@@ -51,18 +78,24 @@ export function deleteCustomCategory(name: string): string[] {
 }
 
 export function getCustomUnits(): { value: string; label: string }[] {
+  let units = [...DEFAULT_UNITS]
   try {
     const saved = localStorage.getItem('custom_item_units')
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed)) {
-        return parsed
+        const customUnitsList: { value: string; label: string }[] = parsed
+        for (const u of customUnitsList) {
+          if (u && u.value && !units.some(existing => existing.value === u.value)) {
+            units.push(u)
+          }
+        }
       }
     }
   } catch (e) {
     console.error('Failed to load units', e)
   }
-  return DEFAULT_UNITS
+  return units
 }
 
 export function saveCustomUnit(unitCode: string, unitLabel?: string): { value: string; label: string }[] {
