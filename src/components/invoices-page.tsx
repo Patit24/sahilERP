@@ -13,7 +13,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, CaretLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple, FileText, Wallet, TrendUp, SlidersHorizontal, Scales } from '@phosphor-icons/react'
-import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY, calculatePaymentAllocations } from '@/lib/calculations'
+import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
@@ -1807,8 +1808,7 @@ export default function InvoicesPage({
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">INVOICE NO</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">SUPPLIER</TableHead>
-                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">ITEMS</TableHead>
-                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">QUANTITY (MT)</TableHead>
+                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">STATUS</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">AMOUNT</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
               </TableRow>
@@ -1816,7 +1816,7 @@ export default function InvoicesPage({
             <TableBody>
               {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-16 text-center">
+                  <TableCell colSpan={6} className="py-16 text-center">
                     <div className="max-w-sm mx-auto space-y-3">
                       <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
                         <Receipt size={32} weight="duotone" />
@@ -1840,9 +1840,6 @@ export default function InvoicesPage({
                   .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime())
                   .map((invoice) => {
                     const supplier = supplierMap.get(invoice.supplierId)
-                    const itemNames = (invoice.items || [])
-                      .map(item => itemMap.get(item.itemId)?.name || 'Unknown')
-                      .join(', ')
 
                     return (
                       <TableRow key={invoice.id} className="hover:bg-slate-50/80 border-b border-slate-100">
@@ -1859,10 +1856,25 @@ export default function InvoicesPage({
                         </TableCell>
                         <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
                         <TableCell className="font-semibold text-slate-800 text-sm">{supplier?.name || 'Unknown'}</TableCell>
-                        <TableCell className="text-xs text-slate-600 max-w-[200px] truncate" title={itemNames}>
-                          {itemNames || 'No items'}
+                        <TableCell>
+                          {(() => {
+                            const allocs = calculatePaymentAllocations(payments, invoices).allocations
+                            const alloc = allocs.find(a => a.invoiceId === invoice.id)?.allocatedAmount || 0
+                            const isPaid = alloc >= invoice.invoiceAmount
+                            const isPartial = alloc > 0 && alloc < invoice.invoiceAmount
+                            const statusText = isPaid ? 'Paid' : isPartial ? 'Partial' : 'Pending'
+                            return (
+                              <span className={cn(
+                                "text-xs font-bold px-3 py-1 rounded-full border inline-block",
+                                isPaid && "bg-emerald-50 text-emerald-700 border-emerald-200/60",
+                                isPartial && "bg-blue-50 text-blue-700 border-blue-200/60",
+                                !isPaid && !isPartial && "bg-amber-50 text-amber-700 border-amber-200/60"
+                              )}>
+                                {statusText}
+                              </span>
+                            )
+                          })()}
                         </TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-900">{formatMT(invoice.quantityMT)}</TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

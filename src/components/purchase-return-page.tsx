@@ -520,8 +520,7 @@ export default function PurchaseReturnPage({
                   <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">RETURN / REF NO</TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">SUPPLIER</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">RETURN ITEMS SUMMARY</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">QUANTITY (MT)</TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">STATUS</TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">RETURN AMOUNT</TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
                 </TableRow>
@@ -529,7 +528,7 @@ export default function PurchaseReturnPage({
               <TableBody>
                 {filteredReturns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center">
+                    <TableCell colSpan={6} className="py-16 text-center">
                       <div className="max-w-sm mx-auto space-y-3">
                         <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
                           <Receipt size={32} weight="duotone" />
@@ -558,22 +557,10 @@ export default function PurchaseReturnPage({
                         <TableCell className="font-mono font-bold text-slate-900 text-sm">{item.returnNo || item.invoiceRef || '-'}</TableCell>
                         <TableCell className="font-semibold text-slate-800 text-sm">{supplier?.name || 'Unknown'}</TableCell>
                         <TableCell>
-                          {item.items && item.items.length > 0 ? (
-                            <div className="text-xs space-y-0.5">
-                              {item.items.map((line, i) => {
-                                const itm = items.find(x => x.id === line.itemId)
-                                return (
-                                  <div key={i} className="text-slate-600">
-                                    <span className="font-medium text-slate-900">{itm?.name || 'Item'}</span>: {line.quantityMT} {itm?.unit || 'MT'} @ {formatCurrency(line.rate)}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Custom Return Amount</span>
-                          )}
+                          <span className="bg-purple-50 text-purple-700 text-xs font-bold px-3 py-1 rounded-full border border-purple-200/60 inline-block">
+                            Debit Note Generated
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-900">{formatMT(item.quantityMT || 0)}</TableCell>
                         <TableCell className="text-right font-mono font-bold text-emerald-600 text-sm">
                           {formatCurrency(item.amount)}
                         </TableCell>
