@@ -425,21 +425,7 @@ export default function PurchaseReturnPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-            {/* Card 1: Total Return Records */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Return Records</p>
-                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{filteredReturns.length}</p>
-                <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-2">
-                  <TrendUp className="h-3.5 w-3.5" weight="bold" /> 0% from last month
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/60 flex items-center justify-center shrink-0">
-                <Receipt className="h-6 w-6" weight="duotone" />
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
             {/* Card 2: Total Quantity Returned */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
               <div>
