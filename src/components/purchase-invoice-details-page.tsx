@@ -216,7 +216,9 @@ export default function PurchaseInvoiceDetailsPage({
 
         const itemCostBreakdowns: ItemCostBreakdown[] = (invoice.items || []).map(item => {
           const itemData = itemMap.get(item.itemId)
-          const activeUnit = item.entryUnit || itemData?.alternativeUnit || itemData?.unit || 'MT'
+          const activeUnit = (itemData?.alternativeUnit && itemData.alternativeUnit !== 'NONE' && itemData.alternativeUnit.trim() !== '')
+            ? itemData.alternativeUnit
+            : (item.entryUnit || itemData?.unit || 'MT')
           const itemQty = item.entryQuantity && item.entryQuantity > 0 ? item.entryQuantity : (item.quantityMT || 0)
           const unitWeightKG = item.weightKG && itemQty > 0
             ? item.weightKG / itemQty
