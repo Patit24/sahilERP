@@ -2018,6 +2018,10 @@ function App() {
                   return [...untouched, ...t]
                 })
               }}
+              fixedSchemes={safeFixedSchemes}
+              receivedDiscounts={safeReceivedDiscounts}
+              expenseEntries={safeExpenseEntries}
+              expenseTypes={safeExpenseTypes}
               onNavigateToInvoiceDetails={handleNavigateToInvoiceDetails}
             />
           )

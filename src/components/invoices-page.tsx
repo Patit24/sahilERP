@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
+import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn, FixedScheme, ReceivedDiscount, ExpenseEntry, ExpenseType } from '@/lib/types'
 import { calculateItemStockMap } from '@/lib/report-calculations'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog'
-import { PurchaseInvoiceDetailsView } from '@/components/purchase-invoice-details-view'
+import PurchaseInvoiceDetailsPage from '@/components/purchase-invoice-details-page'
 import { exportPurchaseInvoicePDF } from '@/lib/pdf-export'
 import { PartyEditorDialog } from '@/components/party-editor-dialog'
 import { ItemEditorDialog } from '@/components/item-editor-dialog'
@@ -42,6 +42,10 @@ interface InvoicesPageProps {
   transactions: CashBankTransaction[]
   onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
   onNavigateToInvoiceDetails?: (invoiceNo: string) => void
+  fixedSchemes?: FixedScheme[]
+  receivedDiscounts?: ReceivedDiscount[]
+  expenseEntries?: ExpenseEntry[]
+  expenseTypes?: ExpenseType[]
 }
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
@@ -64,7 +68,11 @@ export default function InvoicesPage({
   counters,
   transactions,
   onUpdateCashBank,
-  onNavigateToInvoiceDetails
+  onNavigateToInvoiceDetails,
+  fixedSchemes = [],
+  receivedDiscounts = [],
+  expenseEntries = [],
+  expenseTypes = []
 }: InvoicesPageProps) {
   const stockMap = useMemo(() => {
     return calculateItemStockMap(items, invoices, salesInvoices, purchaseReturns, salesReturns)
@@ -867,15 +875,34 @@ export default function InvoicesPage({
 
   if (detailsInvoice) {
     return (
-      <PurchaseInvoiceDetailsView
-        invoice={detailsInvoice}
-        payments={payments}
-        suppliers={suppliers}
-        items={items}
-        fixedSchemes={[]}
-        expenseEntries={[]}
-        onBack={() => setDetailsInvoice(null)}
-      />
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDetailsInvoice(null)}
+            className="gap-2 font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Purchase Invoices
+          </Button>
+          <span className="text-xs text-slate-500 font-semibold">
+            Viewing Purchase Invoice Details Report for Invoice #{detailsInvoice.invoiceNo}
+          </span>
+        </div>
+        <PurchaseInvoiceDetailsPage
+          invoices={invoices}
+          payments={payments}
+          suppliers={suppliers}
+          items={items}
+          fixedSchemes={fixedSchemes}
+          receivedDiscounts={receivedDiscounts}
+          expenseEntries={expenseEntries}
+          expenseTypes={expenseTypes}
+          currentFY={currentFY}
+          initialInvoiceNo={detailsInvoice.invoiceNo}
+        />
+      </div>
     )
   }
 
