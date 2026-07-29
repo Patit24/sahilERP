@@ -18,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog'
+import { PurchaseInvoiceDetailsDialog } from '@/components/purchase-invoice-details-dialog'
 import { exportPurchaseInvoicePDF } from '@/lib/pdf-export'
 import { PartyEditorDialog } from '@/components/party-editor-dialog'
 import { ItemEditorDialog } from '@/components/item-editor-dialog'
@@ -72,6 +73,7 @@ export default function InvoicesPage({
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [editingInvoice, setEditingInvoice] = useState<PurchaseInvoice | null>(null)
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null)
+  const [detailsInvoice, setDetailsInvoice] = useState<PurchaseInvoice | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [invoiceToDelete, setInvoiceToDelete] = useState<PurchaseInvoice | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -1831,13 +1833,7 @@ export default function InvoicesPage({
                         <TableCell className="font-mono font-bold text-slate-900 text-sm">
                           <button
                             type="button"
-                            onClick={() => {
-                              if (onNavigateToInvoiceDetails) {
-                                onNavigateToInvoiceDetails(invoice.invoiceNo)
-                              } else {
-                                setPreviewInvoice(invoice)
-                              }
-                            }}
+                            onClick={() => setDetailsInvoice(invoice)}
                             className="text-[#0256e8] hover:text-blue-800 hover:underline flex items-center gap-1 font-mono font-bold text-left cursor-pointer group"
                             title="Click to view full Invoice Details Report"
                           >
@@ -1854,18 +1850,16 @@ export default function InvoicesPage({
                         <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {onNavigateToInvoiceDetails && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onNavigateToInvoiceDetails(invoice.invoiceNo)}
-                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg"
-                                aria-label={`View Invoice Details Report for ${invoice.invoiceNo}`}
-                                title="View Invoice Details Report"
-                              >
-                                <FileText size={16} weight="bold" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDetailsInvoice(invoice)}
+                              className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg"
+                              aria-label={`View Invoice Details Report for ${invoice.invoiceNo}`}
+                              title="View Invoice Details Report"
+                            >
+                              <FileText size={16} weight="bold" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1948,6 +1942,18 @@ export default function InvoicesPage({
           items={previewInvoice.items || []}
           itemMap={itemMap}
           totalAmount={previewInvoice.invoiceAmount}
+        />
+      )}
+
+      {detailsInvoice && (
+        <PurchaseInvoiceDetailsDialog
+          open={Boolean(detailsInvoice)}
+          onOpenChange={(open) => !open && setDetailsInvoice(null)}
+          invoice={detailsInvoice}
+          payments={payments}
+          suppliers={suppliers}
+          items={items}
+          fixedSchemes={[]}
         />
       )}
 
