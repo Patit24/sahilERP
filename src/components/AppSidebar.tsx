@@ -208,8 +208,8 @@ export function AppSidebar({
                 transition={{ duration: 0.15 }}
                 className="flex-1 min-w-0"
               >
-                <h1 className="text-[17px] font-extrabold text-slate-900 tracking-tight leading-tight">
-                  SK ERP
+                <h1 className="text-[15px] font-extrabold text-slate-900 tracking-tight leading-tight truncate" title={activeCompany}>
+                  {activeCompany || 'SK ERP'}
                 </h1>
                 <p className="text-[10px] text-slate-400 font-medium leading-tight truncate">
                   Financial Management
@@ -262,8 +262,8 @@ export function AppSidebar({
         )}
       </div>
 
-      {/* ── Navigation ── */}
-      <ScrollArea className="flex-1 py-3 px-2.5">
+      {/* ── Navigation (Scrollable) ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto py-3 px-2.5">
         <nav className="space-y-0.5">
 
           {/* Dashboard */}
@@ -421,7 +421,7 @@ export function AppSidebar({
             )
           })}
         </nav>
-      </ScrollArea>
+      </div>
 
       {/* ── Bottom footer ── */}
       {isVisuallyExpanded && canManageSystem && (
