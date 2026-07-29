@@ -68,7 +68,7 @@
 .erp-reference-item-head,
 .erp-reference-item-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px, 1.6fr) 60px minmax(100px, 1.1fr) minmax(95px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) 65px minmax(90px, 0.9fr) minmax(105px, 1fr) 40px;
+  grid-template-columns: 40px minmax(140px, 1.6fr) 60px minmax(100px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) 65px minmax(90px, 0.9fr) minmax(105px, 1fr) 40px;
   align-items: center;
 }
 

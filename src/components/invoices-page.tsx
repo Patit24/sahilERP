@@ -1133,7 +1133,6 @@ export default function InvoicesPage({
                         <span>Items</span>
                         <span>HSN/ SAC</span>
                         <span>Qty</span>
-                        <span>Weight (KG)</span>
                         <span>Price (excl. Tax)</span>
                         <span>Price (incl. Tax)</span>
                         <span>Discount</span>
@@ -1186,30 +1185,6 @@ export default function InvoicesPage({
                                 </select>
                               )
                             })()}
-                          </div>
-                          {/* SEPARATE MANUAL FIELD FOR WEIGHT IN KG */}
-                          <div className="relative flex items-center">
-                            <Input
-                              type="number"
-                              step="0.001"
-                              min="0"
-                              value={invoiceItem.weightKG !== undefined && invoiceItem.weightKG !== null ? invoiceItem.weightKG : ''}
-                              onChange={(e) => updateInvoiceItem(index, 'weightKG', e.target.value)}
-                              placeholder={(() => {
-                                const sel = items.find(i => i.id === invoiceItem.itemId)
-                                const entryQty = (invoiceItem.entryQuantity || 0) > 0 ? (invoiceItem.entryQuantity || 0) : (invoiceItem.quantityMT || 0)
-                                const activeUnit = invoiceItem.entryUnit || sel?.unit || 'MT'
-                                let kgFactor = 1000
-                                if (activeUnit === 'KG') kgFactor = 1
-                                else if (sel) {
-                                  if (activeUnit === sel.unit) kgFactor = sel.conversionFactor || (sel.unit === 'MT' ? 1000 : 1)
-                                  else if (activeUnit === sel.alternativeUnit) kgFactor = (sel.conversionFactor || 1000) / (sel.alternativeUnitRatio || 1)
-                                  else kgFactor = sel.conversionFactor || (sel.unit === 'MT' ? 1000 : 1)
-                                }
-                                return (entryQty * kgFactor) > 0 ? (entryQty * kgFactor).toString() : '0 KG'
-                              })()}
-                              className="erp-reference-cell-input font-mono text-right font-bold text-emerald-800 bg-emerald-50/50 border-emerald-200 focus:border-emerald-500"
-                            />
                           </div>
                           <Input
                             type="number"
