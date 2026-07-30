@@ -761,7 +761,9 @@ export function calculateExpectedDiscounts(
       
       for (const scheme of applicableSchemes) {
         const schemeUnit = scheme.unit || 'MT'
-        const eligibleQty = getInvoiceQtyForUnit(invoice, schemeUnit)
+        const fullQty = getInvoiceQtyForUnit(invoice, schemeUnit)
+        const ratio = invoice.quantityMT > 0 ? remainingInvoiceMT / invoice.quantityMT : 1
+        const eligibleQty = fullQty * ratio
 
         if (eligibleQty > 0) {
           expectedDiscounts.push({
