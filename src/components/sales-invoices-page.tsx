@@ -1736,20 +1736,20 @@ export default function SalesInvoicesPage({
                         .sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
 
                       let accInv = 0
-                      let statusLabel = 'Payment pending'
+                      let statusLabel = 'Pending'
                       let badgeClass = 'bg-rose-50 text-rose-700 border-rose-200'
 
                       for (const inv of custInvoices) {
                         if (inv.id === invoice.id) {
                           const rem = Math.max(0, totalCustPaid - accInv)
-                          if (rem >= inv.invoiceAmount) {
+                          if (rem >= inv.invoiceAmount - 0.05) {
                             statusLabel = 'Paid'
                             badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          } else if (rem > 0) {
+                          } else if (rem >= 1.0) {
                             statusLabel = 'Partial Paid'
                             badgeClass = 'bg-amber-50 text-amber-700 border-amber-200'
                           } else {
-                            statusLabel = 'Payment pending'
+                            statusLabel = 'Pending'
                             badgeClass = 'bg-rose-50 text-rose-700 border-rose-200'
                           }
                           break
