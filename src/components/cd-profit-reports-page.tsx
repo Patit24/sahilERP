@@ -180,6 +180,21 @@ export default function CDProfitReportsPage({
     return activeStockLayers.reduce((sum, l) => sum + (l.remainingQty * l.landingCost), 0)
   }, [activeStockLayers])
 
+  // Landing Cost Trend items (all items with purchase lots matching filters, without 5 item slice limit)
+  const costTrendItems = useMemo(() => {
+    return items.map(item => {
+      const itemLayers = purchaseLayers.filter(l => {
+        if (l.itemId !== item.id) return false
+        if (selectedSupplierId !== 'all' && l.supplierId !== selectedSupplierId) return false
+        if (selectedCategory !== 'all' && item.category !== selectedCategory) return false
+        if (selectedItemId !== 'all' && item.id !== selectedItemId) return false
+        if (searchQuery.trim() && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+        return true
+      })
+      return { item, itemLayers }
+    }).filter(({ itemLayers }) => itemLayers.length > 0)
+  }, [items, purchaseLayers, selectedSupplierId, selectedCategory, selectedItemId, searchQuery])
+
   // Item Cost History details for modal
   const itemCostHistory = useMemo(() => {
     if (!selectedHistoryItemId) return null
@@ -679,11 +694,12 @@ export default function CDProfitReportsPage({
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
-                {items.slice(0, 5).map(item => {
-                  const itemLayers = purchaseLayers.filter(l => l.itemId === item.id)
-                  if (itemLayers.length === 0) return null
-
-                  return (
+                {costTrendItems.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-xs font-medium">
+                    No purchase lots found for the selected filters.
+                  </div>
+                ) : (
+                  costTrendItems.map(({ item, itemLayers }) => (
                     <div key={item.id} className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
@@ -715,8 +731,8 @@ export default function CDProfitReportsPage({
                         ))}
                       </div>
                     </div>
-                  )
-                })}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
