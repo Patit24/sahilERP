@@ -2636,6 +2636,7 @@ function App() {
           currentUserLabel={currentUser?.displayName || 'Guest'}
           currentUserRole={isMasterAdmin ? 'Master' : 'Agent'}
           setShortcutsDialogOpen={setShortcutsDialogOpen}
+          onLogout={handleLogout}
         />
 
         <AppDialogs

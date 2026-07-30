@@ -424,56 +424,61 @@ export function AppSidebar({
       </div>
 
       {/* ── Bottom footer ── */}
-      {isVisuallyExpanded && canManageSystem && (
+      {isVisuallyExpanded && (
         <div className="p-4 border-t border-[#E8EAEF] bg-[#F5F6FA] space-y-2 shrink-0">
-          <p className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase px-1">
-            Data Management
-          </p>
+          {canManageSystem && (
+            <>
+              <p className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase px-1">
+                Data Management
+              </p>
 
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={handleSingleEntityBackup}
-              title="Backup current business/year"
-              className="flex items-center justify-center gap-1.5 h-8 text-xs font-semibold rounded-xl border border-[#E8EAEF] bg-white text-slate-600 hover:bg-[#F1F3F9] hover:border-[#5B5FEF]/30 transition-all shadow-sm"
-            >
-              <DownloadSimple className="w-3.5 h-3.5 text-slate-400" weight="bold" />
-              Single
-            </button>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={handleSingleEntityBackup}
+                  title="Backup current business/year"
+                  className="flex items-center justify-center gap-1.5 h-8 text-xs font-semibold rounded-xl border border-[#E8EAEF] bg-white text-slate-600 hover:bg-[#F1F3F9] hover:border-[#5B5FEF]/30 transition-all shadow-sm"
+                >
+                  <DownloadSimple className="w-3.5 h-3.5 text-slate-400" weight="bold" />
+                  Single
+                </button>
 
-            <button
-              onClick={handleMasterBackup}
-              title="Full Master Backup"
-              className="flex items-center justify-center gap-1.5 h-8 text-xs font-semibold rounded-xl border border-[#E8EAEF] bg-white text-slate-600 hover:bg-[#F1F3F9] hover:border-[#5B5FEF]/30 transition-all shadow-sm"
-            >
-              <Database className="w-3.5 h-3.5 text-slate-400" weight="bold" />
-              Master
-            </button>
-          </div>
+                <button
+                  onClick={handleMasterBackup}
+                  title="Full Master Backup"
+                  className="flex items-center justify-center gap-1.5 h-8 text-xs font-semibold rounded-xl border border-[#E8EAEF] bg-white text-slate-600 hover:bg-[#F1F3F9] hover:border-[#5B5FEF]/30 transition-all shadow-sm"
+                >
+                  <Database className="w-3.5 h-3.5 text-slate-400" weight="bold" />
+                  Master
+                </button>
+              </div>
 
-          <div>
-            <input
-              type="file"
-              id="sidebar-smart-restore"
-              accept=".json"
-              className="hidden"
-              onChange={handleSmartRestore}
-            />
-            <label
-              htmlFor="sidebar-smart-restore"
-              className="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-xs font-semibold bg-[#5B5FEF]/10 border border-[#5B5FEF]/20 text-[#5B5FEF] hover:bg-[#5B5FEF]/15 cursor-pointer transition-all"
-            >
-              <UploadSimple className="w-4 h-4" weight="bold" />
-              Restore Backup File
-            </label>
-          </div>
+              <div>
+                <input
+                  type="file"
+                  id="sidebar-smart-restore"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleSmartRestore}
+                />
+                <label
+                  htmlFor="sidebar-smart-restore"
+                  className="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-xs font-semibold bg-[#5B5FEF]/10 border border-[#5B5FEF]/20 text-[#5B5FEF] hover:bg-[#5B5FEF]/15 cursor-pointer transition-all"
+                >
+                  <UploadSimple className="w-4 h-4" weight="bold" />
+                  Restore Backup File
+                </label>
+              </div>
+            </>
+          )}
 
           {onLogout && (
             <button
               onClick={onLogout}
-              className="flex items-center justify-center gap-2 w-full h-8 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 transition-all"
+              className="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-xs font-bold text-red-600 bg-red-50 border border-red-200/80 hover:bg-red-100 hover:border-red-300 transition-all shadow-sm"
+              title="Logout / Switch Account"
             >
-              <SignOut className="w-4 h-4" weight="bold" />
-              Logout
+              <SignOut className="w-4 h-4 text-red-600" weight="bold" />
+              Logout / Switch Account
             </button>
           )}
         </div>

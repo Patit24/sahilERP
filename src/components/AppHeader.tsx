@@ -11,6 +11,7 @@ import {
   Lock,
   Plus,
   CaretDown,
+  SignOut,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 
@@ -27,6 +28,7 @@ interface AppHeaderProps {
   currentUserLabel: string
   currentUserRole: string
   setShortcutsDialogOpen: (open: boolean) => void
+  onLogout?: () => void
 }
 
 // Map view IDs to human-readable titles
@@ -63,6 +65,7 @@ export function AppHeader({
   currentUserLabel,
   currentUserRole,
   setShortcutsDialogOpen,
+  onLogout,
 }: AppHeaderProps) {
   const [isDark, setIsDark] = useState(false)
   const viewMeta = VIEW_TITLES[activeView] ?? {
@@ -190,20 +193,37 @@ export function AppHeader({
           <CaretDown className="h-3 w-3" weight="bold" />
         </button>
 
-        {/* User avatar pill */}
-        <div className="hidden md:flex items-center gap-2 bg-[#F5F6FA] border border-[#E8EAEF] rounded-xl px-3 py-1.5 cursor-pointer hover:bg-[#EEF0F8] transition-colors">
-          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#5B5FEF] to-[#7C3AED] text-white flex items-center justify-center text-[11px] font-extrabold shadow-sm">
+        {/* User avatar pill with Logout option */}
+        <div
+          onClick={onLogout}
+          title="Click to Logout / Switch Account"
+          className="flex items-center gap-2 bg-[#F5F6FA] border border-[#E8EAEF] rounded-xl px-2.5 py-1.5 cursor-pointer hover:bg-red-50 hover:border-red-200 group transition-all"
+        >
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#5B5FEF] to-[#7C3AED] text-white flex items-center justify-center text-[11px] font-extrabold shadow-sm group-hover:from-red-500 group-hover:to-red-600 transition-all">
             {initials || <User className="h-3.5 w-3.5" weight="bold" />}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-[12px] font-bold text-slate-900 leading-tight truncate max-w-[100px]">
+            <span className="text-[12px] font-bold text-slate-900 leading-tight truncate max-w-[100px] group-hover:text-red-700">
               {currentUserLabel || 'Master Admin'}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium leading-tight capitalize">
+            <span className="text-[10px] text-slate-400 font-medium leading-tight capitalize group-hover:text-red-500">
               {currentUserRole || 'Administrator'}
             </span>
           </div>
         </div>
+
+        {/* Dedicated Logout button for fast one-click exit */}
+        {onLogout && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onLogout}
+            className="h-9 w-9 text-red-500 hover:bg-red-100 hover:text-red-700 rounded-xl transition-all"
+            title="Logout / Switch Account"
+          >
+            <SignOut className="h-4.5 w-4.5" weight="bold" />
+          </Button>
+        )}
 
         {/* Quick Action button */}
         <Button
