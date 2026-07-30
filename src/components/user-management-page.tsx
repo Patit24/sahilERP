@@ -99,12 +99,44 @@ export default function UserManagementPage({
     )
   }
 
-  const toggleBusiness = (businessId: string) => {
-    setAllowedBusinesses(prev =>
-      prev.includes(businessId)
-        ? prev.filter(id => id !== businessId)
-        : [...prev, businessId]
+  const displayedCounters = useMemo(() => {
+    if (!allowedBusinesses || allowedBusinesses.length === 0) {
+      return counters
+    }
+    return counters.filter(c => 
+      allowedBusinesses.includes(c.businessId) || 
+      allowedBusinesses.includes(c.businessName) ||
+      allowedBusinesses.includes(c.companyId)
     )
+  }, [counters, allowedBusinesses])
+
+  const toggleBusiness = (businessId: string) => {
+    setAllowedBusinesses(prev => {
+      const isSelecting = !prev.includes(businessId)
+      const nextBusinesses = isSelecting
+        ? [...prev, businessId]
+        : prev.filter(id => id !== businessId)
+
+      const bizCounters = counters.filter(c => 
+        c.businessId === businessId || 
+        c.businessName === businessId || 
+        c.companyId === businessId
+      )
+      const bizCounterIds = bizCounters.map(c => c.id)
+
+      if (isSelecting) {
+        setAllowedCounters(currentCounters => {
+          const set = new Set([...currentCounters, ...bizCounterIds])
+          return Array.from(set)
+        })
+      } else {
+        setAllowedCounters(currentCounters => {
+          return currentCounters.filter(id => !bizCounterIds.includes(id))
+        })
+      }
+
+      return nextBusinesses
+    })
   }
 
   const resetForm = () => {
@@ -309,27 +341,52 @@ export default function UserManagementPage({
 
 
               <div className="space-y-2">
-                <Label>Assigned Counters</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Select which counters this agent can view/manage. (Leave empty if they shouldn't see any balances).
-                </p>
-                <div className="grid gap-2 grid-cols-2">
-                  {counters?.map(counter => (
-                    <div 
-                      key={counter.id} 
-                      onClick={() => toggleCounter(counter.id)}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${allowedCounters.includes(counter.id) ? 'bg-primary/10 border-primary' : 'bg-background hover:bg-muted'}`}
-                    >
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${allowedCounters.includes(counter.id) ? 'bg-primary border-primary' : 'border-input'}`}>
-                        {allowedCounters.includes(counter.id) && <ShieldCheck className="w-3 h-3 text-primary-foreground" />}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{counter.name}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{counter.type}</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <Label>Assigned Counters</Label>
+                  {allowedBusinesses.length > 0 && (
+                    <span className="text-[11px] font-semibold text-primary">
+                      Filtered by selected business ({allowedBusinesses.length})
+                    </span>
+                  )}
                 </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select which counters this agent can view/manage. (Counters are filtered by selected business).
+                </p>
+                {displayedCounters.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center">
+                    {allowedBusinesses.length === 0 
+                      ? 'No counters available.' 
+                      : 'No counters found for the selected business(es).'}
+                  </div>
+                ) : (
+                  <div className="grid gap-2 grid-cols-2">
+                    {displayedCounters.map(counter => {
+                      const isChecked = allowedCounters.includes(counter.id)
+                      return (
+                        <div 
+                          key={`${counter.businessId || counter.businessName || ''}_${counter.id}`} 
+                          onClick={() => toggleCounter(counter.id)}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${isChecked ? 'bg-primary/10 border-primary' : 'bg-background hover:bg-muted'}`}
+                        >
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isChecked ? 'bg-primary border-primary' : 'border-input'}`}>
+                            {isChecked && <ShieldCheck className="w-3 h-3 text-primary-foreground" />}
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-sm font-medium truncate" title={counter.name}>{counter.name}</span>
+                              {counter.businessName && (
+                                <span className="text-[9px] bg-primary/15 text-primary px-1.5 py-0.5 rounded font-bold shrink-0 truncate">
+                                  {counter.businessName}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{counter.type}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

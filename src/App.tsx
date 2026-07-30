@@ -725,6 +725,43 @@ function App() {
     })
   }, [cashBankTransactions, currentUser, agentAllowedCounters])
 
+  const allBusinessCounters = useMemo(() => {
+    const map = new Map<string, any>()
+
+    metadata.businesses.forEach((biz) => {
+      const fy = metadata.activeFY || biz.startFY || '2026-27'
+      const tenant = getTenantData(biz.id, fy)
+      if (tenant && Array.isArray(tenant.cashBankCounters)) {
+        tenant.cashBankCounters.forEach((counter: any) => {
+          if (counter && counter.id) {
+            map.set(`${biz.id}_${counter.id}`, {
+              ...counter,
+              businessId: biz.id,
+              businessName: biz.name
+            })
+          }
+        })
+      }
+    })
+
+    if (Array.isArray(cashBankCounters)) {
+      cashBankCounters.forEach((counter: any) => {
+        if (counter && counter.id) {
+          const key = `${metadata.activeCompanyId}_${counter.id}`
+          if (!map.has(key)) {
+            map.set(key, {
+              ...counter,
+              businessId: metadata.activeCompanyId,
+              businessName: activeCompany || 'Default Business'
+            })
+          }
+        }
+      })
+    }
+
+    return Array.from(map.values())
+  }, [metadata.businesses, metadata.activeFY, metadata.activeCompanyId, activeCompany, cashBankCounters])
+
   const canAccessView = useCallback((viewId: string) => {
     if (viewId === 'dashboard') return true
     if (viewId === 'user-management') return isMasterAdmin
@@ -2373,7 +2410,7 @@ function App() {
                 setUserAccounts(nextAccounts)
                 saveUserAccounts(nextAccounts)
               }}
-              counters={cashBankCounters}
+              counters={allBusinessCounters}
               businesses={metadata.businesses}
               securityMode={useServerAuth ? 'server' : 'local'}
               onCreateRemoteAgent={useServerAuth ? async (input) => {
