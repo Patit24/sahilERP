@@ -192,6 +192,8 @@ export default function ItemsPage({
       return
     }
 
+    if (!window.confirm(`Are you sure you want to delete category "${catName}"?`)) return
+
     const updated = deleteCustomCategory(catName, activeCompanyId)
     setCustomCategories(updated)
     toast.success(`Category "${catName}" deleted`)
@@ -232,6 +234,8 @@ export default function ItemsPage({
       })
       return
     }
+
+    if (!window.confirm(`Are you sure you want to delete measuring unit "${unitCode}"?`)) return
 
     const updated = deleteCustomUnit(unitCode, activeCompanyId)
     setCustomUnits(updated)

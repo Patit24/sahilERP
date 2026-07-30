@@ -69,14 +69,8 @@ export default function ExpenseTypesPage({ expenseTypes, setExpenseTypes, expens
       return
     }
     
-    const entriesCount = getExpenseEntriesCount(expenseType.id)
-    
-    if (entriesCount > 0) {
-      setExpenseTypeToDelete(expenseType)
-      setDeleteAlertOpen(true)
-    } else {
-      handleDeleteExpenseType(expenseType.id)
-    }
+    setExpenseTypeToDelete(expenseType)
+    setDeleteAlertOpen(true)
   }
 
   const handleDeleteExpenseType = (id: string) => {
