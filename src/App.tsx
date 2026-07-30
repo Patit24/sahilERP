@@ -146,6 +146,7 @@ import {
 import {
   appendAuditLog,
   AuthenticatedUser,
+  createAgentAccount,
   createMasterAdmin,
   getCurrentUser,
   getUserAccounts,
@@ -173,6 +174,7 @@ import { appendServerAuditLog } from '@/lib/remote-audit'
 import { isLocalCacheDisabled } from '@/lib/firebase-client'
 import {
   canUseFirebaseAuth,
+  createRemoteAgentAccount,
   getRemoteCurrentUser,
   listRemoteUserProfiles,
   RemoteAuthServiceUnavailableError,
@@ -1214,7 +1216,7 @@ function App() {
 
     if (useServerAuth) {
       if (!authUsername.trim()) {
-        setAuthError('Enter your email.')
+        setAuthError('Enter your email or username.')
         return
       }
       if (!authPasscode.trim()) {
@@ -1228,11 +1230,30 @@ function App() {
         if (!email.includes('@')) {
           email = `${email}@sktraders.local`
         }
-        const user = await signInRemoteUser(email, authPasscode)
-        if (!user) {
-          setAuthError('No active server profile found for this user.')
-          return
+
+        let user: AuthenticatedUser | null = null
+        try {
+          user = await signInRemoteUser(email, authPasscode)
+        } catch {
+          // Fallback to local accounts if remote auth fails
+          const localRes = await verifyUserLoginDetailed(authUsername, authPasscode)
+          if (localRes.user) {
+            user = localRes.user
+          } else {
+            throw new Error(localRes.error || 'Incorrect email or password.')
+          }
         }
+
+        if (!user) {
+          const localRes = await verifyUserLoginDetailed(authUsername, authPasscode)
+          if (localRes.user) {
+            user = localRes.user
+          } else {
+            setAuthError('No active profile found for this user.')
+            return
+          }
+        }
+
         setCurrentUser(user)
         setIsAuthenticated(true)
         setAuthPasscode('')
@@ -2310,7 +2331,25 @@ function App() {
               }}
               counters={cashBankCounters}
               securityMode={useServerAuth ? 'server' : 'local'}
-              onSaveAgent={useServerAuth ? async (input) => updateRemoteUserProfile({
+              onCreateRemoteAgent={useServerAuth ? async (input) => {
+                await createRemoteAgentAccount({
+                  email: input.email,
+                  displayName: input.displayName,
+                  passcode: input.passcode,
+                  companyId: metadata.activeCompanyId,
+                  permissions: input.permissions,
+                  allowedCounters: input.allowedCounters
+                })
+                await createAgentAccount({
+                  username: input.email,
+                  displayName: input.displayName,
+                  passcode: input.passcode,
+                  permissions: input.permissions,
+                  allowedCounters: input.allowedCounters
+                })
+                setUserAccounts(getUserAccounts())
+              } : undefined}
+              onSaveAgent={useServerAuth ? (input) => updateRemoteUserProfile({
                 id: input.id,
                 companyId: metadata.activeCompanyId,
                 displayName: input.displayName,

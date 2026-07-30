@@ -16,7 +16,7 @@ import {
   setDoc,
   serverTimestamp
 } from 'firebase/firestore'
-import { auth, db, isFirebaseAuthEnabled, isFirebaseConfigured } from './firebase-client'
+import { firebaseConfig, auth, db, isFirebaseAuthEnabled, isFirebaseConfigured } from './firebase-client'
 import { AuthenticatedUser, PermissionMap, UserAccount } from './security-utils'
 
 // ─── Error Classes ────────────────────────────────────────────────────────────
@@ -221,6 +221,59 @@ export async function updateRemoteUserProfile(input: {
   )
 
   return listRemoteUserProfiles()
+}
+
+export async function createRemoteAgentAccount(input: {
+  email: string
+  displayName: string
+  passcode: string
+  companyId: string
+  permissions?: PermissionMap
+  allowedCounters?: string[]
+}): Promise<void> {
+  if (!canUseFirebaseAuth() || !db) return
+
+  const cleanEmail = input.email.trim().toLowerCase()
+  const secondaryApp = initializeApp(firebaseConfig as any, `Secondary-${Date.now()}`)
+  const secondaryAuth = getAuth(secondaryApp)
+
+  try {
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, input.passcode)
+    const uid = cred.user.uid
+    const now = new Date().toISOString()
+
+    await withTimeout(
+      setDoc(doc(db, 'users', uid), {
+        email: cleanEmail,
+        displayName: input.displayName.trim() || cleanEmail,
+        role: 'agent',
+        permissions: input.permissions || {},
+        isActive: true,
+        companyId: input.companyId,
+        allowedCounters: input.allowedCounters || [],
+        createdAt: now,
+        updatedAt: now
+      })
+    )
+  } catch (error: any) {
+    if (error?.code === 'auth/email-already-in-use') {
+      // If user already exists in Firebase Auth, attempt login or Firestore document overwrite
+      const snap = await getDocs(collection(db, 'users'))
+      const match = snap.docs.find(d => (d.data() as FirestoreUserProfile).email === cleanEmail)
+      if (match) {
+        await updateDoc(doc(db, 'users', match.id), {
+          displayName: input.displayName.trim() || cleanEmail,
+          permissions: input.permissions || {},
+          allowedCounters: input.allowedCounters || [],
+          updatedAt: new Date().toISOString()
+        })
+        return
+      }
+    }
+    throw error
+  } finally {
+    await deleteApp(secondaryApp)
+  }
 }
 
 /**

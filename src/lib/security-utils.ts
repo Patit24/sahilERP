@@ -214,9 +214,17 @@ export async function createAgentAccount(input: {
   const accounts = getUserAccounts()
   const rawUsername = input.username.trim().toLowerCase()
   const normalizedUsername = rawUsername.split('@')[0]
-  if (!normalizedUsername) throw new Error('Username is required')
-  if (accounts.some((account) => account.username.toLowerCase() === normalizedUsername || account.username.toLowerCase() === rawUsername)) {
-    throw new Error(`Username '${normalizedUsername}' already exists`)
+  if (!rawUsername) throw new Error('Username is required')
+
+  if (
+    accounts.some(
+      (account) =>
+        account.username.toLowerCase() === rawUsername ||
+        account.username.toLowerCase() === normalizedUsername ||
+        account.username.toLowerCase().split('@')[0] === normalizedUsername
+    )
+  ) {
+    throw new Error(`Username or email '${input.username.trim()}' already exists`)
   }
 
   const now = new Date().toISOString()
@@ -224,8 +232,8 @@ export async function createAgentAccount(input: {
   const passcodeHash = await hashPasscode(input.passcode, salt)
   const account: UserAccount = {
     id: createAccountId('agent'),
-    username: normalizedUsername,
-    displayName: input.displayName.trim() || normalizedUsername,
+    username: rawUsername,
+    displayName: input.displayName.trim() || normalizedUsername || rawUsername,
     role: 'agent',
     permissions: input.permissions || {},
     isActive: true,
@@ -302,7 +310,11 @@ export async function verifyUserLoginDetailed(username: string, passcode: string
 
   const accounts = getUserAccounts()
   const account = accounts.find(
-    (item) => item.username.toLowerCase() === cleanUsername || item.username.toLowerCase() === raw
+    (item) =>
+      item.username.toLowerCase() === raw ||
+      item.username.toLowerCase() === cleanUsername ||
+      item.username.toLowerCase().split('@')[0] === cleanUsername ||
+      item.username.toLowerCase().split('@')[0] === raw
   )
 
   if (!account) {
