@@ -174,6 +174,14 @@ export function ItemEditorDialog({
       return
     }
 
+    const parsedOpeningStock = parseFloat(openingStock) || 0
+    const parsedPurchasePrice = parseFloat(purchasePrice) || 0
+
+    if (parsedOpeningStock > 0 && parsedPurchasePrice <= 0) {
+      toast.error('Purchased price is required when opening stock is specified')
+      return
+    }
+
     const primRatio = parseFloat(primaryUnitRatio) || 1
     const altRatio = parseFloat(alternativeUnitRatio) || 1
     const parsedWeightKG = parseFloat(unitWeightKG) || 1
@@ -189,11 +197,11 @@ export function ItemEditorDialog({
       alternativeUnitRatio: altRatio,
       conversionFactor,
       category: category.trim() || undefined,
-      purchasePrice: parseFloat(purchasePrice) || undefined,
+      purchasePrice: parsedPurchasePrice || undefined,
       salesPrice: parseFloat(salesPrice) || undefined,
       gstRate: typeof parsedGstRate === 'number' && Number.isFinite(parsedGstRate) ? parsedGstRate : undefined,
-      openingStock: parseFloat(openingStock) || undefined,
-      openingValue: item?.openingValue
+      openingStock: parsedOpeningStock > 0 ? parsedOpeningStock : undefined,
+      openingValue: (parsedOpeningStock > 0 && parsedPurchasePrice > 0) ? (parsedOpeningStock * parsedPurchasePrice) : item?.openingValue
     })
     onOpenChange(false)
   }
@@ -267,7 +275,7 @@ export function ItemEditorDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="sharedItemPurchasePrice" className="font-semibold text-slate-700">
-                    Purchased Prices
+                    Purchased Prices {(parseFloat(openingStock) || 0) > 0 ? <span className="text-destructive">*</span> : null}
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-3 text-slate-400 font-mono">₹</span>
@@ -279,7 +287,10 @@ export function ItemEditorDialog({
                       value={purchasePrice}
                       onChange={(event) => setPurchasePrice(event.target.value)}
                       placeholder="ex: 200"
-                      className="h-11 pl-7 font-mono border-slate-300"
+                      className={cn(
+                        "h-11 pl-7 font-mono border-slate-300",
+                        ((parseFloat(openingStock) || 0) > 0 && (parseFloat(purchasePrice) || 0) <= 0) && "border-destructive focus-visible:ring-destructive"
+                      )}
                     />
                   </div>
                 </div>
