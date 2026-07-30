@@ -294,6 +294,14 @@ export default function CashBankManagement({
     const openBal = parseFloat(counterOpeningBal) || 0
 
     if (editingCounter) {
+      const hasTx = transactions.some((t) => t.counterId === editingCounter.id || t.toCounterId === editingCounter.id)
+      if (hasTx) {
+        toast.error(`Cannot edit counter "${editingCounter.name}"`, {
+          description: 'This counter has existing transactions and cannot be edited.'
+        })
+        return
+      }
+
       const diff = openBal - editingCounter.openingBalance
       const nextCounters = counters.map((c) => 
         c.id === editingCounter.id 
@@ -324,10 +332,19 @@ export default function CashBankManagement({
     if (isLocked) return toast.error('Data is locked.')
     const target = counters.find((c) => c.id === id)
     if (!target) return
+
+    const hasTx = transactions.some((t) => t.counterId === id || t.toCounterId === id)
+    if (hasTx) {
+      toast.error(`Cannot delete counter "${target.name}"`, {
+        description: 'This counter has existing transactions and cannot be deleted.'
+      })
+      return
+    }
+
     if (!window.confirm(`Delete counter "${target.name}"? This action cannot be undone.`)) return
     const nextCounters = counters.filter((c) => c.id !== id)
     onUpdateAll(nextCounters, transactions)
-    toast.success(`Counter deleted`)
+    toast.success(`Counter "${target.name}" deleted`)
   }
 
   // Handler: Delete Transaction
@@ -927,45 +944,64 @@ export default function CashBankManagement({
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Configured Counters</h4>
               <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                {counters.map((c) => (
-                  <div key={c.id} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">{c.name}</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold">
-                          {c.type}
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Opening: {formatCurrency(c.openingBalance || 0)} | Current: <span className="font-bold text-slate-800">{formatCurrency(c.currentBalance || 0)}</span>
-                      </p>
-                    </div>
+                {counters.map((c) => {
+                  const hasTx = transactions.some((t) => t.counterId === c.id || t.toCounterId === c.id)
 
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingCounter(c)
-                          setCounterName(c.name)
-                          setCounterType(c.type || 'Cash')
-                          setCounterOpeningBal(c.openingBalance?.toString() || '0')
-                        }}
-                        className="h-7 w-7 p-0 text-slate-600 hover:bg-slate-100"
-                      >
-                        <PencilSimple className="h-3.5 w-3.5" weight="bold" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteCounter(c.id)}
-                        className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash className="h-3.5 w-3.5" weight="bold" />
-                      </Button>
+                  return (
+                    <div key={c.id} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900">{c.name}</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold">
+                            {c.type}
+                          </Badge>
+                          {hasTx && (
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-medium bg-slate-100 text-slate-500 border-none">
+                              Has Entries
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Opening: {formatCurrency(c.openingBalance || 0)} | Current: <span className="font-bold text-slate-800">{formatCurrency(c.currentBalance || 0)}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (hasTx) {
+                              toast.error(`Cannot edit counter "${c.name}"`, {
+                                description: 'This counter has existing transactions and cannot be edited.'
+                              })
+                              return
+                            }
+                            setEditingCounter(c)
+                            setCounterName(c.name)
+                            setCounterType(c.type || 'Cash')
+                            setCounterOpeningBal(c.openingBalance?.toString() || '0')
+                          }}
+                          disabled={isLocked || hasTx}
+                          className="h-7 w-7 p-0 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                          title={hasTx ? 'Cannot edit counter with existing transactions' : 'Edit Counter'}
+                        >
+                          <PencilSimple className="h-3.5 w-3.5" weight="bold" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCounter(c.id)}
+                          disabled={isLocked || hasTx}
+                          className="h-7 w-7 p-0 text-red-600 hover:bg-red-50 disabled:opacity-30"
+                          title={hasTx ? 'Cannot delete counter with existing transactions' : 'Delete Counter'}
+                        >
+                          <Trash className="h-3.5 w-3.5" weight="bold" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>

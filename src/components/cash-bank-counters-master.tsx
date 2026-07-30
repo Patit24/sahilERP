@@ -39,16 +39,18 @@ import {
   Trash 
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { Counter } from '@/lib/cash-bank-types'
+import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 
 interface CashBankCountersMasterProps {
   counters: Counter[]
+  transactions?: CashBankTransaction[]
   onUpdateCounters: (counters: Counter[]) => void
   isLocked?: boolean
 }
 
 export default function CashBankCountersMaster({ 
   counters, 
+  transactions = [],
   onUpdateCounters,
   isLocked = false 
 }: CashBankCountersMasterProps) {
@@ -71,6 +73,12 @@ export default function CashBankCountersMaster({
     }
 
     if (editingId) {
+      const hasTx = transactions.some(t => t.counterId === editingId || t.toCounterId === editingId)
+      if (hasTx) {
+        toast.error('Cannot edit counter because it has existing transactions.')
+        return
+      }
+
       const updatedCounters = counters.map(c => 
         c.id === editingId 
           ? { ...c, name: name.trim(), type }
@@ -102,6 +110,12 @@ export default function CashBankCountersMaster({
       return
     }
     
+    const hasTx = transactions.some(t => t.counterId === counter.id || t.toCounterId === counter.id)
+    if (hasTx) {
+      toast.error(`Cannot edit counter "${counter.name}" because it has existing transactions.`)
+      return
+    }
+
     setEditingId(counter.id)
     setName(counter.name)
     setType(counter.type)
@@ -110,6 +124,13 @@ export default function CashBankCountersMaster({
   const handleDelete = (id: string) => {
     if (isLocked) {
       toast.error('Data is locked. Please unlock to make changes.')
+      return
+    }
+
+    const target = counters.find(c => c.id === id)
+    const hasTx = transactions.some(t => t.counterId === id || t.toCounterId === id)
+    if (hasTx) {
+      toast.error(`Cannot delete counter "${target?.name || 'Counter'}" because it has existing transactions.`)
       return
     }
 
@@ -306,56 +327,68 @@ export default function CashBankCountersMaster({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  counters.map((counter) => (
-                    <TableRow key={counter.id} className="hover:bg-muted/30">
-                      <TableCell>
-                        <span className="font-semibold text-foreground">{counter.name}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline"
-                          className={
-                            counter.type === 'Cash' 
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800' 
-                              : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800'
-                          }
-                        >
-                          {counter.type === 'Cash' ? (
-                            <Coins className="h-3 w-3 mr-1" />
-                          ) : (
-                            <Bank className="h-3 w-3 mr-1" />
-                          )}
-                          {counter.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className="font-mono font-bold text-foreground">
-                          ₹{counter.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEdit(counter)}
-                            disabled={isLocked}
-                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950"
+                  counters.map((counter) => {
+                    const hasTx = transactions.some(t => t.counterId === counter.id || t.toCounterId === counter.id)
+
+                    return (
+                      <TableRow key={counter.id} className="hover:bg-muted/30">
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">{counter.name}</span>
+                            {hasTx && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                                Has Entries
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline"
+                            className={
+                              counter.type === 'Cash' 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800' 
+                                : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800'
+                            }
                           >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={isLocked}
-                                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950"
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            {counter.type === 'Cash' ? (
+                              <Coins className="h-3 w-3 mr-1" />
+                            ) : (
+                              <Bank className="h-3 w-3 mr-1" />
+                            )}
+                            {counter.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono font-bold text-foreground">
+                            ₹{counter.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEdit(counter)}
+                              disabled={isLocked || hasTx}
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-30"
+                              title={hasTx ? 'Cannot edit counter with existing transactions' : 'Edit Counter'}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={isLocked || hasTx}
+                                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-30"
+                                  title={hasTx ? 'Cannot delete counter with existing transactions' : 'Delete Counter'}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Counter</AlertDialogTitle>
                                 <AlertDialogDescription>
@@ -376,7 +409,8 @@ export default function CashBankCountersMaster({
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                  )
+                })
                 )}
               </TableBody>
             </Table>
