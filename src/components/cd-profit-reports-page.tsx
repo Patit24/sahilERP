@@ -8,7 +8,8 @@ import {
   ExpectedDiscount,
   ExpenseEntry,
   Payment,
-  FixedScheme
+  FixedScheme,
+  MTBooking
 } from '@/lib/types'
 import {
   buildPurchaseLayers,
@@ -54,6 +55,7 @@ interface CDProfitReportsPageProps {
   items: Item[]
   payments?: Payment[]
   fixedSchemes?: FixedScheme[]
+  mtBookings?: MTBooking[]
   expectedDiscounts?: ExpectedDiscount[]
   expenseEntries?: ExpenseEntry[]
   currentFY: string
@@ -69,6 +71,7 @@ export default function CDProfitReportsPage({
   items = [],
   payments = [],
   fixedSchemes = [],
+  mtBookings = [],
   expectedDiscounts: providedExpectedDiscounts,
   expenseEntries = [],
   currentFY,
@@ -88,8 +91,8 @@ export default function CDProfitReportsPage({
       return providedExpectedDiscounts
     }
     const { allocations, paymentAdvanceInfo } = calculatePaymentAllocations(payments, purchaseInvoices)
-    return calculateExpectedDiscounts(purchaseInvoices, payments, allocations, paymentAdvanceInfo, suppliers, fixedSchemes)
-  }, [providedExpectedDiscounts, purchaseInvoices, payments, suppliers, fixedSchemes])
+    return calculateExpectedDiscounts(purchaseInvoices, payments, allocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings)
+  }, [providedExpectedDiscounts, purchaseInvoices, payments, suppliers, fixedSchemes, mtBookings])
 
   const expectedDiscounts = computedExpectedDiscounts
 

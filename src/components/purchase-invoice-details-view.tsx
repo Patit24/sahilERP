@@ -5,15 +5,17 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
-import { PurchaseInvoice, Payment, Supplier, Item, FixedScheme, ReceivedDiscount, ExpenseEntry } from '@/lib/types'
+import { PurchaseInvoice, Payment, Supplier, Item, FixedScheme, ReceivedDiscount, ExpenseEntry, MTBooking } from '@/lib/types'
 import { FileText, Package, Calculator, ArrowLeft, DownloadSimple } from '@phosphor-icons/react'
 
 interface PurchaseInvoiceDetailsViewProps {
   invoice: PurchaseInvoice
+  invoices?: PurchaseInvoice[]
   payments: Payment[]
   suppliers: Supplier[]
   items: Item[]
   fixedSchemes?: FixedScheme[]
+  mtBookings?: MTBooking[]
   receivedDiscounts?: ReceivedDiscount[]
   expenseEntries?: ExpenseEntry[]
   onBack?: () => void
@@ -21,10 +23,12 @@ interface PurchaseInvoiceDetailsViewProps {
 
 export function PurchaseInvoiceDetailsView({
   invoice,
+  invoices = [],
   payments,
   suppliers,
   items,
   fixedSchemes = [],
+  mtBookings = [],
   expenseEntries = [],
   onBack
 }: PurchaseInvoiceDetailsViewProps) {
@@ -33,15 +37,22 @@ export function PurchaseInvoiceDetailsView({
 
   const supplier = supplierMap.get(invoice.supplierId)
 
+  const allInvoices = useMemo(() => {
+    if (invoices && invoices.length > 0) {
+      return invoices.some(inv => inv.id === invoice.id) ? invoices : [invoice, ...invoices]
+    }
+    return [invoice]
+  }, [invoices, invoice])
+
   // Allocations & CD calculations
   const { allocations: paymentAllocations, paymentAdvanceInfo } = useMemo(
-    () => calculatePaymentAllocations(payments, [invoice]),
-    [payments, invoice]
+    () => calculatePaymentAllocations(payments, allInvoices),
+    [payments, allInvoices]
   )
 
   const expectedDiscounts = useMemo(
-    () => calculateExpectedDiscounts([invoice], payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes),
-    [invoice, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes]
+    () => calculateExpectedDiscounts(allInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings),
+    [allInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings]
   )
 
   const details = useMemo(() => {

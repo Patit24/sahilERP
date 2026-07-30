@@ -19,7 +19,8 @@ import {
   FixedScheme,
   ReceivedDiscount,
   PurchaseReturn,
-  SalesReturn
+  SalesReturn,
+  MTBooking
 } from '@/lib/types'
 import {
   calculatePaymentAllocations,
@@ -66,6 +67,7 @@ interface MasterDashboardPageProps {
   expenseEntries: ExpenseEntry[]
   expenseTypes: ExpenseType[]
   fixedSchemes: FixedScheme[]
+  mtBookings?: MTBooking[]
   receivedDiscounts: ReceivedDiscount[]
   currentFY: string
   onNavigateToReport: (reportName: string) => void
@@ -105,6 +107,7 @@ export default function MasterDashboardPage({
   expenseEntries,
   expenseTypes,
   fixedSchemes,
+  mtBookings = [],
   receivedDiscounts,
   currentFY,
   onNavigateToReport
@@ -120,9 +123,10 @@ export default function MasterDashboardPage({
       paymentAllocations,
       paymentAdvanceInfo,
       suppliers,
-      fixedSchemes
+      fixedSchemes,
+      mtBookings
     )
-  }, [purchaseInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes])
+  }, [purchaseInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings])
 
   const expectedAnnual = useMemo(() => {
     return calculateExpectedAnnualDiscounts(purchaseInvoices, suppliers)

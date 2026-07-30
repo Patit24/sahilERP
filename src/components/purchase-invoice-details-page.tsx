@@ -23,7 +23,8 @@ import {
   FixedScheme,
   ReceivedDiscount,
   ExpenseEntry,
-  ExpenseType
+  ExpenseType,
+  MTBooking
 } from '@/lib/types'
 import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
@@ -37,6 +38,7 @@ interface PurchaseInvoiceDetailsPageProps {
   suppliers: Supplier[]
   items: Item[]
   fixedSchemes: FixedScheme[]
+  mtBookings?: MTBooking[]
   receivedDiscounts: ReceivedDiscount[]
   expenseEntries: ExpenseEntry[]
   expenseTypes: ExpenseType[]
@@ -88,6 +90,7 @@ interface InvoiceDetails {
     expenseType: ExpenseType
   }>
   totalLinkedExpense: number
+  totalAdditionalCost: number
   netInvoiceAmount: number
   annualDiscountPerMT: number
 }
@@ -98,6 +101,7 @@ export default function PurchaseInvoiceDetailsPage({
   suppliers,
   items,
   fixedSchemes,
+  mtBookings = [],
   receivedDiscounts,
   expenseEntries,
   expenseTypes,
@@ -135,12 +139,17 @@ export default function PurchaseInvoiceDetailsPage({
     if (collapsedSections[invoiceId]?.[section] !== undefined) {
       return collapsedSections[invoiceId][section]
     }
-    // Auto-open itemCost section if searching/filtering by invoice number
-    if (section === 'itemCost' && searchInvoiceNo.trim() !== '') {
-      const inv = invoices.find(i => i.id === invoiceId)
-      if (inv && inv.invoiceNo.toLowerCase().includes(searchInvoiceNo.trim().toLowerCase())) {
-        return true
-      }
+    if (section === 'itemCost') {
+      return Boolean(searchInvoiceNo)
+    }
+    return false
+  }
+
+  const isInvoiceMatchingSearch = (invoiceId: string) => {
+    if (!searchInvoiceNo.trim()) return false
+    const invoice = invoices.find(i => i.id === invoiceId)
+    if (invoice && invoice.invoiceNo.toLowerCase().includes(searchInvoiceNo.trim().toLowerCase())) {
+      return true
     }
     return false
   }
@@ -155,8 +164,8 @@ export default function PurchaseInvoiceDetailsPage({
   )
 
   const expectedDiscounts = useMemo(
-    () => calculateExpectedDiscounts(invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes),
-    [invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes]
+    () => calculateExpectedDiscounts(invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings),
+    [invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings]
   )
 
   const invoiceDetails = useMemo((): InvoiceDetails[] => {
@@ -305,6 +314,7 @@ export default function PurchaseInvoiceDetailsPage({
           itemCostBreakdowns,
           linkedExpenses,
           totalLinkedExpense,
+          totalAdditionalCost,
           netInvoiceAmount,
           annualDiscountPerMT
         }

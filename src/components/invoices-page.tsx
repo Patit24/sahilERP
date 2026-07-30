@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn, FixedScheme, ReceivedDiscount, ExpenseEntry, ExpenseType } from '@/lib/types'
+import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn, FixedScheme, ReceivedDiscount, ExpenseEntry, ExpenseType, MTBooking } from '@/lib/types'
 import { calculateItemStockMap } from '@/lib/report-calculations'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,7 @@ interface InvoicesPageProps {
   onUpdateCashBank: (counters: Counter[], transactions: CashBankTransaction[]) => void
   onNavigateToInvoiceDetails?: (invoiceNo: string) => void
   fixedSchemes?: FixedScheme[]
+  mtBookings?: MTBooking[]
   receivedDiscounts?: ReceivedDiscount[]
   expenseEntries?: ExpenseEntry[]
   expenseTypes?: ExpenseType[]
@@ -71,6 +72,7 @@ export default function InvoicesPage({
   onUpdateCashBank,
   onNavigateToInvoiceDetails,
   fixedSchemes = [],
+  mtBookings = [],
   receivedDiscounts = [],
   expenseEntries = [],
   expenseTypes = []
@@ -900,6 +902,7 @@ export default function InvoicesPage({
           suppliers={suppliers}
           items={items}
           fixedSchemes={fixedSchemes}
+          mtBookings={mtBookings}
           receivedDiscounts={receivedDiscounts}
           expenseEntries={expenseEntries}
           expenseTypes={expenseTypes}

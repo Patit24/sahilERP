@@ -14,7 +14,8 @@ import {
   PaymentAllocation, 
   Supplier,
   FixedScheme,
-  ReceivedDiscount
+  ReceivedDiscount,
+  MTBooking
 } from '@/lib/types'
 import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, isPaymentAdvance, getFYMonths } from '@/lib/calculations'
 import { CreditCard, Calendar, FileText, Coins, CheckCircle, Clock, CaretDown, Check, TrendUp, TrendDown } from '@phosphor-icons/react'
@@ -26,6 +27,7 @@ interface PaymentDetailsPageProps {
   invoices: PurchaseInvoice[]
   suppliers: Supplier[]
   fixedSchemes: FixedScheme[]
+  mtBookings?: MTBooking[]
   receivedDiscounts: ReceivedDiscount[]
   currentFY: string
 }
@@ -65,6 +67,7 @@ export default function PaymentDetailsPage({
   invoices,
   suppliers,
   fixedSchemes,
+  mtBookings = [],
   receivedDiscounts,
   currentFY
 }: PaymentDetailsPageProps) {
@@ -81,8 +84,8 @@ export default function PaymentDetailsPage({
   )
 
   const expectedDiscounts = useMemo(
-    () => calculateExpectedDiscounts(invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes),
-    [invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes]
+    () => calculateExpectedDiscounts(invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings),
+    [invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings]
   )
 
   const paymentDetails = useMemo((): PaymentDetails[] => {

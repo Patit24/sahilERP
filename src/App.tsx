@@ -2069,6 +2069,7 @@ function App() {
               expenseEntries={safeExpenseEntries}
               expenseTypes={safeExpenseTypes}
               fixedSchemes={safeFixedSchemes}
+              mtBookings={mtBookings}
               receivedDiscounts={safeReceivedDiscounts}
               currentFY={safeCurrentFY}
               onNavigateToReport={(reportName) => setActiveView(reportName)}
@@ -2124,6 +2125,7 @@ function App() {
                 setCashBankTransactions(t)
               }}
               fixedSchemes={safeFixedSchemes}
+              mtBookings={mtBookings}
               receivedDiscounts={safeReceivedDiscounts}
               expenseEntries={safeExpenseEntries}
               expenseTypes={safeExpenseTypes}
@@ -2300,6 +2302,7 @@ function App() {
               items={safeItems}
               payments={safePayments}
               fixedSchemes={safeFixedSchemes}
+              mtBookings={mtBookings}
               expenseEntries={safeExpenseEntries}
               currentFY={safeCurrentFY}
               businessName={safeBusinessName}
@@ -2335,6 +2338,7 @@ function App() {
               suppliers={safeSuppliers}
               items={safeItems}
               fixedSchemes={safeFixedSchemes}
+              mtBookings={mtBookings}
               receivedDiscounts={safeReceivedDiscounts}
               expenseEntries={safeExpenseEntries}
               expenseTypes={safeExpenseTypes}
@@ -2349,6 +2353,7 @@ function App() {
               invoices={safeInvoices}
               suppliers={safeSuppliers}
               fixedSchemes={safeFixedSchemes}
+              mtBookings={mtBookings}
               receivedDiscounts={safeReceivedDiscounts}
               currentFY={safeCurrentFY}
             />
