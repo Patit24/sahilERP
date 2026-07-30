@@ -294,7 +294,11 @@ export default function CashBankManagement({
     const openBal = parseFloat(counterOpeningBal) || 0
 
     if (editingCounter) {
-      const hasTx = transactions.some((t) => t.counterId === editingCounter.id || t.toCounterId === editingCounter.id)
+      const hasTx = transactions.some((t) => 
+        t.counterId === editingCounter.id || 
+        t.toCounterId === editingCounter.id || 
+        (t.counterName && t.counterName.trim().toLowerCase() === editingCounter.name.trim().toLowerCase())
+      )
       if (hasTx) {
         toast.error(`Cannot edit counter "${editingCounter.name}"`, {
           description: 'This counter has existing transactions and cannot be edited.'
@@ -333,7 +337,11 @@ export default function CashBankManagement({
     const target = counters.find((c) => c.id === id)
     if (!target) return
 
-    const hasTx = transactions.some((t) => t.counterId === id || t.toCounterId === id)
+    const hasTx = transactions.some((t) => 
+      t.counterId === id || 
+      t.toCounterId === id || 
+      (t.counterName && t.counterName.trim().toLowerCase() === target.name.trim().toLowerCase())
+    )
     if (hasTx) {
       toast.error(`Cannot delete counter "${target.name}"`, {
         description: 'This counter has existing transactions and cannot be deleted.'
@@ -945,7 +953,11 @@ export default function CashBankManagement({
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Configured Counters</h4>
               <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                 {counters.map((c) => {
-                  const hasTx = transactions.some((t) => t.counterId === c.id || t.toCounterId === c.id)
+                  const hasTx = transactions.some((t) => 
+                    t.counterId === c.id || 
+                    t.toCounterId === c.id || 
+                    (t.counterName && t.counterName.trim().toLowerCase() === c.name.trim().toLowerCase())
+                  )
 
                   return (
                     <div key={c.id} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">

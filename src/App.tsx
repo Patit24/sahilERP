@@ -2018,16 +2018,8 @@ function App() {
               counters={visibleCashBankCounters}
               transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(prev => {
-                  const updatedIds = c.map(uc => uc.id)
-                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                  return [...untouched, ...c]
-                })
-                setCashBankTransactions(prev => {
-                  const updatedIds = t.map(ut => ut.id)
-                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                  return [...untouched, ...t]
-                })
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
               }}
               fixedSchemes={safeFixedSchemes}
               receivedDiscounts={safeReceivedDiscounts}
@@ -2051,16 +2043,8 @@ function App() {
               counters={visibleCashBankCounters}
               transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(prev => {
-                  const updatedIds = c.map(uc => uc.id)
-                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                  return [...untouched, ...c]
-                })
-                setCashBankTransactions(prev => {
-                  const updatedIds = t.map(ut => ut.id)
-                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                  return [...untouched, ...t]
-                })
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
               }}
             />
           )
@@ -2083,16 +2067,8 @@ function App() {
               counters={visibleCashBankCounters}
               transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(prev => {
-                  const updatedIds = c.map(uc => uc.id)
-                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                  return [...untouched, ...c]
-                })
-                setCashBankTransactions(prev => {
-                  const updatedIds = t.map(ut => ut.id)
-                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                  return [...untouched, ...t]
-                })
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
               }}
             />
           )
@@ -2110,16 +2086,8 @@ function App() {
               counters={visibleCashBankCounters}
               transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(prev => {
-                  const updatedIds = c.map(uc => uc.id)
-                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                  return [...untouched, ...c]
-                })
-                setCashBankTransactions(prev => {
-                  const updatedIds = t.map(ut => ut.id)
-                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                  return [...untouched, ...t]
-                })
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
               }}
             />
           )
@@ -2215,16 +2183,8 @@ function App() {
               counters={visibleCashBankCounters}
               transactions={visibleCashBankTransactions}
               onUpdateCashBank={(c, t) => {
-                setCashBankCounters(prev => {
-                  const updatedIds = c.map(uc => uc.id)
-                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                  return [...untouched, ...c]
-                })
-                setCashBankTransactions(prev => {
-                  const updatedIds = t.map(ut => ut.id)
-                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                  return [...untouched, ...t]
-                })
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
               }}
             />
           )
@@ -2299,16 +2259,8 @@ function App() {
               counters={visibleCashBankCounters} 
               transactions={visibleCashBankTransactions} 
               onUpdateAll={(c, t) => {
-                setCashBankCounters(prev => {
-                  const updatedIds = c.map(uc => uc.id)
-                  const untouched = prev.filter(pc => !updatedIds.includes(pc.id))
-                  return [...untouched, ...c]
-                })
-                setCashBankTransactions(prev => {
-                  const updatedIds = t.map(ut => ut.id)
-                  const untouched = prev.filter(pt => !updatedIds.includes(pt.id))
-                  return [...untouched, ...t]
-                })
+                setCashBankCounters(c)
+                setCashBankTransactions(t)
               }}
               isLocked={isViewReadOnly('cash-bank-master')} 
             />

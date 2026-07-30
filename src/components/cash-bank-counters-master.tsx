@@ -73,7 +73,12 @@ export default function CashBankCountersMaster({
     }
 
     if (editingId) {
-      const hasTx = transactions.some(t => t.counterId === editingId || t.toCounterId === editingId)
+      const editingCounter = counters.find(c => c.id === editingId)
+      const hasTx = transactions.some(t => 
+        t.counterId === editingId || 
+        t.toCounterId === editingId || 
+        (editingCounter && t.counterName && t.counterName.trim().toLowerCase() === editingCounter.name.trim().toLowerCase())
+      )
       if (hasTx) {
         toast.error('Cannot edit counter because it has existing transactions.')
         return
@@ -110,7 +115,11 @@ export default function CashBankCountersMaster({
       return
     }
     
-    const hasTx = transactions.some(t => t.counterId === counter.id || t.toCounterId === counter.id)
+    const hasTx = transactions.some(t => 
+      t.counterId === counter.id || 
+      t.toCounterId === counter.id || 
+      (t.counterName && t.counterName.trim().toLowerCase() === counter.name.trim().toLowerCase())
+    )
     if (hasTx) {
       toast.error(`Cannot edit counter "${counter.name}" because it has existing transactions.`)
       return
@@ -128,7 +137,11 @@ export default function CashBankCountersMaster({
     }
 
     const target = counters.find(c => c.id === id)
-    const hasTx = transactions.some(t => t.counterId === id || t.toCounterId === id)
+    const hasTx = transactions.some(t => 
+      t.counterId === id || 
+      t.toCounterId === id || 
+      (target && t.counterName && t.counterName.trim().toLowerCase() === target.name.trim().toLowerCase())
+    )
     if (hasTx) {
       toast.error(`Cannot delete counter "${target?.name || 'Counter'}" because it has existing transactions.`)
       return
@@ -328,7 +341,11 @@ export default function CashBankCountersMaster({
                   </TableRow>
                 ) : (
                   counters.map((counter) => {
-                    const hasTx = transactions.some(t => t.counterId === counter.id || t.toCounterId === counter.id)
+                    const hasTx = transactions.some(t => 
+                      t.counterId === counter.id || 
+                      t.toCounterId === counter.id || 
+                      (t.counterName && t.counterName.trim().toLowerCase() === counter.name.trim().toLowerCase())
+                    )
 
                     return (
                       <TableRow key={counter.id} className="hover:bg-muted/30">
