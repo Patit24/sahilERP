@@ -28,7 +28,7 @@ import {
 } from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
 import { toast } from 'sonner'
-import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
+import { Counter, CashBankTransaction, isManualCounterTransaction } from '@/lib/cash-bank-types'
 
 type DisplayTransaction = CashBankTransaction & {
   displayId: string
@@ -333,6 +333,10 @@ export default function CashBankManagement({
   // Handler: Delete Transaction
   const handleDeleteTransaction = (t: DisplayTransaction) => {
     if (isLocked) return toast.error('Data is locked.')
+    if (!isManualCounterTransaction(t)) {
+      toast.error('Only direct counter entries (Add/Reduce Money) can be deleted from Cash & Bank')
+      return
+    }
     if (!window.confirm('Delete this transaction entry? Balances will be restored.')) return
 
     const rawId = t.id.replace(/-out$|-in$/, '')
@@ -636,15 +640,20 @@ export default function CashBankManagement({
                           {t.runningBalance !== undefined ? formatCurrency(t.runningBalance) : '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteTransaction(t)}
-                            disabled={isLocked}
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash className="h-3.5 w-3.5" weight="bold" />
-                          </Button>
+                          {isManualCounterTransaction(t) ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteTransaction(t)}
+                              disabled={isLocked}
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                              title="Delete Counter Entry"
+                            >
+                              <Trash className="h-3.5 w-3.5" weight="bold" />
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium italic select-none">Synced</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     )
