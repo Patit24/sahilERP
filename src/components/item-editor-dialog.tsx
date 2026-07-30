@@ -56,8 +56,8 @@ export function ItemEditorDialog({
   const [gstDropdownOpen, setGstDropdownOpen] = useState(false)
   const [purchasePrice, setPurchasePrice] = useState('')
   const [salesPrice, setSalesPrice] = useState('')
-  const [unit, setUnit] = useState('MT')
-  const [alternativeUnit, setAlternativeUnit] = useState('KG')
+  const [unit, setUnit] = useState('NONE')
+  const [alternativeUnit, setAlternativeUnit] = useState('NONE')
   const [primaryUnitRatio, setPrimaryUnitRatio] = useState('1')
   const [alternativeUnitRatio, setAlternativeUnitRatio] = useState('1')
   const [unitWeightKG, setUnitWeightKG] = useState('1000')
@@ -94,9 +94,9 @@ export function ItemEditorDialog({
     setGstRate(typeof item?.gstRate === 'number' ? item.gstRate.toString() : 'none')
     setPurchasePrice(item?.purchasePrice?.toString() || '')
     setSalesPrice(item?.salesPrice?.toString() || '')
-    const initialUnit = item?.unit || 'MT'
+    const initialUnit = item?.unit || 'NONE'
     setUnit(initialUnit)
-    setAlternativeUnit(item?.alternativeUnit || (initialUnit === 'MT' || !item ? 'KG' : 'NONE'))
+    setAlternativeUnit(item?.alternativeUnit || 'NONE')
     setPrimaryUnitRatio(item?.primaryUnitRatio?.toString() || '1')
     setAlternativeUnitRatio(item?.alternativeUnitRatio?.toString() || '1')
     setUnitWeightKG(
@@ -145,10 +145,8 @@ export function ItemEditorDialog({
     setUnit(newUnit)
     if (newUnit === 'MT') {
       setUnitWeightKG('1000')
-      if (alternativeUnit === 'NONE') setAlternativeUnit('KG')
     } else if (newUnit === 'KG') {
       setUnitWeightKG('1')
-      if (alternativeUnit === 'NONE') setAlternativeUnit('MT')
     } else {
       if (!unitWeightKG || unitWeightKG === '1000') {
         setUnitWeightKG('1')
@@ -420,7 +418,7 @@ export function ItemEditorDialog({
                     </span>
                   </div>
                   <span className="font-mono font-extrabold text-emerald-800">
-                    1 {unit} = {unit === 'MT' ? '1,000' : (unit === 'KG' ? '1' : (parseFloat(unitWeightKG) || 1).toLocaleString())} KG
+                    1 {unit && unit !== 'NONE' ? unit : 'MT'} = {(unit === 'MT' || unit === 'NONE') ? '1,000' : (unit === 'KG' ? '1' : (parseFloat(unitWeightKG) || 1).toLocaleString())} KG
                   </span>
                 </div>
 
@@ -431,9 +429,10 @@ export function ItemEditorDialog({
                     </Label>
                     <Select value={unit} onValueChange={handleUnitChange}>
                       <SelectTrigger id="sharedItemUnit" className="h-11 border-slate-300">
-                        <SelectValue placeholder="Select measuring unit" />
+                        <SelectValue placeholder="None" />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
+                        <SelectItem value="NONE">None</SelectItem>
                         {customUnits.map((u) => (
                           <SelectItem key={u.value} value={u.value}>
                             {u.label}
