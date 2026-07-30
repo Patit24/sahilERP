@@ -817,9 +817,25 @@ function App() {
   useEffect(() => {
     if (!useServerAuth || !isMasterAdmin || activeView !== 'user-management') return
     listRemoteUserProfiles()
-      .then(setUserAccounts)
+      .then((remoteAccounts) => {
+        const localAccounts = getUserAccounts()
+        const map = new Map<string, UserAccount>()
+        localAccounts.forEach(a => map.set(a.username.toLowerCase(), a))
+        remoteAccounts.forEach(a => {
+          const existing = map.get(a.username.toLowerCase())
+          if (existing) {
+            map.set(a.username.toLowerCase(), { ...existing, ...a, id: existing.id })
+          } else {
+            map.set(a.username.toLowerCase(), a)
+          }
+        })
+        const merged = Array.from(map.values())
+        setUserAccounts(merged)
+        saveUserAccounts(merged)
+      })
       .catch((error) => {
-        toast.error(error instanceof Error ? error.message : 'Unable to load server users')
+        console.warn('Unable to load remote server users:', error)
+        setUserAccounts(getUserAccounts())
       })
   }, [useServerAuth, isMasterAdmin, activeView])
 
@@ -828,6 +844,25 @@ function App() {
       setActiveView('dashboard')
     }
   }, [activeView, canAccessView])
+
+  const agentAllowedBusinesses = currentUser?.role === 'agent' ? (currentUser.allowedBusinesses || []) : []
+
+  useEffect(() => {
+    if (currentUser?.role === 'agent' && agentAllowedBusinesses.length > 0) {
+      const allowedBiz = metadata.businesses.filter(b => agentAllowedBusinesses.includes(b.id) || agentAllowedBusinesses.includes(b.name))
+      if (allowedBiz.length > 0) {
+        const isCurrentAllowed = allowedBiz.some(b => b.id === metadata.activeCompanyId || b.name === activeCompany)
+        if (!isCurrentAllowed) {
+          const firstAllowed = allowedBiz[0]
+          setMetadata(prev => ({
+            ...prev,
+            activeCompanyId: firstAllowed.id
+          }))
+          setActiveCompany(firstAllowed.name)
+        }
+      }
+    }
+  }, [currentUser, agentAllowedBusinesses, metadata.businesses, metadata.activeCompanyId, activeCompany])
 
   useEffect(() => {
     if (useServerAuth) return
@@ -2339,6 +2374,7 @@ function App() {
                 saveUserAccounts(nextAccounts)
               }}
               counters={cashBankCounters}
+              businesses={metadata.businesses}
               securityMode={useServerAuth ? 'server' : 'local'}
               onCreateRemoteAgent={useServerAuth ? async (input) => {
                 await createRemoteAgentAccount({
@@ -2347,14 +2383,16 @@ function App() {
                   passcode: input.passcode,
                   companyId: metadata.activeCompanyId,
                   permissions: input.permissions,
-                  allowedCounters: input.allowedCounters
+                  allowedCounters: input.allowedCounters,
+                  allowedBusinesses: input.allowedBusinesses
                 })
                 await createAgentAccount({
                   username: input.email,
                   displayName: input.displayName,
                   passcode: input.passcode,
                   permissions: input.permissions,
-                  allowedCounters: input.allowedCounters
+                  allowedCounters: input.allowedCounters,
+                  allowedBusinesses: input.allowedBusinesses
                 })
                 setUserAccounts(getUserAccounts())
               } : undefined}
@@ -2364,7 +2402,9 @@ function App() {
                 displayName: input.displayName,
                 role: 'agent',
                 permissions: input.permissions,
-                isActive: input.isActive
+                isActive: input.isActive,
+                allowedCounters: input.allowedCounters,
+                allowedBusinesses: input.allowedBusinesses
               }) : undefined}
             />
           )

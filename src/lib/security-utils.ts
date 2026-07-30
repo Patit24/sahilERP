@@ -18,6 +18,7 @@ export interface UserAccount {
   permissions: PermissionMap
   isActive: boolean
   allowedCounters?: string[]
+  allowedBusinesses?: string[]
   salt: string
   passcodeHash: string
   createdAt: string
@@ -32,6 +33,7 @@ export interface AuthenticatedUser {
   permissions: PermissionMap
   isActive: boolean
   allowedCounters?: string[]
+  allowedBusinesses?: string[]
 }
 
 const AUDIT_LOG_KEY = 'app_audit_log'
@@ -159,7 +161,9 @@ function toAuthenticatedUser(account: UserAccount): AuthenticatedUser {
     displayName: account.displayName,
     role: account.role,
     permissions: account.permissions,
-    isActive: account.isActive
+    isActive: account.isActive,
+    allowedCounters: account.allowedCounters || [],
+    allowedBusinesses: account.allowedBusinesses || []
   }
 }
 
@@ -210,6 +214,7 @@ export async function createAgentAccount(input: {
   passcode: string
   permissions?: PermissionMap
   allowedCounters?: string[]
+  allowedBusinesses?: string[]
 }): Promise<UserAccount> {
   const accounts = getUserAccounts()
   const rawUsername = input.username.trim().toLowerCase()
@@ -238,6 +243,7 @@ export async function createAgentAccount(input: {
     permissions: input.permissions || {},
     isActive: true,
     allowedCounters: input.allowedCounters || [],
+    allowedBusinesses: input.allowedBusinesses || [],
     salt,
     passcodeHash,
     createdAt: now,
@@ -254,6 +260,7 @@ export async function updateAgentAccount(id: string, input: {
   permissions?: PermissionMap
   isActive?: boolean
   allowedCounters?: string[]
+  allowedBusinesses?: string[]
 }): Promise<UserAccount[]> {
   const accounts = getUserAccounts()
   const target = accounts.find((account) => account.id === id && account.role === 'agent')
@@ -274,6 +281,7 @@ export async function updateAgentAccount(id: string, input: {
       permissions: input.permissions ?? account.permissions,
       isActive: input.isActive ?? account.isActive,
       allowedCounters: input.allowedCounters ?? account.allowedCounters,
+      allowedBusinesses: input.allowedBusinesses ?? account.allowedBusinesses,
       salt,
       passcodeHash,
       updatedAt: new Date().toISOString()

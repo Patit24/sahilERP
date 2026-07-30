@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -18,6 +19,7 @@ import {
   Bank,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { AuthenticatedUser } from '@/lib/security-utils'
 
 type NavItem = {
   id: string
@@ -141,6 +143,8 @@ interface AppSidebarProps {
   handleSmartRestore: (e: React.ChangeEvent<HTMLInputElement>) => void
   canManageSystem: boolean
   onLogout?: () => void
+  currentUser?: AuthenticatedUser | null
+  metadataBusinesses?: { id: string; name: string }[]
 }
 
 export function AppSidebar({
@@ -167,8 +171,26 @@ export function AppSidebar({
   handleSmartRestore,
   canManageSystem,
   onLogout,
+  currentUser,
+  metadataBusinesses = [],
 }: AppSidebarProps) {
   const isVisuallyExpanded = sidebarExpanded || isHoveringsidebar || mobileSidebarOpen
+
+  const visibleCompanies = useMemo(() => {
+    if (!currentUser || currentUser.role !== 'agent') return safeStoredCompanies
+    const allowed = currentUser.allowedBusinesses || []
+    if (allowed.length === 0) return safeStoredCompanies
+
+    const allowedNames = (metadataBusinesses || [])
+      .filter(b => allowed.includes(b.id) || allowed.includes(b.name))
+      .map(b => b.name)
+
+    if (allowedNames.length === 0) {
+      return safeStoredCompanies.filter(c => allowed.includes(c))
+    }
+
+    return safeStoredCompanies.filter(c => allowedNames.includes(c))
+  }, [safeStoredCompanies, currentUser, metadataBusinesses])
 
   return (
     <motion.aside
@@ -226,10 +248,10 @@ export function AppSidebar({
               <select
                 value={activeCompany}
                 onChange={(e) => setActiveCompany(e.target.value)}
-                disabled={!canManageSystem}
+                disabled={visibleCompanies.length <= 1}
                 className="flex-1 text-xs font-semibold text-slate-700 bg-[#F5F6FA] border border-[#E8EAEF] rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#5B5FEF]/30 truncate"
               >
-                {safeStoredCompanies.map((company) => (
+                {visibleCompanies.map((company) => (
                   <option key={company} value={company}>
                     {company}
                   </option>

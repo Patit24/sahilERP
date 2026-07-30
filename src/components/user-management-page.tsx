@@ -31,12 +31,14 @@ interface UserManagementPageProps {
   onAccountsChange: (accounts: UserAccount[]) => void
   securityMode?: 'local' | 'server'
   counters: any[]
+  businesses?: { id: string; name: string }[]
   onSaveAgent?: (input: {
     id: string
     displayName: string
     permissions: PermissionMap
     isActive: boolean
     allowedCounters?: string[]
+    allowedBusinesses?: string[]
   }) => Promise<UserAccount[]>
   onCreateRemoteAgent?: (input: {
     email: string
@@ -45,6 +47,7 @@ interface UserManagementPageProps {
     permissions: PermissionMap
     companyId: string
     allowedCounters?: string[]
+    allowedBusinesses?: string[]
   }) => Promise<void>
 }
 
@@ -61,6 +64,7 @@ export default function UserManagementPage({
   accounts,
   permissionOptions,
   counters,
+  businesses = [],
   onAccountsChange,
   securityMode = 'local',
   onSaveAgent,
@@ -78,6 +82,7 @@ export default function UserManagementPage({
   const [isActive, setIsActive] = useState(true)
   const [permissions, setPermissions] = useState<PermissionMap>(() => emptyPermissions(permissionOptions))
   const [allowedCounters, setAllowedCounters] = useState<string[]>([])
+  const [allowedBusinesses, setAllowedBusinesses] = useState<string[]>([])
 
   const groupedOptions = useMemo(() => {
     return permissionOptions.reduce<Record<string, PermissionOption[]>>((acc, option) => {
@@ -94,6 +99,14 @@ export default function UserManagementPage({
     )
   }
 
+  const toggleBusiness = (businessId: string) => {
+    setAllowedBusinesses(prev =>
+      prev.includes(businessId)
+        ? prev.filter(id => id !== businessId)
+        : [...prev, businessId]
+    )
+  }
+
   const resetForm = () => {
     setEditingId(null)
     setDisplayName('')
@@ -102,6 +115,7 @@ export default function UserManagementPage({
     setIsActive(true)
     setPermissions(emptyPermissions(permissionOptions))
     setAllowedCounters([])
+    setAllowedBusinesses([])
   }
 
   const handleEdit = (account: UserAccount) => {
@@ -112,6 +126,7 @@ export default function UserManagementPage({
     setIsActive(account.isActive)
     setPermissions({ ...emptyPermissions(permissionOptions), ...account.permissions, dashboard: 'view' })
     setAllowedCounters((account as any).allowedCounters || [])
+    setAllowedBusinesses((account as any).allowedBusinesses || [])
   }
 
   const setPermission = (id: string, level: PermissionLevel) => {
@@ -148,7 +163,8 @@ export default function UserManagementPage({
           displayName,
           permissions,
           isActive,
-          allowedCounters
+          allowedCounters,
+          allowedBusinesses
         })
         onAccountsChange(nextAccounts)
         toast.success('Server permissions updated')
@@ -158,7 +174,8 @@ export default function UserManagementPage({
           passcode: passcode.trim() || undefined,
           permissions,
           isActive,
-          allowedCounters
+          allowedCounters,
+          allowedBusinesses
         })
         if (isServerMode && onSaveAgent) {
           try {
@@ -167,7 +184,8 @@ export default function UserManagementPage({
               displayName,
               permissions,
               isActive,
-              allowedCounters
+              allowedCounters,
+              allowedBusinesses
             })
           } catch (remoteErr) {
             console.warn('Remote agent update notice:', remoteErr)
@@ -181,7 +199,8 @@ export default function UserManagementPage({
           displayName,
           passcode,
           permissions,
-          allowedCounters
+          allowedCounters,
+          allowedBusinesses
         })
         if (isServerMode && onCreateRemoteAgent) {
           try {
@@ -191,7 +210,8 @@ export default function UserManagementPage({
               passcode,
               permissions,
               companyId: '',
-              allowedCounters
+              allowedCounters,
+              allowedBusinesses
             })
           } catch (remoteErr) {
             console.warn('Remote agent creation notice:', remoteErr)
@@ -312,6 +332,34 @@ export default function UserManagementPage({
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Business Access</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select which businesses this agent can access. (If none selected, agent can access all businesses).
+                </p>
+                {businesses.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No businesses configured yet.</div>
+                ) : (
+                  <div className="grid gap-2 grid-cols-2">
+                    {businesses.map(biz => (
+                      <div 
+                        key={biz.id} 
+                        onClick={() => toggleBusiness(biz.id)}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${allowedBusinesses.includes(biz.id) ? 'bg-primary/10 border-primary' : 'bg-background hover:bg-muted'}`}
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${allowedBusinesses.includes(biz.id) ? 'bg-primary border-primary' : 'border-input'}`}>
+                          {allowedBusinesses.includes(biz.id) && <ShieldCheck className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{biz.name}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Company</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {editingId && (
                 <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-3 py-3">
                   <div>
@@ -398,6 +446,7 @@ export default function UserManagementPage({
               {agentAccounts.map((account) => {
                 const editCount = Object.values(account.permissions).filter((level) => level === 'edit').length
                 const viewCount = Object.values(account.permissions).filter((level) => level === 'view').length
+                const accBusinesses = (account as any).allowedBusinesses || []
                 return (
                   <div
                     key={account.id}
@@ -416,8 +465,13 @@ export default function UserManagementPage({
                       </Badge>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-full bg-muted px-2 py-1">{editCount} edit</span>
-                      <span className="rounded-full bg-muted px-2 py-1">{viewCount} view-only</span>
+                      <span className="rounded-full bg-muted px-2.5 py-1 font-medium">{editCount} edit</span>
+                      <span className="rounded-full bg-muted px-2.5 py-1 font-medium">{viewCount} view-only</span>
+                      <span className="rounded-full bg-primary/10 text-primary px-2.5 py-1 font-semibold">
+                        {accBusinesses.length === 0 
+                          ? 'All Businesses' 
+                          : `${accBusinesses.length} Business(es)`}
+                      </span>
                     </div>
                     <div className="mt-4 flex gap-2">
                       <Button type="button" variant="outline" size="sm" onClick={() => handleEdit(account)}>

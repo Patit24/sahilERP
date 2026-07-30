@@ -38,6 +38,7 @@ interface FirestoreUserProfile {
   isActive: boolean
   companyId: string | null
   allowedCounters?: string[]
+  allowedBusinesses?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -66,7 +67,8 @@ function toAuthenticatedUser(uid: string, profile: FirestoreUserProfile): Authen
     role: profile.role,
     permissions: profile.permissions || {},
     isActive: profile.isActive,
-    allowedCounters: profile.allowedCounters || []
+    allowedCounters: profile.allowedCounters || [],
+    allowedBusinesses: profile.allowedBusinesses || []
   }
 }
 
@@ -188,6 +190,8 @@ export async function listRemoteUserProfiles(): Promise<UserAccount[]> {
       role: data.role,
       permissions: data.permissions || {},
       isActive: data.isActive,
+      allowedCounters: data.allowedCounters || [],
+      allowedBusinesses: data.allowedBusinesses || [],
       salt: '',
       passcodeHash: '',
       createdAt: data.createdAt || '',
@@ -206,6 +210,8 @@ export async function updateRemoteUserProfile(input: {
   role: 'master_admin' | 'agent'
   permissions: PermissionMap
   isActive: boolean
+  allowedCounters?: string[]
+  allowedBusinesses?: string[]
 }): Promise<UserAccount[]> {
   if (!canUseFirebaseAuth() || !db) return []
 
@@ -216,6 +222,8 @@ export async function updateRemoteUserProfile(input: {
       permissions: input.permissions,
       isActive: input.isActive,
       companyId: input.companyId,
+      allowedCounters: input.allowedCounters || [],
+      allowedBusinesses: input.allowedBusinesses || [],
       updatedAt: new Date().toISOString()
     })
   )
@@ -230,6 +238,7 @@ export async function createRemoteAgentAccount(input: {
   companyId: string
   permissions?: PermissionMap
   allowedCounters?: string[]
+  allowedBusinesses?: string[]
 }): Promise<void> {
   if (!canUseFirebaseAuth() || !db) return
 
@@ -251,6 +260,7 @@ export async function createRemoteAgentAccount(input: {
         isActive: true,
         companyId: input.companyId,
         allowedCounters: input.allowedCounters || [],
+        allowedBusinesses: input.allowedBusinesses || [],
         createdAt: now,
         updatedAt: now
       })
@@ -265,6 +275,7 @@ export async function createRemoteAgentAccount(input: {
           displayName: input.displayName.trim() || cleanEmail,
           permissions: input.permissions || {},
           allowedCounters: input.allowedCounters || [],
+          allowedBusinesses: input.allowedBusinesses || [],
           updatedAt: new Date().toISOString()
         })
         return
