@@ -30,6 +30,7 @@ interface ItemsPageProps {
   purchaseReturns?: PurchaseReturn[]
   salesReturns?: SalesReturn[]
   isLocked?: boolean
+  activeCompanyId?: string
 }
 
 export default function ItemsPage({
@@ -39,7 +40,8 @@ export default function ItemsPage({
   salesInvoices = [],
   purchaseReturns = [],
   salesReturns = [],
-  isLocked = false
+  isLocked = false,
+  activeCompanyId
 }: ItemsPageProps) {
   const [open, setOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Item | null>(null)
@@ -51,8 +53,8 @@ export default function ItemsPage({
   }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns])
 
   // Custom Category & Unit Manager Modals State
-  const [customCategories, setCustomCategories] = useState<string[]>(getCustomCategories)
-  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(getCustomUnits)
+  const [customCategories, setCustomCategories] = useState<string[]>(() => getCustomCategories(activeCompanyId))
+  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(() => getCustomUnits(activeCompanyId))
 
   const [addCatDialogOpen, setAddCatDialogOpen] = useState(false)
   const [newCatName, setNewCatName] = useState('')
@@ -69,15 +71,18 @@ export default function ItemsPage({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all')
 
   useEffect(() => {
-    const syncCategories = () => setCustomCategories(getCustomCategories())
-    const syncUnits = () => setCustomUnits(getCustomUnits())
+    const syncCategories = () => setCustomCategories(getCustomCategories(activeCompanyId))
+    const syncUnits = () => setCustomUnits(getCustomUnits(activeCompanyId))
+    syncCategories()
+    syncUnits()
+
     window.addEventListener('custom-categories-updated', syncCategories)
     window.addEventListener('custom-units-updated', syncUnits)
     return () => {
       window.removeEventListener('custom-categories-updated', syncCategories)
       window.removeEventListener('custom-units-updated', syncUnits)
     }
-  }, [])
+  }, [activeCompanyId])
 
   const isItemLinked = (itemId: string): boolean => {
     const inPurchase = purchaseInvoices.some(inv => (inv.items || []).some(i => i.itemId === itemId))
@@ -162,7 +167,7 @@ export default function ItemsPage({
   const handleCreateCategory = () => {
     const clean = newCatName.trim()
     if (!clean) return
-    const updated = saveCustomCategory(clean)
+    const updated = saveCustomCategory(clean, activeCompanyId)
     setCustomCategories(updated)
     setNewCatName('')
     toast.success(`Category "${clean}" added!`)
@@ -171,7 +176,7 @@ export default function ItemsPage({
   const handleSaveCategoryEdit = (oldName: string) => {
     const clean = editCatInputValue.trim()
     if (!clean) return
-    const updated = updateCustomCategory(oldName, clean)
+    const updated = updateCustomCategory(oldName, clean, activeCompanyId)
     setCustomCategories(updated)
     setEditingCatName(null)
     setEditCatInputValue('')
@@ -187,7 +192,7 @@ export default function ItemsPage({
       return
     }
 
-    const updated = deleteCustomCategory(catName)
+    const updated = deleteCustomCategory(catName, activeCompanyId)
     setCustomCategories(updated)
     toast.success(`Category "${catName}" deleted`)
   }
@@ -196,7 +201,7 @@ export default function ItemsPage({
     const code = newUnitCode.trim().toUpperCase()
     const label = newUnitLabel.trim() || code
     if (!code) return
-    const updated = saveCustomUnit(code, label)
+    const updated = saveCustomUnit(code, label, activeCompanyId)
     setCustomUnits(updated)
     setNewUnitCode('')
     setNewUnitLabel('')
@@ -207,7 +212,7 @@ export default function ItemsPage({
     const code = editUnitCodeVal.trim().toUpperCase()
     const label = editUnitLabelVal.trim() || code
     if (!code) return
-    const updated = updateCustomUnit(oldCode, code, label)
+    const updated = updateCustomUnit(oldCode, code, label, activeCompanyId)
     setCustomUnits(updated)
     setEditingUnitCode(null)
     setEditUnitCodeVal('')
@@ -228,7 +233,7 @@ export default function ItemsPage({
       return
     }
 
-    const updated = deleteCustomUnit(unitCode)
+    const updated = deleteCustomUnit(unitCode, activeCompanyId)
     setCustomUnits(updated)
     toast.success(`Unit "${unitCode}" deleted`)
   }

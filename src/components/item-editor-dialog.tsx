@@ -19,6 +19,7 @@ interface ItemEditorDialogProps {
   item?: Item | null
   existingItems?: Item[]
   onSave: (item: Item) => void
+  activeCompanyId?: string
 }
 
 const GST_OPTIONS = [
@@ -48,7 +49,8 @@ export function ItemEditorDialog({
   onOpenChange,
   item,
   existingItems = [],
-  onSave
+  onSave,
+  activeCompanyId
 }: ItemEditorDialogProps) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
@@ -64,8 +66,8 @@ export function ItemEditorDialog({
   const [openingStock, setOpeningStock] = useState('')
 
   // Reactive Custom Categories & Units State
-  const [customCategories, setCustomCategories] = useState<string[]>(getCustomCategories)
-  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(getCustomUnits)
+  const [customCategories, setCustomCategories] = useState<string[]>(() => getCustomCategories(activeCompanyId))
+  const [customUnits, setCustomUnits] = useState<{ value: string; label: string }[]>(() => getCustomUnits(activeCompanyId))
 
   const [addCatDialogOpen, setAddCatDialogOpen] = useState(false)
   const [newCatName, setNewCatName] = useState('')
@@ -75,20 +77,22 @@ export function ItemEditorDialog({
   const [newUnitLabel, setNewUnitLabel] = useState('')
 
   useEffect(() => {
-    const syncCategories = () => setCustomCategories(getCustomCategories())
-    const syncUnits = () => setCustomUnits(getCustomUnits())
+    const syncCategories = () => setCustomCategories(getCustomCategories(activeCompanyId))
+    const syncUnits = () => setCustomUnits(getCustomUnits(activeCompanyId))
+    syncCategories()
+    syncUnits()
     window.addEventListener('custom-categories-updated', syncCategories)
     window.addEventListener('custom-units-updated', syncUnits)
     return () => {
       window.removeEventListener('custom-categories-updated', syncCategories)
       window.removeEventListener('custom-units-updated', syncUnits)
     }
-  }, [])
+  }, [activeCompanyId])
 
   useEffect(() => {
     if (!open) return
-    setCustomCategories(getCustomCategories())
-    setCustomUnits(getCustomUnits())
+    setCustomCategories(getCustomCategories(activeCompanyId))
+    setCustomUnits(getCustomUnits(activeCompanyId))
     setName(item?.name || '')
     setCategory(item?.category || '')
     setGstRate(typeof item?.gstRate === 'number' ? item.gstRate.toString() : 'none')
@@ -117,7 +121,7 @@ export function ItemEditorDialog({
   const handleCreateCategory = () => {
     const clean = newCatName.trim()
     if (!clean) return
-    const updated = saveCustomCategory(clean)
+    const updated = saveCustomCategory(clean, activeCompanyId)
     setCustomCategories(updated)
     setCategory(clean)
     setNewCatName('')
@@ -129,7 +133,7 @@ export function ItemEditorDialog({
     const code = newUnitCode.trim().toUpperCase()
     const label = newUnitLabel.trim() || code
     if (!code) return
-    const updated = saveCustomUnit(code, label)
+    const updated = saveCustomUnit(code, label, activeCompanyId)
     setCustomUnits(updated)
     setUnit(code)
     setNewUnitCode('')

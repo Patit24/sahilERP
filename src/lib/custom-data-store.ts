@@ -33,7 +33,13 @@ export const DEFAULT_UNITS: { value: string; label: string }[] = [
 function getActiveCompanyId(): string {
   try {
     const meta = getMetadata()
-    return meta?.activeCompanyId || 'default'
+    if (meta && meta.activeCompanyId) {
+      return meta.activeCompanyId
+    }
+    if (meta && meta.businesses && meta.businesses.length > 0) {
+      return meta.businesses[0].id
+    }
+    return 'default'
   } catch (e) {
     return 'default'
   }

@@ -590,11 +590,13 @@ function App() {
       setDebitNotes([])
       setSalesReturns([])
       setPurchaseReturns([])
-      setMetadata(prev => ({
-        ...prev,
+      const updatedMeta: AppMetadata = {
+        ...metadata,
         activeCompanyId: business.id,
-        activeFY: business.startFY || prev.activeFY || getCurrentFY()
-      }))
+        activeFY: business.startFY || metadata.activeFY || getCurrentFY()
+      }
+      setMetadata(updatedMeta)
+      saveMetadata(updatedMeta)
     }
   }
   
@@ -618,9 +620,17 @@ function App() {
       setDebitNotes([])
       setSalesReturns([])
       setPurchaseReturns([])
-      setMetadata(prev => ({ ...prev, activeFY: fy }))
+      const updatedMeta: AppMetadata = { ...metadata, activeFY: fy }
+      setMetadata(updatedMeta)
+      saveMetadata(updatedMeta)
     }
   }
+
+  useEffect(() => {
+    if (metadata && metadata.activeCompanyId) {
+      saveMetadata(metadata)
+    }
+  }, [metadata])
   
   const [activeView, setActiveView] = useState('dashboard')
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -1985,6 +1995,7 @@ function App() {
               purchaseReturns={safePurchaseReturns}
               salesReturns={safeSalesReturns}
               isLocked={isViewReadOnly('items')}
+              activeCompanyId={metadata.activeCompanyId}
             />
           )
         case 'invoices':
