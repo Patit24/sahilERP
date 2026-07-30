@@ -79,6 +79,18 @@ export default function ItemsPage({
     }
   }, [])
 
+  const isItemLinked = (itemId: string): boolean => {
+    const inPurchase = purchaseInvoices.some(inv => (inv.items || []).some(i => i.itemId === itemId))
+    if (inPurchase) return true
+    const inSales = salesInvoices.some(inv => (inv.items || []).some(i => i.itemId === itemId))
+    if (inSales) return true
+    const inPurReturn = purchaseReturns.some(ret => (ret.items || []).some(i => i.itemId === itemId))
+    if (inPurReturn) return true
+    const inSalesReturn = salesReturns.some(ret => (ret.items || []).some(i => i.itemId === itemId))
+    if (inSalesReturn) return true
+    return false
+  }
+
   const handleDeleteClick = (item: Item) => {
     if (isLocked) {
       toast.error('Cannot delete in locked mode', {
@@ -86,6 +98,14 @@ export default function ItemsPage({
       })
       return
     }
+
+    if (isItemLinked(item.id)) {
+      toast.error(`Cannot delete item "${item.name}"`, {
+        description: 'This item is linked to existing invoices or returns and cannot be deleted.'
+      })
+      return
+    }
+
     setItemToDelete(item)
     setDeleteDialogOpen(true)
   }
@@ -159,6 +179,14 @@ export default function ItemsPage({
   }
 
   const handleDeleteCategory = (catName: string) => {
+    const isLinked = items.some(item => (item.category || '').trim().toLowerCase() === catName.trim().toLowerCase())
+    if (isLinked) {
+      toast.error(`Cannot delete category "${catName}"`, {
+        description: 'This category is linked to existing items and cannot be deleted.'
+      })
+      return
+    }
+
     const updated = deleteCustomCategory(catName)
     setCustomCategories(updated)
     toast.success(`Category "${catName}" deleted`)
@@ -188,6 +216,18 @@ export default function ItemsPage({
   }
 
   const handleDeleteUnit = (unitCode: string) => {
+    const isLinked = items.some(
+      item => item.unit?.toUpperCase() === unitCode.toUpperCase() || 
+              item.alternativeUnit?.toUpperCase() === unitCode.toUpperCase()
+    )
+
+    if (isLinked) {
+      toast.error(`Cannot delete unit "${unitCode}"`, {
+        description: 'This unit is linked to existing items and cannot be deleted.'
+      })
+      return
+    }
+
     const updated = deleteCustomUnit(unitCode)
     setCustomUnits(updated)
     toast.success(`Unit "${unitCode}" deleted`)

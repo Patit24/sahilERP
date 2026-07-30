@@ -68,6 +68,17 @@ export default function CustomersPage({
       })
       return
     }
+
+    const hasInvoices = salesInvoices.some(inv => inv.customerId === customer.id)
+    const hasPayments = customerPayments.some(pay => pay.customerId === customer.id)
+
+    if (hasInvoices || hasPayments) {
+      toast.error(`Cannot delete customer "${customer.name}"`, {
+        description: 'This customer is linked to existing invoices or payments and cannot be deleted.'
+      })
+      return
+    }
+
     setCustomerToDelete(customer)
     setDeleteDialogOpen(true)
   }

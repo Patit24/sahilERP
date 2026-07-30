@@ -274,6 +274,17 @@ export default function SuppliersPage({
   // Delete Supplier
   const handleDeleteSupplier = (supplier: Supplier) => {
     if (isLocked) return toast.error('Data is locked.')
+
+    const hasInvoices = invoices.some(inv => inv.supplierId === supplier.id)
+    const hasPayments = payments.some(pay => pay.supplierId === supplier.id)
+
+    if (hasInvoices || hasPayments) {
+      toast.error(`Cannot delete supplier "${supplier.name}"`, {
+        description: 'This supplier is linked to existing invoices or payments and cannot be deleted.'
+      })
+      return
+    }
+
     setSupplierToDelete(supplier)
     setDeleteDialogOpen(true)
   }
