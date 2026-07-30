@@ -100,8 +100,7 @@ export default function InvoicesPage({
   const [roundOffAdjustment, setRoundOffAdjustment] = useState<number>(0)
   const [amountPaid, setAmountPaid] = useState('')
   const [selectedCounterId, setSelectedCounterId] = useState('')
-  const [markAsFullyPaid, setMarkAsFullyPaid] = useState(false)
-    const [selectedSupplierId, setSelectedSupplierId] = useState('')
+  const [selectedSupplierId, setSelectedSupplierId] = useState('')
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false)
   const [supplierSearch, setSupplierSearch] = useState('')
   const [showQuickSupplier, setShowQuickSupplier] = useState(false)
@@ -692,7 +691,6 @@ export default function InvoicesPage({
     setSupplierPickerOpen(false)
     setSupplierSearch('')
     setAmountPaid('')
-    setMarkAsFullyPaid(false)
     setShowAdditionalCharge(false)
     setShowInvoiceNotes(false)
     setInvoiceNotes('')
@@ -716,7 +714,6 @@ export default function InvoicesPage({
       setInvoiceItems([])
       setRoundOffAdjustment(0)
       setAmountPaid('')
-      setMarkAsFullyPaid(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
@@ -745,7 +742,6 @@ export default function InvoicesPage({
       setPickerQuantities({})
       setRoundOffAdjustment(0)
       setAmountPaid('')
-      setMarkAsFullyPaid(false)
       setShowAdditionalCharge(false)
       setShowInvoiceNotes(false)
       setInvoiceNotes('')
@@ -784,8 +780,7 @@ export default function InvoicesPage({
     const linkedPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
     setAmountPaid(linkedPayment ? String(linkedPayment.amount) : '')
     setSelectedCounterId(linkedPayment?.counterId || '')
-    setMarkAsFullyPaid(Boolean(linkedPayment && Math.abs(linkedPayment.amount - invoice.invoiceAmount) < 0.01))
-        setShowInvoiceNotes(false)
+    setShowInvoiceNotes(false)
     setInvoiceNotes('')
     setShowInvoiceTerms(false)
     setInvoiceTerms('')
@@ -855,7 +850,7 @@ export default function InvoicesPage({
   const totalInvoiceQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
   const finalInvoiceAmountPreview = parseFloat((totalInvoiceAmount + additionalCostFinal + roundOffAdjustment).toFixed(2))
   const paidAmountPreview = Math.min(
-    Math.max(markAsFullyPaid ? finalInvoiceAmountPreview : parseFloat(amountPaid) || 0, 0),
+    Math.max(parseFloat(amountPaid) || 0, 0),
     finalInvoiceAmountPreview
   )
   const balanceAmountPreview = Math.max(finalInvoiceAmountPreview - paidAmountPreview, 0)
@@ -1329,21 +1324,12 @@ export default function InvoicesPage({
                           </div>
                         </div>
                         <div className="erp-footer-section-content">
-                          <input type="hidden" name="amountPaid" value={markAsFullyPaid ? finalInvoiceAmountPreview : amountPaid} />
+                          <input type="hidden" name="amountPaid" value={amountPaid} />
                           {amountPaid && parseFloat(amountPaid) > 0 && (
                             <input type="hidden" name="counterId" value={selectedCounterId} />
                           )}
-                          <label className="erp-paid-checkbox cursor-pointer">
-                            <Checkbox
-                              checked={markAsFullyPaid}
-                              onCheckedChange={(checked) => setMarkAsFullyPaid(Boolean(checked))}
-                              className="mr-2"
-                            />
-                            Mark invoice as fully paid
-                            <Info size={16} className="ml-1 text-muted-foreground" weight="bold" />
-                          </label>
 
-                          <div className="erp-payment-fields-row">
+                          <div className="erp-payment-fields-row mt-1">
                             <div className="erp-payment-field">
                               <label>Amount Paid</label>
                               <div className="relative">
@@ -1353,9 +1339,8 @@ export default function InvoicesPage({
                                   step="0.01"
                                   min="0"
                                   max={finalInvoiceAmountPreview || undefined}
-                                  value={markAsFullyPaid ? finalInvoiceAmountPreview || '' : amountPaid}
+                                  value={amountPaid}
                                   onChange={(event) => setAmountPaid(event.target.value)}
-                                  disabled={markAsFullyPaid}
                                   placeholder="0.00"
                                   className="pl-8 font-mono text-right"
                                 />
@@ -1363,7 +1348,7 @@ export default function InvoicesPage({
                             </div>
                             <div className="erp-payment-field">
                               <label>Payment Account</label>
-                              <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required={parseFloat(amountPaid) > 0 || markAsFullyPaid}>
+                              <Select value={selectedCounterId} onValueChange={setSelectedCounterId} required={parseFloat(amountPaid) > 0}>
                                 <SelectTrigger className="h-10 text-sm">
                                   <SelectValue placeholder="Select Cash/Bank account" />
                                 </SelectTrigger>
@@ -1392,11 +1377,6 @@ export default function InvoicesPage({
                               <span>Balance Due</span>
                               <span className="value">₹{balanceAmountPreview.toFixed(2)}</span>
                             </div>
-                          </div>
-
-                          <div className="erp-alert-box-info">
-                            <Info size={18} weight="fill" />
-                            <div>If you mark as fully paid, the Amount Paid will be set equal to Total Payable.</div>
                           </div>
                         </div>
                       </div>
