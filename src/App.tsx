@@ -1232,26 +1232,35 @@ function App() {
         }
 
         let user: AuthenticatedUser | null = null
-        try {
-          user = await signInRemoteUser(email, authPasscode)
-        } catch {
-          // Fallback to local accounts if remote auth fails
-          const localRes = await verifyUserLoginDetailed(authUsername, authPasscode)
-          if (localRes.user) {
-            user = localRes.user
-          } else {
-            throw new Error(localRes.error || 'Incorrect email or password.')
+
+        // 1. Check local agent accounts first
+        const localRes = await verifyUserLoginDetailed(authUsername, authPasscode)
+        if (localRes.user) {
+          user = localRes.user
+        } else if (email !== authUsername.trim().toLowerCase()) {
+          const localResEmail = await verifyUserLoginDetailed(email, authPasscode)
+          if (localResEmail.user) {
+            user = localResEmail.user
+          }
+        }
+
+        // 2. If not found locally, try remote server sign-in
+        if (!user) {
+          try {
+            user = await signInRemoteUser(email, authPasscode)
+          } catch (remoteErr) {
+            if (localRes.error && !localRes.error.includes('does not exist')) {
+              setAuthError(localRes.error)
+              return
+            }
+            setAuthError(remoteErr instanceof Error ? remoteErr.message : 'Incorrect email or password.')
+            return
           }
         }
 
         if (!user) {
-          const localRes = await verifyUserLoginDetailed(authUsername, authPasscode)
-          if (localRes.user) {
-            user = localRes.user
-          } else {
-            setAuthError('No active profile found for this user.')
-            return
-          }
+          setAuthError('No active profile found for this user.')
+          return
         }
 
         setCurrentUser(user)

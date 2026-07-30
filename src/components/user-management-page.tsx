@@ -160,18 +160,21 @@ export default function UserManagementPage({
           isActive,
           allowedCounters
         })
+        if (isServerMode && onSaveAgent) {
+          try {
+            await onSaveAgent({
+              id: editingId,
+              displayName,
+              permissions,
+              isActive,
+              allowedCounters
+            })
+          } catch (remoteErr) {
+            console.warn('Remote agent update notice:', remoteErr)
+          }
+        }
         onAccountsChange(nextAccounts)
         toast.success('Agent updated')
-      } else if (isServerMode && onCreateRemoteAgent) {
-        await onCreateRemoteAgent({
-          email: username.includes('@') ? username : `${username}@sktraders.local`,
-          displayName,
-          passcode,
-          permissions,
-          companyId: '',
-          allowedCounters
-        })
-        toast.success('Agent created in server mode')
       } else {
         const created = await createAgentAccount({
           username,
@@ -180,8 +183,22 @@ export default function UserManagementPage({
           permissions,
           allowedCounters
         })
+        if (isServerMode && onCreateRemoteAgent) {
+          try {
+            await onCreateRemoteAgent({
+              email: username.includes('@') ? username : `${username}@sktraders.local`,
+              displayName,
+              passcode,
+              permissions,
+              companyId: '',
+              allowedCounters
+            })
+          } catch (remoteErr) {
+            console.warn('Remote agent creation notice:', remoteErr)
+          }
+        }
         onAccountsChange(getUserAccounts())
-        toast.success(`Agent created! Username: "${created.username}"`)
+        toast.success(`Agent created successfully! Username: "${created.username}"`)
       }
       resetForm()
     } catch (error) {
