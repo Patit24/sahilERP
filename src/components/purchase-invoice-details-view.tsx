@@ -130,6 +130,8 @@ export function PurchaseInvoiceDetailsView({
       }
     })
 
+    const fixedSchemeDiscounts = invoiceDiscounts.filter(ed => ed.type === 'fixedScheme')
+
     return {
       paidAmount,
       pendingAmount,
@@ -137,6 +139,7 @@ export function PurchaseInvoiceDetailsView({
       paymentCDTotal,
       closeCDTotal,
       fixedSchemeTotal,
+      fixedSchemeDiscounts,
       totalCDEarned,
       totalLinkedExpense,
       totalAdditionalCost,
@@ -228,6 +231,42 @@ export function PurchaseInvoiceDetailsView({
           </CardContent>
         </Card>
       </div>
+
+      {/* MT Booking Locked Schemes Cost Breakdown */}
+      {details.fixedSchemeDiscounts.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <Calculator className="h-5 w-5 text-indigo-600" />
+            MT Booking Locked Scheme Cost Breakdown
+          </h3>
+          <div className="border border-indigo-100 rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-50/50 to-blue-50/50 p-4 shadow-2xs">
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {details.fixedSchemeDiscounts.map((fs, idx) => (
+                <div key={idx} className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/80">
+                  <div className="text-xs font-bold text-indigo-900 flex items-center justify-between">
+                    <span>{fs.schemeName || fs.ruleName || 'MT Scheme'}</span>
+                    <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200">
+                      Locked
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex items-baseline justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Rate / MT:</span>
+                    <span className="font-mono font-bold text-slate-800">{formatCurrency(fs.ratePerMT)}</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Consumed Qty:</span>
+                    <span className="font-mono font-semibold text-slate-700">{formatMT(fs.eligibleQuantityMT)}</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-indigo-50 flex items-baseline justify-between">
+                    <span className="text-[11px] font-bold text-indigo-900 uppercase">Total Discount:</span>
+                    <span className="font-mono font-bold text-emerald-600 text-sm">{formatCurrency(fs.expectedAmount)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invoice Items Summary */}
       <div className="space-y-3">

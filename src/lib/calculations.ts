@@ -648,28 +648,27 @@ export function calculateExpectedDiscounts(
       if (bookingRemaining > 0) {
         const mtToConsumeFromBooking = Math.min(remainingInvoiceMT, bookingRemaining)
         const marketRateComparison = getMTBookingRateComparison(booking.bookedMarketRate, currentMarketRate)
-        const ruleSource = getMTBookingRuleSource(booking, currentMTBookingSchemes, currentMarketRate)
         
-        if (ruleSource === 'current') {
-          for (const scheme of currentMTBookingSchemes) {
+        if (booking.lockedSchemes && booking.lockedSchemes.length > 0) {
+          for (const lockedScheme of booking.lockedSchemes) {
             expectedDiscounts.push({
-              id: `fixedScheme-booking-current-${invoice.id}-${booking.id}-${scheme.id}`,
+              id: `fixedScheme-booking-${invoice.id}-${booking.id}-${lockedScheme.schemeId}`,
               supplierId: supplier.id,
               invoiceId: invoice.id,
-              schemeId: scheme.id,
-              ruleVersionId: scheme.id,
-              ruleVersion: scheme.version || 1,
-              ruleName: scheme.schemeName,
+              schemeId: lockedScheme.schemeId,
+              ruleVersionId: lockedScheme.ruleVersionId || lockedScheme.schemeId,
+              ruleVersion: lockedScheme.ruleVersion || 1,
+              ruleName: lockedScheme.schemeName,
               type: 'fixedScheme',
               earnedDate: invoice.invoiceDate,
               invoiceDate: invoice.invoiceDate,
               eligibleQuantityMT: mtToConsumeFromBooking,
-              ratePerMT: scheme.ratePerMT,
-              expectedAmount: mtToConsumeFromBooking * scheme.ratePerMT,
+              ratePerMT: lockedScheme.ratePerMT,
+              expectedAmount: mtToConsumeFromBooking * lockedScheme.ratePerMT,
               invoiceNo: invoice.invoiceNo,
-              schemeName: `${scheme.schemeName} (current month)`,
+              schemeName: `${lockedScheme.schemeName} (MT Booking Locked)`,
               mtBookingId: booking.id,
-              mtBookingRuleSource: 'current',
+              mtBookingRuleSource: 'previous',
               marketRateComparison,
               bookedMarketRate: booking.bookedMarketRate,
               currentMarketRate
@@ -688,31 +687,33 @@ export function calculateExpectedDiscounts(
             ratePerMT: booking.manualRate,
             expectedAmount: mtToConsumeFromBooking * booking.manualRate,
             invoiceNo: invoice.invoiceNo,
-            schemeName: 'Manual MT Booking (previous month)',
+            schemeName: 'Manual MT Booking Rate',
             mtBookingId: booking.id,
             mtBookingRuleSource: 'previous',
             marketRateComparison,
             bookedMarketRate: booking.bookedMarketRate,
             currentMarketRate
           })
-        } else if (booking.rateMode === 'auto' && booking.lockedSchemes && booking.lockedSchemes.length > 0) {
-          for (const lockedScheme of booking.lockedSchemes) {
+        } else {
+          // Fallback to active schemes at booking's orderDate
+          const bookingOrderSchemes = getApplicableFixedSchemes(fixedSchemes, supplier.id, booking.orderDate, true)
+          for (const scheme of bookingOrderSchemes) {
             expectedDiscounts.push({
-              id: `fixedScheme-booking-${invoice.id}-${booking.id}-${lockedScheme.schemeId}`,
+              id: `fixedScheme-booking-order-${invoice.id}-${booking.id}-${scheme.id}`,
               supplierId: supplier.id,
               invoiceId: invoice.id,
-              schemeId: lockedScheme.schemeId,
-              ruleVersionId: lockedScheme.ruleVersionId || lockedScheme.schemeId,
-              ruleVersion: lockedScheme.ruleVersion || 1,
-              ruleName: lockedScheme.schemeName,
+              schemeId: scheme.id,
+              ruleVersionId: scheme.id,
+              ruleVersion: scheme.version || 1,
+              ruleName: scheme.schemeName,
               type: 'fixedScheme',
               earnedDate: invoice.invoiceDate,
               invoiceDate: invoice.invoiceDate,
               eligibleQuantityMT: mtToConsumeFromBooking,
-              ratePerMT: lockedScheme.ratePerMT,
-              expectedAmount: mtToConsumeFromBooking * lockedScheme.ratePerMT,
+              ratePerMT: scheme.ratePerMT,
+              expectedAmount: mtToConsumeFromBooking * scheme.ratePerMT,
               invoiceNo: invoice.invoiceNo,
-              schemeName: `${lockedScheme.schemeName} (booking month)`,
+              schemeName: `${scheme.schemeName} (Booking Order Date)`,
               mtBookingId: booking.id,
               mtBookingRuleSource: 'previous',
               marketRateComparison,
