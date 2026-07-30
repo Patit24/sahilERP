@@ -610,82 +610,84 @@ export default function CashBankManagement({
             </div>
 
             {/* Table */}
-            <Table>
-              <TableHeader className="bg-[#edf3fc]">
-                <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3">DATE</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3">COUNTER</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3">TYPE</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3">NARRATION</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right">IN (CR)</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right">OUT (DR)</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right">RUNNING BAL</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right">ACTION</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ledgerData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-12 text-center text-xs text-slate-500">
-                      No cash/bank ledger transactions found for the selected filters.
-                    </TableCell>
+            <div className="overflow-x-auto min-w-full">
+              <Table className="w-full min-w-[800px]">
+                <TableHeader className="bg-[#edf3fc]">
+                  <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 whitespace-nowrap min-w-[90px]">DATE</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 whitespace-nowrap min-w-[130px]">COUNTER</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 whitespace-nowrap min-w-[110px]">TYPE</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 whitespace-nowrap min-w-[180px]">NARRATION</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right whitespace-nowrap min-w-[100px]">IN (CR)</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right whitespace-nowrap min-w-[100px]">OUT (DR)</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right whitespace-nowrap min-w-[120px]">RUNNING BAL</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3 text-right whitespace-nowrap min-w-[70px]">ACTION</TableHead>
                   </TableRow>
-                ) : (
-                  ledgerData.map((t) => {
-                    const isIn = t.type === 'In' || (t.type === 'Transfer' && t.isTransferSide === 'in')
-                    const isOut = t.type === 'Out' || (t.type === 'Transfer' && t.isTransferSide === 'out')
-                    return (
-                      <TableRow key={t.displayId} className="hover:bg-slate-50/80 border-b border-slate-100">
-                        <TableCell className="text-slate-600 text-xs font-medium">{t.date}</TableCell>
-                        <TableCell className="font-semibold text-slate-900 text-xs">{t.displayCounterName}</TableCell>
-                        <TableCell>
-                          {t.type === 'Transfer' ? (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-bold">
-                              <ArrowsLeftRight className="mr-1 h-3 w-3 inline" />
-                              {t.isTransferSide === 'in' ? 'Transfer In' : 'Transfer Out'}
-                            </Badge>
-                          ) : isIn ? (
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
-                              <ArrowDownLeft className="mr-1 h-3 w-3 inline" /> Cash In
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-bold">
-                              <ArrowUpRight className="mr-1 h-3 w-3 inline" /> Cash Out
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-slate-600 text-xs max-w-[200px] truncate">{t.narration}</TableCell>
-                        <TableCell className="text-right font-mono font-bold text-emerald-600 text-xs">
-                          {isIn ? formatCurrency(t.amount) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-amber-600 text-xs">
-                          {isOut ? formatCurrency(t.amount) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-extrabold text-slate-900 text-xs">
-                          {t.runningBalance !== undefined ? formatCurrency(t.runningBalance) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isManualCounterTransaction(t) ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteTransaction(t)}
-                              disabled={isLocked}
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                              title="Delete Counter Entry"
-                            >
-                              <Trash className="h-3.5 w-3.5" weight="bold" />
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 font-medium italic select-none">Synced</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {ledgerData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-12 text-center text-xs text-slate-500">
+                        No cash/bank ledger transactions found for the selected filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    ledgerData.map((t) => {
+                      const isIn = t.type === 'In' || (t.type === 'Transfer' && t.isTransferSide === 'in')
+                      const isOut = t.type === 'Out' || (t.type === 'Transfer' && t.isTransferSide === 'out')
+                      return (
+                        <TableRow key={t.displayId} className="hover:bg-slate-50/80 border-b border-slate-100">
+                          <TableCell className="text-slate-600 text-xs font-medium whitespace-nowrap">{t.date}</TableCell>
+                          <TableCell className="font-semibold text-slate-900 text-xs whitespace-nowrap min-w-[130px]">{t.displayCounterName}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {t.type === 'Transfer' ? (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-bold">
+                                <ArrowsLeftRight className="mr-1 h-3 w-3 inline" />
+                                {t.isTransferSide === 'in' ? 'Transfer In' : 'Transfer Out'}
+                              </Badge>
+                            ) : isIn ? (
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                                <ArrowDownLeft className="mr-1 h-3 w-3 inline" /> Cash In
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-bold">
+                                <ArrowUpRight className="mr-1 h-3 w-3 inline" /> Cash Out
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-slate-700 text-xs font-medium min-w-[180px] max-w-[320px] whitespace-normal break-words">{t.narration}</TableCell>
+                          <TableCell className="text-right font-mono font-bold text-emerald-600 text-xs whitespace-nowrap">
+                            {isIn ? formatCurrency(t.amount) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-amber-600 text-xs whitespace-nowrap">
+                            {isOut ? formatCurrency(t.amount) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-extrabold text-slate-900 text-xs whitespace-nowrap">
+                            {t.runningBalance !== undefined ? formatCurrency(t.runningBalance) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            {isManualCounterTransaction(t) ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteTransaction(t)}
+                                disabled={isLocked}
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                                title="Delete Counter Entry"
+                              >
+                                <Trash className="h-3.5 w-3.5" weight="bold" />
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-medium italic select-none">Synced</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </div>
 
