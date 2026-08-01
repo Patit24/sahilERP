@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, CaretLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple, FileText, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
-import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY, calculatePaymentAllocations } from '@/lib/calculations'
+import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculatePaymentAllocations } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
@@ -140,7 +140,7 @@ export default function SalesInvoicesPage({
   const [showInvoiceTerms, setShowInvoiceTerms] = useState(false)
   const [invoiceTerms, setInvoiceTerms] = useState('')
   
-  const fyInvoices = salesInvoices.filter(inv => inv.fy === currentFY)
+  const fyInvoices = salesInvoices
   const fyMonths = getFYMonths(currentFY)
   
   const filteredInvoices = useMemo(() => {
@@ -188,7 +188,7 @@ export default function SalesInvoicesPage({
         notes: `Auto-created from sales invoice ${invoiceNo}`,
         counterId: counterId,
         counterName: selectedCounter?.name || 'Unknown',
-        fy: currentFY
+        fy: getFYFromDate(invoiceDate)
       }
 
       const exists = prev.some((candidate) => candidate.id === paymentId)
@@ -463,12 +463,7 @@ export default function SalesInvoicesPage({
       return
     }
 
-    if (!isDateInFY(invoiceDate, currentFY)) {
-      toast.error('Invalid invoice date', {
-        description: `Date must be within ${currentFY} (April to March)`
-      })
-      return
-    }
+
 
     if (invoiceItems.length === 0) {
       toast.error('Please add at least one item to the invoice')
@@ -547,7 +542,7 @@ export default function SalesInvoicesPage({
         additionalCostBasicRate: additionalCostBasicRate || undefined,
         additionalCostRemarks: additionalCostRemarks || undefined,
         roundOffAdjustment: roundOffAdjustment || undefined,
-                fy: currentFY
+                fy: getFYFromDate(invoiceDate)
       }
       setSalesInvoices((prev) => [...prev, invoice])
       syncInvoicePayment(invoiceId, customerId, formData.get('invoiceNo') as string, formData.get('invoiceDate') as string, finalAmountReceived, counterId)
@@ -720,9 +715,7 @@ export default function SalesInvoicesPage({
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [itemSearch, items, selectedItemCategory])
 
-  const fyDateRange = getFYDateRange(currentFY)
-  const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
-  const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
+
   const totalInvoiceQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
   const totalInvoiceAmount = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
   const finalInvoiceAmountPreview = parseFloat((totalInvoiceAmount + additionalCostFinal + roundOffAdjustment).toFixed(2))
@@ -990,11 +983,10 @@ export default function SalesInvoicesPage({
                               type="date"
                               className="h-8 bg-background text-xs"
                               defaultValue={editingInvoice?.invoiceDate}
-                              min={minDate}
-                              max={maxDate}
+
                               required
                             />
-                            <p className="text-[10px] text-muted-foreground">Must be within {currentFY}</p>
+                            <p className="text-[10px] text-muted-foreground">For payments, reports, ageing, and scheme eligibility</p>
                           </div>
                         </div>
                       </div>
@@ -1681,14 +1673,13 @@ export default function SalesInvoicesPage({
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">CUSTOMER</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">AMOUNT</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-center">STATUS</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-16 text-center">
+                      <TableCell colSpan={5} className="py-16 text-center">
                         <div className="max-w-sm mx-auto space-y-3">
                           <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
                             <Receipt size={32} weight="duotone" />
@@ -1709,45 +1700,12 @@ export default function SalesInvoicesPage({
                     </TableRow>
                   ) : (
                     filteredInvoices.map((invoice) => {
-                      const custPayments = customerPayments.filter((p) => p.customerId === invoice.customerId)
-                      const totalCustPaid = custPayments.reduce((sum, p) => sum + p.amount, 0)
-                      const custInvoices = fyInvoices
-                        .filter((inv) => inv.customerId === invoice.customerId)
-                        .sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
-
-                      let accInv = 0
-                      let statusLabel = 'Pending'
-                      let badgeClass = 'bg-rose-50 text-rose-700 border-rose-200'
-
-                      for (const inv of custInvoices) {
-                        if (inv.id === invoice.id) {
-                          const rem = Math.max(0, totalCustPaid - accInv)
-                          if (rem >= inv.invoiceAmount - 0.05) {
-                            statusLabel = 'Paid'
-                            badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          } else if (rem >= 1.0) {
-                            statusLabel = 'Partial Paid'
-                            badgeClass = 'bg-amber-50 text-amber-700 border-amber-200'
-                          } else {
-                            statusLabel = 'Pending'
-                            badgeClass = 'bg-rose-50 text-rose-700 border-rose-200'
-                          }
-                          break
-                        }
-                        accInv += inv.invoiceAmount
-                      }
-
                       return (
                         <TableRow key={invoice.id} className="hover:bg-slate-50/80 border-b border-slate-100">
                           <TableCell className="font-mono font-bold text-slate-900 text-sm">{invoice.invoiceNo}</TableCell>
                           <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
                           <TableCell className="font-semibold text-slate-800 text-sm">{getCustomerName(invoice.customerId)}</TableCell>
                           <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
-                          <TableCell className="text-center">
-                            <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border', badgeClass)}>
-                              {statusLabel}
-                            </span>
-                          </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button

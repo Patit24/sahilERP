@@ -73,10 +73,10 @@ export default function DiscountWalletPage({
   const [expandedReceivedRows, setExpandedReceivedRows] = useState<Set<string>>(new Set())
   const [editingDiscount, setEditingDiscount] = useState<ReceivedDiscount | null>(null)
 
-  const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
-  const fyPayments = payments.filter(p => p.fy === currentFY)
-  const fyReceivedDiscounts = receivedDiscounts.filter(rd => rd.fy === currentFY && rd.type === 'wallet')
-  const fyReceivedAnnual = receivedDiscounts.filter(rd => rd.fy === currentFY && rd.type === 'annual')
+  const fyInvoices = invoices
+  const fyPayments = payments
+  const fyReceivedDiscounts = receivedDiscounts.filter(rd => rd.type === 'wallet')
+  const fyReceivedAnnual = receivedDiscounts.filter(rd => rd.type === 'annual')
 
   const { allocations: paymentAllocations, paymentAdvanceInfo } = useMemo(() => 
     calculatePaymentAllocations(fyPayments, fyInvoices),
@@ -503,12 +503,6 @@ export default function DiscountWalletPage({
     const formData = new FormData(e.currentTarget)
     const discountReceivedDate = formData.get('discountReceivedDate') as string
 
-    if (!isDateInFY(discountReceivedDate, currentFY)) {
-      toast.error('Invalid discount received date', {
-        description: `Date must be within ${currentFY} (April to March)`
-      })
-      return
-    }
 
     const receivedData: ReceivedDiscount = {
       id: editingDiscount?.id || `received-${Date.now()}`,
@@ -1119,12 +1113,9 @@ export default function DiscountWalletPage({
                   id="discountReceivedDate" 
                   name="discountReceivedDate" 
                   type="date"
-                  min={minDate}
-                  max={maxDate}
                   defaultValue={editingDiscount ? editingDiscount.discountReceivedDate : undefined}
                   required 
                 />
-                <p className="text-xs text-muted-foreground">Must be within {currentFY}</p>
               </div>
 
               <div className="space-y-2">

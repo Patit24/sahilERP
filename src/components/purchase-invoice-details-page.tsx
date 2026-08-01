@@ -170,7 +170,6 @@ export default function PurchaseInvoiceDetailsPage({
 
   const invoiceDetails = useMemo((): InvoiceDetails[] => {
     return invoices
-      .filter(inv => inv.fy === currentFY)
       .map(invoice => {
         const supplier = supplierMap.get(invoice.supplierId)!
         

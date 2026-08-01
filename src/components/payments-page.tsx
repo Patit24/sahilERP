@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Plus, CurrencyDollar, Trash, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple } from '@phosphor-icons/react'
-import { formatCurrency, calculatePaymentAllocations, isPaymentAdvance, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, calculatePaymentAllocations, isPaymentAdvance, getFYMonths, getFYFromDate } from '@/lib/calculations'
 import { exportPurchaseInvoicePDF } from '@/lib/pdf-export'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
@@ -47,8 +47,8 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [bookingMTInput, setBookingMTInput] = useState('')
   const [bookingMarketRateInput, setBookingMarketRateInput] = useState('')
   
-  const fyPayments = payments.filter(p => p.fy === currentFY)
-  const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
+  const fyPayments = payments
+  const fyInvoices = invoices
   const fyMonths = getFYMonths(currentFY)
   
   const { allocations, paymentAdvanceInfo } = useMemo(() => 
@@ -250,12 +250,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       return
     }
 
-    if (!isDateInFY(paymentDate, currentFY)) {
-      toast.error('Invalid payment date', {
-        description: `Date must be within ${currentFY} (April to March)`
-      })
-      return
-    }
+
 
     if (editingPayment) {
       const updatedPayment: Payment = {
@@ -332,7 +327,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
         doNotApplyCD: false,
         counterId: counterId,
         counterName: selectedCounter.name,
-        fy: currentFY,
+        fy: getFYFromDate(paymentDate),
         createdAt: Date.now()
       }
       setPayments((prev) => [...prev, payment])
@@ -450,9 +445,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const invoiceMap = new Map(fyInvoices.map(inv => [inv.id, inv]))
   const itemMap = new Map(items.map(item => [item.id, item]))
 
-  const fyDateRange = getFYDateRange(currentFY)
-  const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
-  const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
+
 
   const handleDownloadInvoicePDF = (
     invoice: PurchaseInvoice | undefined,
@@ -525,11 +518,10 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                   name="paymentDate" 
                   type="date"
                   defaultValue={editingPayment?.paymentDate}
-                  min={minDate}
-                  max={maxDate}
+
                   required 
                 />
-                <p className="text-xs text-muted-foreground">Must be within {currentFY}</p>
+                <p className="text-xs text-muted-foreground">For reports, ageing, and scheme eligibility</p>
               </div>
 
               <div className="space-y-2">

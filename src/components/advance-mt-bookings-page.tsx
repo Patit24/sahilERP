@@ -88,7 +88,7 @@ export default function AdvanceMTBookingsPage({
   const balances = useMemo(() => {
     const bookingPayments = payments.filter((p) => {
       const amt = toNumber(p.booking_mt || p.raw_data?.bookingMT)
-      return amt > 0 && p.company_id === activeCompanyId && p.fy === currentFY
+      return amt > 0 && p.company_id === activeCompanyId
     })
     
     return bookingPayments.map((p) => {

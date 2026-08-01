@@ -28,7 +28,7 @@ export default function AnnualDiscountPage({
 }: AnnualDiscountPageProps) {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
 
-  const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
+  const fyInvoices = invoices
 
   const expectedAnnual = useMemo(() => 
     calculateExpectedAnnualDiscounts(fyInvoices, suppliers),

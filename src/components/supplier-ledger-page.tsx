@@ -43,10 +43,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
     }
 
     const supplierInvoices = invoices.filter(
-      inv => inv.supplierId === selectedSupplierId && inv.fy === currentFY
+      inv => inv.supplierId === selectedSupplierId
     )
     const supplierPayments = payments.filter(
-      pay => pay.supplierId === selectedSupplierId && pay.fy === currentFY
+      pay => pay.supplierId === selectedSupplierId
     )
 
     const entriesWithTimestamp: Array<LedgerEntry & { timestamp: number }> = []
@@ -82,10 +82,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
 
 
     const supplierDebitNotesFiltered = debitNotes.filter(
-      dn => dn.supplierId === selectedSupplierId && dn.fy === currentFY
+      dn => dn.supplierId === selectedSupplierId
     )
     const supplierPurchaseReturnsFiltered = purchaseReturns.filter(
-      pr => pr.supplierId === selectedSupplierId && pr.fy === currentFY
+      pr => pr.supplierId === selectedSupplierId
     )
 
     supplierDebitNotesFiltered.forEach(dn => {

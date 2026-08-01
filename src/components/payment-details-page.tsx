@@ -90,7 +90,6 @@ export default function PaymentDetailsPage({
 
   const paymentDetails = useMemo((): PaymentDetails[] => {
     return payments
-      .filter(pay => pay.fy === currentFY)
       .map(payment => {
         const supplier = supplierMap.get(payment.supplierId)
         if (!supplier) return null

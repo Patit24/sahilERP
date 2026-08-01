@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Plus, CurrencyInr, Trash, Info, PencilSimple, FunnelSimple, Warning, CaretUpDown, Check } from '@phosphor-icons/react'
-import { formatCurrency, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, getFYMonths, getFYFromDate } from '@/lib/calculations'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -44,12 +44,12 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false)
   const [selectedCounterId, setSelectedCounterId] = useState<string>('')
 
-  const fyPayments = customerPayments.filter(p => p.fy === currentFY)
+  const fyPayments = customerPayments
   const fyMonths = getFYMonths(currentFY)
   
   const calculateCustomerOutstanding = (customerId: string): number => {
-    const fySalesInvoices = salesInvoices.filter(inv => inv.fy === currentFY && inv.customerId === customerId)
-    const fyCustomerPayments = customerPayments.filter(p => p.fy === currentFY && p.customerId === customerId)
+    const fySalesInvoices = salesInvoices.filter(inv => inv.customerId === customerId)
+    const fyCustomerPayments = customerPayments.filter(p => p.customerId === customerId)
     
     const totalReceivables = fySalesInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
     const totalPaymentsReceived = fyCustomerPayments.reduce((sum, p) => sum + p.amount, 0)
@@ -100,12 +100,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
       return
     }
 
-    if (!isDateInFY(paymentDate, currentFY)) {
-      toast.error('Invalid payment date', {
-        description: `Date must be within ${currentFY} (April to March)`
-      })
-      return
-    }
+
 
     const selectedCounter = counters.find(c => c.id === counterId)
     if (!selectedCounter) {
@@ -180,7 +175,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
         notes,
         counterId: counterId,
         counterName: selectedCounter.name,
-        fy: currentFY
+        fy: getFYFromDate(paymentDate)
       }
       setCustomerPayments((prev) => [...prev, payment])
       
@@ -274,9 +269,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
     return customers.find(c => c.id === customerId)?.name || 'Unknown'
   }
 
-  const fyDateRange = getFYDateRange(currentFY)
-  const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
-  const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
+
 
   return (
     <div className="space-y-6">
@@ -433,11 +426,10 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
                           name="paymentDate"
                           type="date"
                           defaultValue={editingPayment?.paymentDate}
-                          min={minDate}
-                          max={maxDate}
+
                           required
                         />
-                        <p className="text-xs text-muted-foreground">Must be within {currentFY}</p>
+                        <p className="text-xs text-muted-foreground">For reports, ageing, and scheme eligibility</p>
                       </div>
 
                       <div className="space-y-2">

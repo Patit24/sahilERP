@@ -1159,11 +1159,19 @@ export function getFYDateRange(fy: string): { startDate: Date; endDate: Date } |
 }
 
 export function isDateInFY(date: string | Date, fy: string): boolean {
-  const range = getFYDateRange(fy)
-  if (!range) return false
-  
-  const checkDate = new Date(date)
-  return checkDate >= range.startDate && checkDate <= range.endDate
+  return true
+}
+
+export function getFYFromDate(date: string | Date): string {
+  const d = new Date(date)
+  const month = d.getMonth() // 0-indexed: 0=Jan, 3=Apr
+  const year = d.getFullYear()
+  // Indian FY: April (month 3) to March (month 2)
+  // If month >= April (3), FY starts this year. If month < April, FY started previous year.
+  const fyStartYear = month >= 3 ? year : year - 1
+  const fyEndYear = fyStartYear + 1
+  const shortEnd = fyEndYear.toString().slice(2)
+  return `FY${fyStartYear}-${shortEnd}`
 }
 
 export function formatDateForInput(date: Date): string {

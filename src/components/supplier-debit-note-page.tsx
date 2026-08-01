@@ -35,7 +35,7 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
   const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
   const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
 
-  const fyItems = debitNotes.filter(p => p.fy === currentFY)
+  const fyItems = debitNotes
   const fyMonths = getFYMonths(currentFY)
   
   const filteredItems = useMemo(() => {
@@ -83,10 +83,6 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
       return
     }
 
-    if (!isDateInFY(date, currentFY)) {
-      toast.error('Invalid date', { description: `Date must be within ${currentFY}` })
-      return
-    }
 
     if (editingItem) {
       const updated: SupplierDebitNote = {

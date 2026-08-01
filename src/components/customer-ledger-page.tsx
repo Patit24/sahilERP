@@ -39,10 +39,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
     }
 
     const customerInvoices = salesInvoices.filter(
-      inv => inv.customerId === selectedCustomerId && inv.fy === currentFY
+      inv => inv.customerId === selectedCustomerId
     )
     const customerPaymentsFiltered = customerPayments.filter(
-      pay => pay.customerId === selectedCustomerId && pay.fy === currentFY
+      pay => pay.customerId === selectedCustomerId
     )
 
     customerInvoices.forEach(invoice => {
@@ -73,10 +73,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
     })
 
     const customerCreditNotesFiltered = creditNotes.filter(
-      cn => cn.customerId === selectedCustomerId && cn.fy === currentFY
+      cn => cn.customerId === selectedCustomerId
     )
     const customerSalesReturnsFiltered = salesReturns.filter(
-      sr => sr.customerId === selectedCustomerId && sr.fy === currentFY
+      sr => sr.customerId === selectedCustomerId
     )
 
     customerCreditNotesFiltered.forEach(cn => {

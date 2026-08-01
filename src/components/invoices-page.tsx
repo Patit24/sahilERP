@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, CaretLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple, FileText, Wallet, TrendUp, SlidersHorizontal, Scales } from '@phosphor-icons/react'
-import { formatCurrency, formatMT, getFYMonths, getFYDateRange, formatDateForInput, isDateInFY, calculatePaymentAllocations } from '@/lib/calculations'
+import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculatePaymentAllocations } from '@/lib/calculations'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -198,7 +198,7 @@ export default function InvoicesPage({
     }
   }, [invoiceItems, items, additionalCostFinal])
   
-  const fyInvoices = invoices.filter(inv => inv.fy === currentFY)
+  const fyInvoices = invoices
   const fyMonths = getFYMonths(currentFY)
   
   const filteredInvoices = useMemo(() => {
@@ -593,12 +593,6 @@ export default function InvoicesPage({
       return
     }
 
-    if (!isDateInFY(invoiceDate, currentFY)) {
-      toast.error('Invalid invoice date', {
-        description: `Date must be within ${currentFY} (April to March)`
-      })
-      return
-    }
 
     if (invoiceItems.length === 0) {
       toast.error('Please add at least one item to the invoice')
@@ -677,7 +671,7 @@ export default function InvoicesPage({
         additionalCostBasicRate: additionalCostBasicRate || undefined,
         additionalCostRemarks: additionalCostRemarks || undefined,
         roundOffAdjustment: roundOffAdjustment || undefined,
-                fy: currentFY,
+                fy: getFYFromDate(invoiceDate),
         createdAt: Date.now()
       }
       setInvoices((prev) => [...prev, invoice])
@@ -855,9 +849,7 @@ export default function InvoicesPage({
   )
   const balanceAmountPreview = Math.max(finalInvoiceAmountPreview - paidAmountPreview, 0)
 
-  const fyDateRange = getFYDateRange(currentFY)
-  const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
-  const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
+
 
   const handleDownloadInvoicePDF = (invoice: PurchaseInvoice) => {
     const directPayment = payments.find((payment) => payment.id === getInvoicePaymentId(invoice.id))
@@ -1117,8 +1109,7 @@ export default function InvoicesPage({
                         name="invoiceDate" 
                         type="date"
                         defaultValue={editingInvoice?.invoiceDate}
-                        min={minDate}
-                        max={maxDate}
+
                         className="h-8 bg-background text-xs"
                         required
                       />
@@ -1822,7 +1813,6 @@ export default function InvoicesPage({
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">INVOICE NO</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">SUPPLIER</TableHead>
-                <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">STATUS</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">AMOUNT</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
               </TableRow>
@@ -1830,7 +1820,7 @@ export default function InvoicesPage({
             <TableBody>
               {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-16 text-center">
+                  <TableCell colSpan={5} className="py-16 text-center">
                     <div className="max-w-sm mx-auto space-y-3">
                       <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
                         <Receipt size={32} weight="duotone" />
@@ -1870,25 +1860,6 @@ export default function InvoicesPage({
                         </TableCell>
                         <TableCell className="text-slate-600 text-xs font-medium">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</TableCell>
                         <TableCell className="font-semibold text-slate-800 text-sm">{supplier?.name || 'Unknown'}</TableCell>
-                        <TableCell>
-                          {(() => {
-                            const allocs = calculatePaymentAllocations(payments, invoices).allocations
-                            const alloc = allocs.find(a => a.invoiceId === invoice.id)?.allocatedAmount || 0
-                            const isPaid = alloc >= invoice.invoiceAmount
-                            const isPartial = alloc > 0 && alloc < invoice.invoiceAmount
-                            const statusText = isPaid ? 'Paid' : isPartial ? 'Partial' : 'Pending'
-                            return (
-                              <span className={cn(
-                                "text-xs font-bold px-3 py-1 rounded-full border inline-block",
-                                isPaid && "bg-emerald-50 text-emerald-700 border-emerald-200/60",
-                                isPartial && "bg-blue-50 text-blue-700 border-blue-200/60",
-                                !isPaid && !isPartial && "bg-amber-50 text-amber-700 border-amber-200/60"
-                              )}>
-                                {statusText}
-                              </span>
-                            )
-                          })()}
-                        </TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900 text-sm">{formatCurrency(invoice.invoiceAmount)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

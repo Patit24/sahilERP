@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Plus, Trash, PencilSimple, CaretUpDown, Check } from '@phosphor-icons/react'
-import { formatCurrency, getFYMonths, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, getFYMonths, getFYFromDate } from '@/lib/calculations'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -35,7 +35,7 @@ export default function CustomerCreditNotePage({ creditNotes, setCreditNotes, cu
   const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
   const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
 
-  const fyItems = creditNotes.filter(p => p.fy === currentFY)
+  const fyItems = creditNotes
   const fyMonths = getFYMonths(currentFY)
   
   const filteredItems = useMemo(() => {
@@ -83,10 +83,7 @@ export default function CustomerCreditNotePage({ creditNotes, setCreditNotes, cu
       return
     }
 
-    if (!isDateInFY(date, currentFY)) {
-      toast.error('Invalid date', { description: `Date must be within ${currentFY}` })
-      return
-    }
+
 
     if (editingItem) {
       const updated: CustomerCreditNote = {
@@ -105,7 +102,7 @@ export default function CustomerCreditNotePage({ creditNotes, setCreditNotes, cu
         date,
         amount,
         remarks,
-        fy: currentFY,
+        fy: getFYFromDate(date),
         createdAt: Date.now()
       }
       setCreditNotes((prev) => [...prev, newItem])
