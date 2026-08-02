@@ -788,23 +788,32 @@ function App() {
       if (cancelled || !cloudBusinesses.length) return;
       
       setMetadata(prev => {
-        const mergedBusinesses = [...prev.businesses];
-        let changed = false;
+        const cloudMetadataList = cloudBusinesses.map(cb => cb.metadata);
         
+        // Sync details to localStorage
         for (const cb of cloudBusinesses) {
-          // Sync details to localStorage
           if (cb.details) {
             localStorage.setItem(`business_details_${cb.metadata.id}`, JSON.stringify(cb.details));
           }
-          
-          if (!mergedBusinesses.find(b => b.id === cb.metadata.id)) {
-            mergedBusinesses.push(cb.metadata);
-            changed = true;
-          }
         }
         
-        if (changed) {
-          const nextMeta = { ...prev, businesses: mergedBusinesses };
+        // Check if business list has changed (additions or deletions in cloud)
+        const isDifferent = 
+          prev.businesses.length !== cloudMetadataList.length ||
+          prev.businesses.some((b, i) => b.id !== cloudMetadataList[i]?.id || b.name !== cloudMetadataList[i]?.name);
+
+        if (isDifferent) {
+          const validActive = cloudMetadataList.find(b => b.id === prev.activeCompanyId) 
+            ? prev.activeCompanyId 
+            : cloudMetadataList[0]?.id || prev.activeCompanyId;
+          const activeBiz = cloudMetadataList.find(b => b.id === validActive);
+          
+          const nextMeta: AppMetadata = {
+            ...prev,
+            businesses: cloudMetadataList,
+            activeCompanyId: validActive,
+            activeFY: activeBiz?.startFY || prev.activeFY
+          };
           localStorage.setItem('app_metadata', JSON.stringify(nextMeta));
           return nextMeta;
         }
