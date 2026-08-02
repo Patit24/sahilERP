@@ -1027,6 +1027,10 @@ function App() {
               writeTenantCache(companyId, partitionKey, remoteSnapshot.payload, remoteSnapshot.revision)
               applyTenantData(remoteSnapshot.payload)
               appendAuditLog('remote_tenant_loaded', undefined, partitionKey)
+            } else if (remoteSnapshot === null && !cancelled) {
+              // Remote document was deleted in Firebase; clear stale local storage cache so old data is not restored
+              localStorage.removeItem(partitionKey)
+              applyTenantData({})
             }
           }
         }
