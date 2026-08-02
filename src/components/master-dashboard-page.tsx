@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,7 @@ import {
 } from '@/lib/report-calculations'
 import {
   TrendUp,
+  TrendDown,
   Package,
   CurrencyInr,
   Wallet,
@@ -46,8 +47,15 @@ import {
   Lightning,
   Megaphone,
   User,
+  Users,
   DotsThree,
-  Truck
+  Truck,
+  Crown,
+  Fire,
+  HourglassHigh,
+  ArrowRight,
+  BoxArrowUp,
+  Stack
 } from '@phosphor-icons/react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import CDExpiryAlert from '@/components/cd-expiry-alert'
@@ -380,6 +388,74 @@ export default function MasterDashboardPage({
 
   const totalExpenseVal = expenseDistribution.reduce((acc, curr) => acc + curr.value, 0)
 
+  // ── 4 New Insight Cards Data ──
+
+  // 1. Top Suppliers by Purchase Value
+  const topSuppliers = useMemo(() => {
+    const supplierTotals: { [id: string]: { name: string; totalAmount: number; count: number } } = {}
+    purchaseInvoices.forEach(inv => {
+      const s = suppliers.find(sup => sup.id === inv.supplierId)
+      if (s) {
+        if (!supplierTotals[s.id]) supplierTotals[s.id] = { name: s.name, totalAmount: 0, count: 0 }
+        supplierTotals[s.id].totalAmount += inv.invoiceAmount
+        supplierTotals[s.id].count += 1
+      }
+    })
+    return Object.values(supplierTotals)
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, 5)
+  }, [purchaseInvoices, suppliers])
+
+  // 2. Top Buyers (Customers) by Sales Value
+  const topBuyers = useMemo(() => {
+    const customerTotals: { [id: string]: { name: string; totalAmount: number; count: number } } = {}
+    salesInvoices.forEach(inv => {
+      const c = customers.find(cust => cust.id === inv.customerId)
+      if (c) {
+        if (!customerTotals[c.id]) customerTotals[c.id] = { name: c.name, totalAmount: 0, count: 0 }
+        customerTotals[c.id].totalAmount += inv.invoiceAmount
+        customerTotals[c.id].count += 1
+      }
+    })
+    return Object.values(customerTotals)
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, 5)
+  }, [salesInvoices, customers])
+
+  // 3. Top Stocks by Current Stock Value
+  const topStocks = useMemo(() => {
+    return [...inventoryData]
+      .filter(i => i.balanceMT > 0)
+      .sort((a, b) => b.currentStockValue - a.currentStockValue)
+      .slice(0, 5)
+  }, [inventoryData])
+
+  // 4. Fast & Slow Movers
+  const itemMovementData = useMemo(() => {
+    const soldQtyMap: { [itemId: string]: number } = {}
+    salesInvoices.forEach(inv => {
+      if (inv.items && Array.isArray(inv.items)) {
+        inv.items.forEach(item => {
+          soldQtyMap[item.itemId] = (soldQtyMap[item.itemId] || 0) + item.quantityMT
+        })
+      }
+    })
+    const itemsWithMovement = inventoryData.map(itemReport => ({
+      ...itemReport,
+      soldQty: soldQtyMap[itemReport.itemId] || 0
+    }))
+    const fastMovers = [...itemsWithMovement]
+      .sort((a, b) => b.soldQty - a.soldQty)
+      .slice(0, 5)
+    const slowMovers = [...itemsWithMovement]
+      .filter(i => i.balanceMT > 0)
+      .sort((a, b) => a.soldQty - b.soldQty)
+      .slice(0, 5)
+    return { fastMovers, slowMovers }
+  }, [inventoryData, salesInvoices])
+
+  const [moverTab, setMoverTab] = useState<'fast' | 'slow'>('fast')
+
   return (
     <div className="dashboard-page space-y-6 p-1">
       {/* ── 8 Stat Cards Grid (4 cols x 2 rows) ── */}
@@ -595,6 +671,255 @@ export default function MasterDashboardPage({
         suppliers={suppliers}
         onNavigateToReport={() => onNavigateToReport('cd-risk')}
       />
+
+      {/* ── 4 Insight Cards: Top Supplier, Top Buyer, Top Stocks, Fast & Slow Movers ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        {/* ── Card A: Top Suppliers ── */}
+        <div className="bg-white rounded-2xl border border-[#E8EAEF] shadow-[0_2px_12px_rgba(91,95,239,0.06)] overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-200">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[#F1F3F9]">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] text-white flex items-center justify-center shadow-md shadow-[#4F46E5]/25 shrink-0">
+              <Truck className="h-5 w-5" weight="bold" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-extrabold text-slate-900 leading-tight">Top Suppliers</div>
+              <div className="text-[11px] text-slate-400 font-medium mt-0.5">By purchase value</div>
+            </div>
+            <Crown className="h-4 w-4 text-amber-400 ml-auto shrink-0" weight="fill" />
+          </div>
+          {/* Body */}
+          <div className="flex-1 px-5 py-3 space-y-3">
+            {topSuppliers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                <Truck className="h-8 w-8 mb-2 opacity-40" weight="duotone" />
+                <span className="text-xs font-semibold">No purchase data yet</span>
+              </div>
+            ) : (
+              topSuppliers.map((sup, idx) => {
+                const maxAmt = topSuppliers[0].totalAmount || 1
+                const pct = Math.round((sup.totalAmount / maxAmt) * 100)
+                const rankColors = ['#4F46E5','#7C3AED','#8B5CF6','#A78BFA','#C4B5FD']
+                return (
+                  <div key={idx} className="flex items-center gap-3 group">
+                    <div
+                      className="h-6 w-6 rounded-lg flex items-center justify-center text-white text-[10px] font-extrabold shrink-0"
+                      style={{ backgroundColor: rankColors[idx] || '#E8EAEF' }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-800 truncate max-w-[110px]">{sup.name}</span>
+                        <span className="text-[11px] font-extrabold text-slate-900 font-mono ml-1 shrink-0">{formatCurrency(sup.totalAmount)}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: rankColors[idx] || '#4F46E5' }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium shrink-0">{sup.count}b</span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* ── Card B: Top Buyers ── */}
+        <div className="bg-white rounded-2xl border border-[#E8EAEF] shadow-[0_2px_12px_rgba(91,95,239,0.06)] overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-200">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[#F1F3F9]">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#059669] to-[#10B981] text-white flex items-center justify-center shadow-md shadow-[#059669]/25 shrink-0">
+              <Users className="h-5 w-5" weight="bold" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-extrabold text-slate-900 leading-tight">Top Buyers</div>
+              <div className="text-[11px] text-slate-400 font-medium mt-0.5">By sales revenue</div>
+            </div>
+            <Crown className="h-4 w-4 text-amber-400 ml-auto shrink-0" weight="fill" />
+          </div>
+          {/* Body */}
+          <div className="flex-1 px-5 py-3 space-y-3">
+            {topBuyers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                <Users className="h-8 w-8 mb-2 opacity-40" weight="duotone" />
+                <span className="text-xs font-semibold">No sales data yet</span>
+              </div>
+            ) : (
+              topBuyers.map((buyer, idx) => {
+                const maxAmt = topBuyers[0].totalAmount || 1
+                const pct = Math.round((buyer.totalAmount / maxAmt) * 100)
+                const rankColors = ['#059669','#10B981','#34D399','#6EE7B7','#A7F3D0']
+                return (
+                  <div key={idx} className="flex items-center gap-3 group">
+                    <div
+                      className="h-6 w-6 rounded-lg flex items-center justify-center text-white text-[10px] font-extrabold shrink-0"
+                      style={{ backgroundColor: rankColors[idx] || '#E8EAEF' }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-800 truncate max-w-[110px]">{buyer.name}</span>
+                        <span className="text-[11px] font-extrabold text-slate-900 font-mono ml-1 shrink-0">{formatCurrency(buyer.totalAmount)}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: rankColors[idx] || '#059669' }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium shrink-0">{buyer.count}inv</span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* ── Card C: Top Stocks ── */}
+        <div className="bg-white rounded-2xl border border-[#E8EAEF] shadow-[0_2px_12px_rgba(91,95,239,0.06)] overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-200">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[#F1F3F9]">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#0284C7] to-[#0EA5E9] text-white flex items-center justify-center shadow-md shadow-[#0284C7]/25 shrink-0">
+              <Stack className="h-5 w-5" weight="bold" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-extrabold text-slate-900 leading-tight">Top Stocks</div>
+              <div className="text-[11px] text-slate-400 font-medium mt-0.5">Highest value in hand</div>
+            </div>
+            <Package className="h-4 w-4 text-sky-400 ml-auto shrink-0" weight="fill" />
+          </div>
+          {/* Body */}
+          <div className="flex-1 px-5 py-3 space-y-3">
+            {topStocks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                <Stack className="h-8 w-8 mb-2 opacity-40" weight="duotone" />
+                <span className="text-xs font-semibold">No stock data yet</span>
+              </div>
+            ) : (
+              topStocks.map((stock, idx) => {
+                const maxVal = topStocks[0].currentStockValue || 1
+                const pct = Math.round((stock.currentStockValue / maxVal) * 100)
+                const rankColors = ['#0284C7','#0EA5E9','#38BDF8','#7DD3FC','#BAE6FD']
+                return (
+                  <div key={idx} className="flex items-center gap-3 group">
+                    <div
+                      className="h-6 w-6 rounded-lg flex items-center justify-center text-white text-[10px] font-extrabold shrink-0"
+                      style={{ backgroundColor: rankColors[idx] || '#E8EAEF' }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-800 truncate max-w-[100px]">{stock.itemName}</span>
+                        <span className="text-[11px] font-extrabold text-slate-900 font-mono ml-1 shrink-0">{formatCurrency(stock.currentStockValue)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden flex-1">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: rankColors[idx] || '#0284C7' }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-semibold shrink-0">
+                          {(Number(stock.balanceMT) || 0).toFixed(2)} {stock.unit}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* ── Card D: Fast & Slow Movers ── */}
+        <div className="bg-white rounded-2xl border border-[#E8EAEF] shadow-[0_2px_12px_rgba(91,95,239,0.06)] overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-200">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[#F1F3F9]">
+            <div className={`h-10 w-10 rounded-xl text-white flex items-center justify-center shadow-md shrink-0 transition-colors duration-300 ${moverTab === 'fast' ? 'bg-gradient-to-br from-[#EA580C] to-[#F59E0B] shadow-[#EA580C]/25' : 'bg-gradient-to-br from-[#64748B] to-[#475569] shadow-[#64748B]/25'}`}>
+              {moverTab === 'fast'
+                ? <Fire className="h-5 w-5" weight="bold" />
+                : <HourglassHigh className="h-5 w-5" weight="bold" />
+              }
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-extrabold text-slate-900 leading-tight">Item Movers</div>
+              <div className="text-[11px] text-slate-400 font-medium mt-0.5">Sales velocity ranking</div>
+            </div>
+            {/* Tab toggle */}
+            <div className="ml-auto flex items-center bg-slate-100 rounded-lg p-0.5 shrink-0">
+              <button
+                onClick={() => setMoverTab('fast')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all duration-200 cursor-pointer ${moverTab === 'fast' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Fire className="h-3 w-3" weight="bold" /> Fast
+              </button>
+              <button
+                onClick={() => setMoverTab('slow')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all duration-200 cursor-pointer ${moverTab === 'slow' ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <HourglassHigh className="h-3 w-3" weight="bold" /> Slow
+              </button>
+            </div>
+          </div>
+          {/* Body */}
+          <div className="flex-1 px-5 py-3 space-y-3">
+            {(moverTab === 'fast' ? itemMovementData.fastMovers : itemMovementData.slowMovers).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                <Fire className="h-8 w-8 mb-2 opacity-40" weight="duotone" />
+                <span className="text-xs font-semibold">No movement data yet</span>
+              </div>
+            ) : (
+              (moverTab === 'fast' ? itemMovementData.fastMovers : itemMovementData.slowMovers).map((item, idx) => {
+                const isFast = moverTab === 'fast'
+                const maxSold = isFast
+                  ? (itemMovementData.fastMovers[0]?.soldQty || 1)
+                  : Math.max(...itemMovementData.slowMovers.map(i => i.soldQty), 1)
+                const pct = maxSold > 0 ? Math.round((item.soldQty / maxSold) * 100) : 0
+                const fastColors = ['#EA580C','#F97316','#FB923C','#FDBA74','#FED7AA']
+                const slowColors = ['#64748B','#94A3B8','#CBD5E1','#E2E8F0','#F1F5F9']
+                const rankColor = (isFast ? fastColors : slowColors)[idx] || '#94A3B8'
+                return (
+                  <div key={idx} className="flex items-center gap-3 group">
+                    <div
+                      className="h-6 w-6 rounded-lg flex items-center justify-center text-white text-[10px] font-extrabold shrink-0"
+                      style={{ backgroundColor: rankColor }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-800 truncate max-w-[110px]">{item.itemName}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 shrink-0 ${isFast ? 'bg-orange-50 text-orange-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {isFast ? (item.soldQty > 0 ? `${(item.soldQty || 0).toFixed(2)} ${item.unit}` : '—') : (item.soldQty === 0 ? 'No Sales' : `${(item.soldQty || 0).toFixed(2)} ${item.unit}`)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden flex-1">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(pct, isFast ? 0 : 5)}%`, backgroundColor: rankColor }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                          {(Number(item.balanceMT) || 0).toFixed(2)} stk
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+      </div>
 
       {/* ── Charts Section ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
