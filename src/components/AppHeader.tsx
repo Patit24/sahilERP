@@ -20,7 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+
+import { generateFYList } from '@/lib/calculations'
 
 interface AppHeaderProps {
   sidebarExpanded: boolean
@@ -82,6 +84,7 @@ export function AppHeader({
     sub: safeBusinessName,
   }
   const initials = getInitials(currentUserLabel || 'Master Admin')
+  const fyOptions = useMemo(() => generateFYList(2015, 2040, safeCurrentFY), [safeCurrentFY])
 
   return (
     <header className="app-header h-16 bg-white border-b border-[#E8EAEF] px-4 md:px-6 flex items-center justify-between z-30 shrink-0 shadow-[0_1px_4px_rgba(91,95,239,0.06)]">
@@ -199,17 +202,8 @@ export function AppHeader({
             <SelectTrigger className="inline-flex items-center gap-1.5 bg-[#5B5FEF]/10 text-[#5B5FEF] font-bold px-3 py-1.5 rounded-xl text-xs border border-[#5B5FEF]/20 hover:bg-[#5B5FEF]/15 transition-colors h-auto w-auto focus:ring-0 focus:ring-offset-0 shadow-none outline-none">
               <SelectValue placeholder="Select FY">{safeCurrentFY}</SelectValue>
             </SelectTrigger>
-            <SelectContent className="bg-white border border-[#E8EAEF] rounded-xl shadow-xl z-[100] min-w-[130px]">
-              {Array.from(new Set([
-                'FY2023-24',
-                'FY2024-25',
-                'FY2025-26',
-                'FY2026-27',
-                'FY2027-28',
-                'FY2028-29',
-                'FY2029-30',
-                safeCurrentFY
-              ])).filter(Boolean).map((fy) => (
+            <SelectContent className="bg-white border border-[#E8EAEF] rounded-xl shadow-xl z-[100] min-w-[140px] max-h-64 overflow-y-auto">
+              {fyOptions.map((fy) => (
                 <SelectItem
                   key={fy}
                   value={fy}

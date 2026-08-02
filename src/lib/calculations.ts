@@ -1123,6 +1123,18 @@ export function getCurrentFY(): string {
   }
 }
 
+export function generateFYList(startYear = 2015, endYear = 2040, currentFY?: string): string[] {
+  const list: string[] = []
+  for (let y = startYear; y <= endYear; y++) {
+    const nextY = (y + 1).toString().slice(2)
+    list.push(`FY${y}-${nextY}`)
+  }
+  if (currentFY && !list.includes(currentFY)) {
+    list.push(currentFY)
+  }
+  return list
+}
+
 export function getFYMonths(fy: string): { value: string; label: string }[] {
   const yearMatch = fy.match(/FY(\d{4})-(\d{2})/)
   if (!yearMatch) return []
