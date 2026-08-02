@@ -74,7 +74,7 @@ export default function SalesReturnPage({
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
   const [showQuickItem, setShowQuickItem] = useState(false)
 
-  const fyItems = salesReturns
+  const fyItems = useMemo(() => salesReturns.filter(p => p.fy === currentFY || (p.returnDate && getFYFromDate(p.returnDate) === currentFY)), [salesReturns, currentFY])
   const fyMonths = getFYMonths(currentFY)
   
   const filteredReturns = useMemo(() => {

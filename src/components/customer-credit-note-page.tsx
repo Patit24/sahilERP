@@ -35,7 +35,7 @@ export default function CustomerCreditNotePage({ creditNotes, setCreditNotes, cu
   const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
   const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
 
-  const fyItems = creditNotes
+  const fyItems = useMemo(() => creditNotes.filter(p => p.fy === currentFY || (p.date && getFYFromDate(p.date) === currentFY)), [creditNotes, currentFY])
   const fyMonths = getFYMonths(currentFY)
   
   const filteredItems = useMemo(() => {

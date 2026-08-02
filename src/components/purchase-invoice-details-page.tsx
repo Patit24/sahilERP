@@ -26,7 +26,7 @@ import {
   ExpenseType,
   MTBooking
 } from '@/lib/types'
-import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths } from '@/lib/calculations'
+import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths, getFYFromDate } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
 import { FileText, Calendar, Package, CurrencyDollar, CreditCard, TrendDown, Calculator, CaretDown, Check } from '@phosphor-icons/react'
 import { format } from 'date-fns'
@@ -170,6 +170,7 @@ export default function PurchaseInvoiceDetailsPage({
 
   const invoiceDetails = useMemo((): InvoiceDetails[] => {
     return invoices
+      .filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY))
       .map(invoice => {
         const supplier = supplierMap.get(invoice.supplierId)!
         

@@ -140,7 +140,7 @@ export default function SalesInvoicesPage({
   const [showInvoiceTerms, setShowInvoiceTerms] = useState(false)
   const [invoiceTerms, setInvoiceTerms] = useState('')
   
-  const fyInvoices = salesInvoices
+  const fyInvoices = useMemo(() => salesInvoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [salesInvoices, currentFY])
   const fyMonths = getFYMonths(currentFY)
   
   const filteredInvoices = useMemo(() => {

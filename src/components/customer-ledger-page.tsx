@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BookOpen, TrendUp, TrendDown } from '@phosphor-icons/react'
-import { formatCurrency } from '@/lib/calculations'
+import { formatCurrency, getFYFromDate } from '@/lib/calculations'
 
 interface CustomerLedgerPageProps {
   customers: Customer[]
@@ -18,31 +18,30 @@ interface CustomerLedgerPageProps {
 export default function CustomerLedgerPage({ customers, salesInvoices, customerPayments, creditNotes, salesReturns, currentFY }: CustomerLedgerPageProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
 
-  const ledgerEntries = useMemo(() => {
-    if (!selectedCustomerId) return []
+  const ledgerData = useMemo(() => {
+    if (!selectedCustomerId) return { entries: [], totalDebit: 0, totalCredit: 0, closingBalance: 0 }
 
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
     const entries: LedgerEntry[] = []
-    
-    const customer = customers.find(c => c.id === selectedCustomerId)
-    const openingBalance = customer?.openingBalance || 0
+    const isMatchFY = (d?: string, fy?: string) => !currentFY || (fy === currentFY) || (d ? getFYFromDate(d) === currentFY : false)
 
-    if (openingBalance !== 0) {
+    if (selectedCustomer?.openingBalance && selectedCustomer.openingBalance > 0) {
       entries.push({
-        date: '1900-01-01',
+        date: '2025-04-01',
         description: 'Opening Balance',
-        debit: openingBalance > 0 ? openingBalance : 0,
-        credit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
-        balance: 0,
+        debit: selectedCustomer.openingBalance,
+        credit: 0,
+        balance: selectedCustomer.openingBalance,
         type: 'invoice',
         refId: 'opening-balance'
       })
     }
 
     const customerInvoices = salesInvoices.filter(
-      inv => inv.customerId === selectedCustomerId
+      inv => inv.customerId === selectedCustomerId && isMatchFY(inv.invoiceDate, inv.fy)
     )
     const customerPaymentsFiltered = customerPayments.filter(
-      pay => pay.customerId === selectedCustomerId
+      pay => pay.customerId === selectedCustomerId && isMatchFY(pay.paymentDate, pay.fy)
     )
 
     customerInvoices.forEach(invoice => {
@@ -73,10 +72,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
     })
 
     const customerCreditNotesFiltered = creditNotes.filter(
-      cn => cn.customerId === selectedCustomerId
+      cn => cn.customerId === selectedCustomerId && isMatchFY(cn.date, cn.fy)
     )
     const customerSalesReturnsFiltered = salesReturns.filter(
-      sr => sr.customerId === selectedCustomerId
+      sr => sr.customerId === selectedCustomerId && isMatchFY(sr.returnDate, sr.fy)
     )
 
     customerCreditNotesFiltered.forEach(cn => {

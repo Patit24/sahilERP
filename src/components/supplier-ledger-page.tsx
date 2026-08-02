@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { BookOpen, TrendUp, TrendDown, FilePdf } from '@phosphor-icons/react'
-import { formatCurrency } from '@/lib/calculations'
+import { formatCurrency, getFYFromDate } from '@/lib/calculations'
 import { exportSupplierLedgerPDF, SupplierLedgerEntry } from '@/lib/pdf-export'
 import { toast } from 'sonner'
 
@@ -26,6 +26,7 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
     if (!selectedSupplierId) return []
 
     const entries: LedgerEntry[] = []
+    const isMatchFY = (d?: string, fy?: string) => !currentFY || (fy === currentFY) || (d ? getFYFromDate(d) === currentFY : false)
     
     const supplier = suppliers.find(s => s.id === selectedSupplierId)
     const openingBalance = supplier?.openingBalance || 0
@@ -43,10 +44,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
     }
 
     const supplierInvoices = invoices.filter(
-      inv => inv.supplierId === selectedSupplierId
+      inv => inv.supplierId === selectedSupplierId && isMatchFY(inv.invoiceDate, inv.fy)
     )
     const supplierPayments = payments.filter(
-      pay => pay.supplierId === selectedSupplierId
+      pay => pay.supplierId === selectedSupplierId && isMatchFY(pay.paymentDate, pay.fy)
     )
 
     const entriesWithTimestamp: Array<LedgerEntry & { timestamp: number }> = []
@@ -82,10 +83,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
 
 
     const supplierDebitNotesFiltered = debitNotes.filter(
-      dn => dn.supplierId === selectedSupplierId
+      dn => dn.supplierId === selectedSupplierId && isMatchFY(dn.date, dn.fy)
     )
     const supplierPurchaseReturnsFiltered = purchaseReturns.filter(
-      pr => pr.supplierId === selectedSupplierId
+      pr => pr.supplierId === selectedSupplierId && isMatchFY(pr.returnDate, pr.fy)
     )
 
     supplierDebitNotesFiltered.forEach(dn => {

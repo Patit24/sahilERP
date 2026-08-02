@@ -109,7 +109,7 @@ export default function ExpenseEntriesPage({
   // Filter Expense Entries by Selected Date / FY Mode
   const dateFilteredExpenses = useMemo(() => {
     return expenseEntries.filter((e) => {
-      if (fyFilterMode === 'current') return true
+      if (fyFilterMode === 'current') return e.fy === currentFY || (e.expenseDate && getFYFromDate(e.expenseDate) === currentFY)
       if (fyFilterMode === 'previous') {
         const [startYr] = currentFY.replace('FY', '').split('-').map(Number)
         const prevFY = `FY${startYr - 1}-${(startYr).toString().slice(-2)}`

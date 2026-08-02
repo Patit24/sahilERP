@@ -9,7 +9,8 @@ import { Target, FilePdf } from '@phosphor-icons/react'
 import { 
   formatCurrency,
   formatMT,
-  calculateExpectedAnnualDiscounts
+  calculateExpectedAnnualDiscounts,
+  getFYFromDate
 } from '@/lib/calculations'
 import { exportAnnualDiscountPDF } from '@/lib/pdf-export'
 
@@ -28,7 +29,7 @@ export default function AnnualDiscountPage({
 }: AnnualDiscountPageProps) {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
 
-  const fyInvoices = invoices
+  const fyInvoices = useMemo(() => invoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [invoices, currentFY])
 
   const expectedAnnual = useMemo(() => 
     calculateExpectedAnnualDiscounts(fyInvoices, suppliers),

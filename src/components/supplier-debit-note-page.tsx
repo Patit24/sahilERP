@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Plus, Trash, PencilSimple, CaretUpDown, Check } from '@phosphor-icons/react'
-import { formatCurrency, getFYMonths, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, getFYMonths, getFYFromDate } from '@/lib/calculations'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -35,7 +35,7 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
   const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
   const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
 
-  const fyItems = debitNotes
+  const fyItems = useMemo(() => debitNotes.filter(p => p.fy === currentFY || (p.date && getFYFromDate(p.date) === currentFY)), [debitNotes, currentFY])
   const fyMonths = getFYMonths(currentFY)
   
   const filteredItems = useMemo(() => {

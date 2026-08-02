@@ -44,12 +44,12 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false)
   const [selectedCounterId, setSelectedCounterId] = useState<string>('')
 
-  const fyPayments = customerPayments
+  const fyPayments = useMemo(() => customerPayments.filter(p => p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)), [customerPayments, currentFY])
   const fyMonths = getFYMonths(currentFY)
   
   const calculateCustomerOutstanding = (customerId: string): number => {
-    const fySalesInvoices = salesInvoices.filter(inv => inv.customerId === customerId)
-    const fyCustomerPayments = customerPayments.filter(p => p.customerId === customerId)
+    const fySalesInvoices = salesInvoices.filter(inv => (inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)) && inv.customerId === customerId)
+    const fyCustomerPayments = customerPayments.filter(p => (p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)) && p.customerId === customerId)
     
     const totalReceivables = fySalesInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
     const totalPaymentsReceived = fyCustomerPayments.reduce((sum, p) => sum + p.amount, 0)

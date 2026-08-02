@@ -29,7 +29,8 @@ import {
   getFYDateRange,
   formatDateForInput,
   isDateInFY,
-  getFYMonths
+  getFYMonths,
+  getFYFromDate
 } from '@/lib/calculations'
 import { exportPendingStatementPDF } from '@/lib/pdf-export'
 
@@ -38,11 +39,11 @@ interface DiscountWalletPageProps {
   invoices: PurchaseInvoice[]
   payments: Payment[]
   receivedDiscounts: ReceivedDiscount[]
-  setReceivedDiscounts: (updater: (prev: ReceivedDiscount[]) => ReceivedDiscount[]) => void
-  fixedSchemes: FixedScheme[]
-  mtBookings: MTBooking[]
+  onAddReceivedDiscount: (discount: ReceivedDiscount) => void
+  onUpdateReceivedDiscount: (discount: ReceivedDiscount) => void
+  onDeleteReceivedDiscount: (id: string) => void
+  onUpdateInvoiceDiscountReceived?: (invoiceId: string, discountReceived: number) => void
   currentFY: string
-  businessName?: string
   isLocked?: boolean
 }
 
@@ -51,32 +52,26 @@ export default function DiscountWalletPage({
   invoices,
   payments,
   receivedDiscounts,
-  setReceivedDiscounts,
-  fixedSchemes,
-  mtBookings,
+  onAddReceivedDiscount,
+  onUpdateReceivedDiscount,
+  onDeleteReceivedDiscount,
+  onUpdateInvoiceDiscountReceived,
   currentFY,
-  businessName,
   isLocked = false
 }: DiscountWalletPageProps) {
-  const [open, setOpen] = useState(false)
-  const [dialogType, setDialogType] = useState<'wallet' | 'annual'>('wallet')
-  const [selectedSupplier, setSelectedSupplier] = useState<string>(suppliers[0]?.id || '')
-  const [selectedCategories, setSelectedCategories] = useState<Set<DiscountCategory>>(() => 
-    new Set(['paymentCD', 'invoiceCloseCD', 'fixedScheme', 'annual'])
-  )
-  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(['all']))
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-  const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState<'pending' | 'received'>('pending')
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
+  const [discountTypeFilter, setDiscountTypeFilter] = useState<'all' | 'wallet' | 'cd'>('all')
   const [receivedTypeFilter, setReceivedTypeFilter] = useState<Set<'annual' | 'wallet'>>(() => 
     new Set(['annual', 'wallet'])
   )
   const [expandedReceivedRows, setExpandedReceivedRows] = useState<Set<string>>(new Set())
   const [editingDiscount, setEditingDiscount] = useState<ReceivedDiscount | null>(null)
 
-  const fyInvoices = invoices
-  const fyPayments = payments
-  const fyReceivedDiscounts = receivedDiscounts.filter(rd => rd.type === 'wallet')
-  const fyReceivedAnnual = receivedDiscounts.filter(rd => rd.type === 'annual')
+  const fyInvoices = useMemo(() => invoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [invoices, currentFY])
+  const fyPayments = useMemo(() => payments.filter(p => p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)), [payments, currentFY])
+  const fyReceivedDiscounts = useMemo(() => receivedDiscounts.filter(rd => (rd.fy === currentFY || (rd.discountReceivedDate && getFYFromDate(rd.discountReceivedDate) === currentFY)) && rd.type === 'wallet'), [receivedDiscounts, currentFY])
+  const fyReceivedAnnual = useMemo(() => receivedDiscounts.filter(rd => (rd.fy === currentFY || (rd.discountReceivedDate && getFYFromDate(rd.discountReceivedDate) === currentFY)) && rd.type === 'annual'), [receivedDiscounts, currentFY])
 
   const { allocations: paymentAllocations, paymentAdvanceInfo } = useMemo(() => 
     calculatePaymentAllocations(fyPayments, fyInvoices),

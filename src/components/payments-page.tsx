@@ -47,8 +47,8 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [bookingMTInput, setBookingMTInput] = useState('')
   const [bookingMarketRateInput, setBookingMarketRateInput] = useState('')
   
-  const fyPayments = payments
-  const fyInvoices = invoices
+  const fyPayments = useMemo(() => payments.filter(p => p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)), [payments, currentFY])
+  const fyInvoices = useMemo(() => invoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [invoices, currentFY])
   const fyMonths = getFYMonths(currentFY)
   
   const { allocations, paymentAdvanceInfo } = useMemo(() => 
