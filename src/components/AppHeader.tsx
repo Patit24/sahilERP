@@ -13,6 +13,13 @@ import {
   CaretDown,
   SignOut,
 } from '@phosphor-icons/react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useState } from 'react'
 
 interface AppHeaderProps {
@@ -24,6 +31,7 @@ interface AppHeaderProps {
   activeView: string
   safeBusinessName: string
   safeCurrentFY: string
+  setActiveFY?: (fy: string) => void
   safeIsLocked: boolean
   currentUserLabel: string
   currentUserRole: string
@@ -61,6 +69,7 @@ export function AppHeader({
   activeView,
   safeBusinessName,
   safeCurrentFY,
+  setActiveFY,
   safeIsLocked,
   currentUserLabel,
   currentUserRole,
@@ -184,14 +193,34 @@ export function AppHeader({
         {/* Divider */}
         <div className="h-6 w-px bg-[#E8EAEF] mx-0.5 hidden sm:block" />
 
-        {/* FY pill */}
-        <button
-          onClick={() => setShortcutsDialogOpen(true)}
-          className="hidden sm:inline-flex items-center gap-1.5 bg-[#5B5FEF]/10 text-[#5B5FEF] font-bold px-3 py-1.5 rounded-xl text-xs border border-[#5B5FEF]/20 hover:bg-[#5B5FEF]/15 transition-colors"
-        >
-          {safeCurrentFY}
-          <CaretDown className="h-3 w-3" weight="bold" />
-        </button>
+        {/* FY pill dropdown */}
+        <div className="hidden sm:inline-block">
+          <Select value={safeCurrentFY} onValueChange={(val) => setActiveFY?.(val)}>
+            <SelectTrigger className="inline-flex items-center gap-1.5 bg-[#5B5FEF]/10 text-[#5B5FEF] font-bold px-3 py-1.5 rounded-xl text-xs border border-[#5B5FEF]/20 hover:bg-[#5B5FEF]/15 transition-colors h-auto w-auto focus:ring-0 focus:ring-offset-0 shadow-none outline-none">
+              <SelectValue placeholder="Select FY">{safeCurrentFY}</SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-white border border-[#E8EAEF] rounded-xl shadow-xl z-[100] min-w-[130px]">
+              {Array.from(new Set([
+                'FY2023-24',
+                'FY2024-25',
+                'FY2025-26',
+                'FY2026-27',
+                'FY2027-28',
+                'FY2028-29',
+                'FY2029-30',
+                safeCurrentFY
+              ])).filter(Boolean).map((fy) => (
+                <SelectItem
+                  key={fy}
+                  value={fy}
+                  className="text-xs font-bold text-slate-700 hover:bg-[#5B5FEF]/10 cursor-pointer py-2 px-3 rounded-lg"
+                >
+                  {fy}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* User avatar pill with Logout option */}
         <div

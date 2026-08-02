@@ -2727,6 +2727,7 @@ function App() {
           activeView={activeView}
           safeBusinessName={safeBusinessName}
           safeCurrentFY={safeCurrentFY}
+          setActiveFY={setActiveFY}
           safeIsLocked={safeIsLocked}
           currentUserLabel={currentUser?.displayName || 'Guest'}
           currentUserRole={isMasterAdmin ? 'Master' : 'Agent'}
