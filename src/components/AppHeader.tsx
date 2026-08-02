@@ -196,26 +196,6 @@ export function AppHeader({
         {/* Divider */}
         <div className="h-6 w-px bg-[#E8EAEF] mx-0.5 hidden sm:block" />
 
-        {/* FY pill dropdown */}
-        <div className="hidden sm:inline-block">
-          <Select value={safeCurrentFY} onValueChange={(val) => setActiveFY?.(val)}>
-            <SelectTrigger className="inline-flex items-center gap-1.5 bg-[#5B5FEF]/10 text-[#5B5FEF] font-bold px-3 py-1.5 rounded-xl text-xs border border-[#5B5FEF]/20 hover:bg-[#5B5FEF]/15 transition-colors h-auto w-auto focus:ring-0 focus:ring-offset-0 shadow-none outline-none">
-              <SelectValue placeholder="Select FY">{safeCurrentFY}</SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-white border border-[#E8EAEF] rounded-xl shadow-xl z-[100] min-w-[140px] max-h-64 overflow-y-auto">
-              {fyOptions.map((fy) => (
-                <SelectItem
-                  key={fy}
-                  value={fy}
-                  className="text-xs font-bold text-slate-700 hover:bg-[#5B5FEF]/10 cursor-pointer py-2 px-3 rounded-lg"
-                >
-                  {fy}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* User avatar pill with Logout option */}
         <div
           onClick={onLogout}

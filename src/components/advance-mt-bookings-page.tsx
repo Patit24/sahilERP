@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { CalendarCheck, LockKey, Scales, ShieldCheck, Warning } from '@phosphor-icons/react'
 import { Supplier } from '@/lib/types'
-import { formatCurrency } from '@/lib/calculations'
+import { formatCurrency, getFYFromDate } from '@/lib/calculations'
 
 type AdvanceBookingBalance = {
   company_id: string

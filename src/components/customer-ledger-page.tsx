@@ -18,8 +18,8 @@ interface CustomerLedgerPageProps {
 export default function CustomerLedgerPage({ customers, salesInvoices, customerPayments, creditNotes, salesReturns, currentFY }: CustomerLedgerPageProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
 
-  const ledgerData = useMemo(() => {
-    if (!selectedCustomerId) return { entries: [], totalDebit: 0, totalCredit: 0, closingBalance: 0 }
+  const ledgerEntries = useMemo(() => {
+    if (!selectedCustomerId) return []
 
     const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
     const entries: LedgerEntry[] = []

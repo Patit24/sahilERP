@@ -32,7 +32,7 @@ import {
   CaretUpDown
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { formatCurrency, isDateInFY } from '@/lib/calculations'
+import { formatCurrency, isDateInFY, getFYFromDate } from '@/lib/calculations'
 
 interface ExpenseEntriesPageProps {
   expenseEntries: ExpenseEntry[]

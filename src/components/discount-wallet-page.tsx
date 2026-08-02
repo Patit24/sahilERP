@@ -10,9 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Plus, TrendUp, Trash, FunnelSimple, FilePdf, CaretDown, CaretRight, Check, Pencil } from '@phosphor-icons/react'
+
+
+import { Plus, TrendUp, Trash, FunnelSimple, FilePdf, CaretRight, Pencil } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -28,9 +28,6 @@ import {
   calculatePendingAnnualDiscounts,
   getFYDateRange,
   formatDateForInput,
-  isDateInFY,
-  getFYMonths,
-  getFYFromDate
 } from '@/lib/calculations'
 import { exportPendingStatementPDF } from '@/lib/pdf-export'
 
@@ -39,11 +36,15 @@ interface DiscountWalletPageProps {
   invoices: PurchaseInvoice[]
   payments: Payment[]
   receivedDiscounts: ReceivedDiscount[]
-  onAddReceivedDiscount: (discount: ReceivedDiscount) => void
-  onUpdateReceivedDiscount: (discount: ReceivedDiscount) => void
-  onDeleteReceivedDiscount: (id: string) => void
+  onAddReceivedDiscount?: (discount: ReceivedDiscount) => void
+  onUpdateReceivedDiscount?: (discount: ReceivedDiscount) => void
+  onDeleteReceivedDiscount?: (id: string) => void
   onUpdateInvoiceDiscountReceived?: (invoiceId: string, discountReceived: number) => void
+  setReceivedDiscounts?: (updater: (prev: ReceivedDiscount[]) => ReceivedDiscount[]) => void
+  fixedSchemes?: FixedScheme[]
+  mtBookings?: MTBooking[]
   currentFY: string
+  businessName?: string
   isLocked?: boolean
 }
 
@@ -56,7 +57,11 @@ export default function DiscountWalletPage({
   onUpdateReceivedDiscount,
   onDeleteReceivedDiscount,
   onUpdateInvoiceDiscountReceived,
+  setReceivedDiscounts,
+  fixedSchemes = [],
+  mtBookings = [],
   currentFY,
+  businessName,
   isLocked = false
 }: DiscountWalletPageProps) {
   const [activeTab, setActiveTab] = useState<'pending' | 'received'>('pending')
@@ -67,11 +72,52 @@ export default function DiscountWalletPage({
   )
   const [expandedReceivedRows, setExpandedReceivedRows] = useState<Set<string>>(new Set())
   const [editingDiscount, setEditingDiscount] = useState<ReceivedDiscount | null>(null)
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    new Set(['paymentCD', 'invoiceCloseCD', 'fixedScheme', 'annual'])
+  )
+  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(['all']))
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set())
+  const [open, setOpen] = useState(false)
+  const [dialogType, setDialogType] = useState<'wallet' | 'annual'>('wallet')
 
-  const fyInvoices = useMemo(() => invoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [invoices, currentFY])
-  const fyPayments = useMemo(() => payments.filter(p => p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)), [payments, currentFY])
-  const fyReceivedDiscounts = useMemo(() => receivedDiscounts.filter(rd => (rd.fy === currentFY || (rd.discountReceivedDate && getFYFromDate(rd.discountReceivedDate) === currentFY)) && rd.type === 'wallet'), [receivedDiscounts, currentFY])
-  const fyReceivedAnnual = useMemo(() => receivedDiscounts.filter(rd => (rd.fy === currentFY || (rd.discountReceivedDate && getFYFromDate(rd.discountReceivedDate) === currentFY)) && rd.type === 'annual'), [receivedDiscounts, currentFY])
+  // Date range filter state — defaults to current FY date range
+  const defaultFYRange = getFYDateRange(currentFY)
+  const defaultFromDate = defaultFYRange ? formatDateForInput(defaultFYRange.startDate) : ''
+  const defaultToDate = defaultFYRange ? formatDateForInput(defaultFYRange.endDate) : ''
+  const [fromDate, setFromDate] = useState<string>(defaultFromDate)
+  const [toDate, setToDate] = useState<string>(defaultToDate)
+
+  // Filter invoices/payments by date range instead of FY
+  const fyInvoices = useMemo(() => invoices.filter(inv => {
+    if (!inv.invoiceDate) return false
+    if (fromDate && inv.invoiceDate < fromDate) return false
+    if (toDate && inv.invoiceDate > toDate) return false
+    return true
+  }), [invoices, fromDate, toDate])
+
+  const fyPayments = useMemo(() => payments.filter(p => {
+    if (!p.paymentDate) return false
+    if (fromDate && p.paymentDate < fromDate) return false
+    if (toDate && p.paymentDate > toDate) return false
+    return true
+  }), [payments, fromDate, toDate])
+
+  const fyReceivedDiscounts = useMemo(() => receivedDiscounts.filter(rd => {
+    if (rd.type !== 'wallet') return false
+    if (!rd.discountReceivedDate) return false
+    if (fromDate && rd.discountReceivedDate < fromDate) return false
+    if (toDate && rd.discountReceivedDate > toDate) return false
+    return true
+  }), [receivedDiscounts, fromDate, toDate])
+
+  const fyReceivedAnnual = useMemo(() => receivedDiscounts.filter(rd => {
+    if (rd.type !== 'annual') return false
+    if (!rd.discountReceivedDate) return false
+    if (fromDate && rd.discountReceivedDate < fromDate) return false
+    if (toDate && rd.discountReceivedDate > toDate) return false
+    return true
+  }), [receivedDiscounts, fromDate, toDate])
 
   const { allocations: paymentAllocations, paymentAdvanceInfo } = useMemo(() => 
     calculatePaymentAllocations(fyPayments, fyInvoices),
@@ -512,7 +558,7 @@ export default function DiscountWalletPage({
       allocateToSchemeName: discountType === 'wallet' && selectedDiscountType === 'fixedScheme' && selectedPendingDiscountName ? selectedPendingDiscountName : undefined
     }
 
-    setReceivedDiscounts((prev) => {
+    setReceivedDiscounts?.((prev) => {
       return editingDiscount 
         ? prev.map(rd => rd.id === editingDiscount.id ? receivedData : rd)
         : [...prev, receivedData]
@@ -533,7 +579,7 @@ export default function DiscountWalletPage({
       return
     }
     if (confirm('Are you sure you want to delete this received discount? This will recalculate all pending amounts.')) {
-      setReceivedDiscounts((prev) => prev.filter(rd => rd.id !== id))
+      setReceivedDiscounts?.((prev) => prev.filter(rd => rd.id !== id))
     }
   }
 
@@ -852,17 +898,12 @@ export default function DiscountWalletPage({
     })
   }, [filteredPending, selectedMonths, expectedDiscounts, fyPayments])
 
-  const fyDateRange = getFYDateRange(currentFY)
-  const minDate = fyDateRange ? formatDateForInput(fyDateRange.startDate) : undefined
-  const maxDate = fyDateRange ? formatDateForInput(fyDateRange.endDate) : undefined
-  
-  const fyMonths = getFYMonths(currentFY)
   const isMonthFilterActive = !selectedMonths.has('all')
 
   const handleExportPendingOnly = () => {
-    const monthLabel = selectedMonths.has('all') 
-      ? 'All Months' 
-      : Array.from(selectedMonths).map(m => fyMonths.find(fm => fm.value === m)?.label || m).join(', ')
+    const dateRangeLabel = (fromDate || toDate)
+      ? `${fromDate || '...'} to ${toDate || '...'}`
+      : 'All Dates'
     const categoryLabel = Array.from(new Set(
       Array.from(selectedCategories).map(cat => {
         if (cat === 'paymentCD' || cat === 'advanceCD') return 'Payment CD'
@@ -885,11 +926,12 @@ export default function DiscountWalletPage({
         filters: {
           supplier: selectedSupplier,
           category: categoryLabel,
-          month: monthLabel
+          month: dateRangeLabel
         }
       }
     )
   }
+
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -1154,7 +1196,7 @@ export default function DiscountWalletPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex-1">
               <Label className="text-xs mb-2 block">Supplier</Label>
               <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
@@ -1172,85 +1214,25 @@ export default function DiscountWalletPage({
               </Select>
             </div>
             <div className="flex-1">
-              <Label className="text-xs mb-2 block">Month</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                  >
-                    <span className="truncate">
-                      {selectedMonths.has('all') 
-                        ? 'All Months' 
-                        : Array.from(selectedMonths)
-                            .map(m => fyMonths.find(fm => fm.value === m)?.label || m)
-                            .join(', ')}
-                    </span>
-                    <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search months..." />
-                    <CommandList>
-                      <CommandEmpty>No month found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem
-                          key="all"
-                          onSelect={() => {
-                            setSelectedMonths(new Set(['all']))
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <div className={cn(
-                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                            selectedMonths.has('all')
-                              ? "bg-primary text-primary-foreground"
-                              : "opacity-50 [&_svg]:invisible"
-                          )}>
-                            <Check className="h-4 w-4" />
-                          </div>
-                          <span>All Months</span>
-                        </CommandItem>
-                        {fyMonths.map((month) => (
-                          <CommandItem
-                            key={month.value}
-                            onSelect={() => {
-                              setSelectedMonths(prev => {
-                                const newSet = new Set(prev)
-                                newSet.delete('all')
-                                if (newSet.has(month.value)) {
-                                  newSet.delete(month.value)
-                                } else {
-                                  newSet.add(month.value)
-                                }
-                                if (newSet.size === 0) {
-                                  return new Set(['all'])
-                                }
-                                return newSet
-                              })
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <div className={cn(
-                              "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                              selectedMonths.has(month.value)
-                                ? "bg-primary text-primary-foreground"
-                                : "opacity-50 [&_svg]:invisible"
-                            )}>
-                              <Check className="h-4 w-4" />
-                            </div>
-                            <span>{month.label}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Label className="text-xs mb-2 block">From Date</Label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1">
+              <Label className="text-xs mb-2 block">To Date</Label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full"
+              />
             </div>
           </div>
+
           
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -1363,13 +1345,13 @@ export default function DiscountWalletPage({
         </CardContent>
       </Card>
 
-      {!selectedMonths.has('all') && (
+      {(fromDate || toDate) && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground mb-1">Total Expected CD (Selected Months)</div>
+            <div className="text-sm text-muted-foreground mb-1">Total Expected CD (Date Range)</div>
             <div className="text-3xl font-mono font-bold text-primary">{formatCurrency(totalExpected)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {Array.from(selectedMonths).map(m => fyMonths.find(fm => fm.value === m)?.label || m).join(', ')} - Calculated LIVE from earned discounts
+              {fromDate || '...'} to {toDate || '...'} — Calculated LIVE from earned discounts
             </p>
           </CardContent>
         </Card>
@@ -1466,7 +1448,7 @@ export default function DiscountWalletPage({
               })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {selectedMonths.has('all') ? 'All months' : `${Array.from(selectedMonths).map(m => fyMonths.find(fm => fm.value === m)?.label || m).join(', ')}`}
+              {(fromDate || toDate) ? `${fromDate || '...'} to ${toDate || '...'}` : 'All dates'}
             </p>
           </CardContent>
         </Card>
@@ -1522,7 +1504,7 @@ export default function DiscountWalletPage({
               )}
               {!selectedMonths.has('all') && (
                 <p className="text-xs text-muted-foreground text-center">
-                  No CDs were earned in {Array.from(selectedMonths).map(m => fyMonths.find(fm => fm.value === m)?.label || m).join(', ')}.
+                  No CDs were earned in the selected date range.
                   Payment CD and Invoice Close CD are earned when payments are made.
                 </p>
               )}
@@ -1596,7 +1578,7 @@ export default function DiscountWalletPage({
                                 <span>{group.schemeName}</span>
                                 {isMonthFilterActive && group.schemeSourceMonth && !selectedMonths.has(group.schemeSourceMonth) && (
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 w-fit border-primary/30 text-primary">
-                                    From {fyMonths.find(m => m.value === group.schemeSourceMonth)?.label || group.schemeSourceMonth}
+                                    From {group.schemeSourceMonth}
                                   </Badge>
                                 )}
                               </div>
