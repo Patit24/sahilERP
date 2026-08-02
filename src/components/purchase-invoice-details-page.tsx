@@ -111,7 +111,8 @@ export default function PurchaseInvoiceDetailsPage({
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [searchInvoiceNo, setSearchInvoiceNo] = useState(initialInvoiceNo)
-  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(['all']))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [includeAnnualDiscount, setIncludeAnnualDiscount] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, Record<string, boolean>>>({})
 
@@ -121,7 +122,8 @@ export default function PurchaseInvoiceDetailsPage({
       setSearchInvoiceNo(initialInvoiceNo)
       setSelectedSupplier('all')
       setSelectedStatus('all')
-      setSelectedMonths(new Set(['all']))
+      setFromDate('')
+      setToDate('')
     }
   }, [initialInvoiceNo])
 
@@ -170,7 +172,6 @@ export default function PurchaseInvoiceDetailsPage({
 
   const invoiceDetails = useMemo((): InvoiceDetails[] => {
     return invoices
-      .filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY))
       .map(invoice => {
         const supplier = supplierMap.get(invoice.supplierId)!
         
@@ -326,13 +327,11 @@ export default function PurchaseInvoiceDetailsPage({
       if (selectedSupplier !== 'all' && detail.invoice.supplierId !== selectedSupplier) return false
       if (selectedStatus !== 'all' && detail.status !== selectedStatus) return false
       if (searchInvoiceNo && !detail.invoice.invoiceNo.toLowerCase().includes(searchInvoiceNo.toLowerCase())) return false
-      if (!selectedMonths.has('all')) {
-        const invoiceMonth = detail.invoice.invoiceDate.substring(0, 7)
-        if (!selectedMonths.has(invoiceMonth)) return false
-      }
+      if (fromDate && detail.invoice.invoiceDate < fromDate) return false
+      if (toDate && detail.invoice.invoiceDate > toDate) return false
       return true
     })
-  }, [invoiceDetails, selectedSupplier, selectedStatus, searchInvoiceNo, selectedMonths])
+  }, [invoiceDetails, selectedSupplier, selectedStatus, searchInvoiceNo, fromDate, toDate])
 
   const summaryStats = useMemo(() => {
     const totalInvoices = filteredInvoiceDetails.length
@@ -468,73 +467,23 @@ export default function PurchaseInvoiceDetailsPage({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">Month</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="h-11 w-full justify-between rounded-2xl bg-background/80 shadow-sm"
-                >
-                  <span className="truncate">
-                    {selectedMonths.has('all')
-                      ? 'All Months'
-                      : `${selectedMonths.size} of ${getFYMonths(currentFY).length} selected`}
-                  </span>
-                  <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search months..." />
-                  <CommandList>
-                    <CommandEmpty>No month found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        key="all"
-                        onSelect={() => setSelectedMonths(new Set(['all']))}
-                        className="cursor-pointer"
-                      >
-                        <div className={cn(
-                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                          selectedMonths.has('all') ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
-                        )}>
-                          <Check className="h-4 w-4" />
-                        </div>
-                        <span>All Months</span>
-                      </CommandItem>
-                      {getFYMonths(currentFY).map((month) => (
-                        <CommandItem
-                          key={month.value}
-                          onSelect={() => {
-                            setSelectedMonths(prev => {
-                              const newSet = new Set(prev)
-                              newSet.delete('all')
-                              if (newSet.has(month.value)) {
-                                newSet.delete(month.value)
-                                if (newSet.size === 0) newSet.add('all')
-                              } else {
-                                newSet.add(month.value)
-                              }
-                              return newSet
-                            })
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <div className={cn(
-                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                            selectedMonths.has(month.value) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
-                          )}>
-                            <Check className="h-4 w-4" />
-                          </div>
-                          <span>{month.label}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">From Date</Label>
+            <Input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="h-11 rounded-2xl bg-background/80 shadow-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">To Date</Label>
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="h-11 rounded-2xl bg-background/80 shadow-sm"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -554,7 +503,8 @@ export default function PurchaseInvoiceDetailsPage({
                 setSelectedSupplier('all')
                 setSelectedStatus('all')
                 setSearchInvoiceNo('')
-                setSelectedMonths(new Set(['all']))
+                setFromDate('')
+                setToDate('')
               }}
               className="h-11 rounded-2xl"
             >

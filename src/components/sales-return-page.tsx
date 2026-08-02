@@ -49,7 +49,8 @@ export default function SalesReturnPage({
   const [itemToDelete, setItemToDelete] = useState<SalesReturn | null>(null)
   
   // List Filters
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [selectedCustomerFilter, setSelectedCustomerFilter] = useState<string>('all')
 
   // Form State
@@ -74,20 +75,14 @@ export default function SalesReturnPage({
   const [showQuickCustomer, setShowQuickCustomer] = useState(false)
   const [showQuickItem, setShowQuickItem] = useState(false)
 
-  const fyItems = useMemo(() => salesReturns.filter(p => p.fy === currentFY || (p.returnDate && getFYFromDate(p.returnDate) === currentFY)), [salesReturns, currentFY])
-  const fyMonths = getFYMonths(currentFY)
-  
   const filteredReturns = useMemo(() => {
-    let result = fyItems
+    let result = salesReturns
     
-    if (selectedMonth !== 'all') {
-      const monthStart = startOfMonth(parseISO(selectedMonth + '-01'))
-      const monthEnd = endOfMonth(parseISO(selectedMonth + '-01'))
-      
-      result = result.filter(p => {
-        const pDate = parseISO(p.returnDate)
-        return isWithinInterval(pDate, { start: monthStart, end: monthEnd })
-      })
+    if (fromDate) {
+      result = result.filter(p => p.returnDate >= fromDate)
+    }
+    if (toDate) {
+      result = result.filter(p => p.returnDate <= toDate)
     }
     
     if (selectedCustomerFilter !== 'all') {
@@ -95,7 +90,7 @@ export default function SalesReturnPage({
     }
     
     return result.sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime())
-  }, [fyItems, selectedMonth, selectedCustomerFilter])
+  }, [salesReturns, fromDate, toDate, selectedCustomerFilter])
   
   const totalAmount = filteredReturns.reduce((sum, p) => sum + p.amount, 0)
   const totalQuantityMT = filteredReturns.reduce((sum, p) => sum + (p.quantityMT || 0), 0)
@@ -490,18 +485,23 @@ export default function SalesReturnPage({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
-                      <span className="text-slate-400 mr-1">Month:</span>
-                      <SelectValue placeholder="Jul 26" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
-                      {fyMonths.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <span className="text-xs text-slate-500 font-medium">From:</span>
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-medium">To:</span>
+                  <Input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
+                  />
                 </div>
               </div>
 

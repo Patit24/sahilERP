@@ -109,16 +109,15 @@ export default function ExpenseEntriesPage({
   // Filter Expense Entries by Selected Date / FY Mode
   const dateFilteredExpenses = useMemo(() => {
     return expenseEntries.filter((e) => {
-      if (fyFilterMode === 'current') return e.fy === currentFY || (e.expenseDate && getFYFromDate(e.expenseDate) === currentFY)
-      if (fyFilterMode === 'previous') {
+      if (dateFrom && e.expenseDate < dateFrom) return false
+      if (dateTo && e.expenseDate > dateTo) return false
+      if (fyFilterMode === 'current' && !dateFrom && !dateTo) {
+        return e.fy === currentFY || (e.expenseDate && getFYFromDate(e.expenseDate) === currentFY)
+      }
+      if (fyFilterMode === 'previous' && !dateFrom && !dateTo) {
         const [startYr] = currentFY.replace('FY', '').split('-').map(Number)
         const prevFY = `FY${startYr - 1}-${(startYr).toString().slice(-2)}`
         return e.fy === prevFY
-      }
-      if (fyFilterMode === 'custom') {
-        if (dateFrom && e.expenseDate < dateFrom) return false
-        if (dateTo && e.expenseDate > dateTo) return false
-        return true
       }
       return true
     })
@@ -376,23 +375,22 @@ export default function ExpenseEntriesPage({
             </SelectContent>
           </Select>
 
-          {fyFilterMode === 'custom' && (
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="h-9 text-xs w-32 bg-white rounded-xl"
-              />
-              <span className="text-slate-400 text-xs">to</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="h-9 text-xs w-32 bg-white rounded-xl"
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500 font-medium">From:</span>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-9 text-xs w-32 bg-white rounded-xl"
+            />
+            <span className="text-xs text-slate-500 font-medium">To:</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-9 text-xs w-32 bg-white rounded-xl"
+            />
+          </div>
 
           {/* Action Button from Diagram: Add/manage Expenses type */}
           <Button

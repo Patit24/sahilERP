@@ -38,18 +38,16 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   const [editingPayment, setEditingPayment] = useState<CustomerPayment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [paymentToDelete, setPaymentToDelete] = useState<CustomerPayment | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
   const [selectedCustomerInForm, setSelectedCustomerInForm] = useState<string>('')
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false)
   const [selectedCounterId, setSelectedCounterId] = useState<string>('')
 
-  const fyPayments = useMemo(() => customerPayments.filter(p => p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)), [customerPayments, currentFY])
-  const fyMonths = getFYMonths(currentFY)
-  
   const calculateCustomerOutstanding = (customerId: string): number => {
-    const fySalesInvoices = salesInvoices.filter(inv => (inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)) && inv.customerId === customerId)
-    const fyCustomerPayments = customerPayments.filter(p => (p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)) && p.customerId === customerId)
+    const fySalesInvoices = salesInvoices.filter(inv => inv.customerId === customerId)
+    const fyCustomerPayments = customerPayments.filter(p => p.customerId === customerId)
     
     const totalReceivables = fySalesInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
     const totalPaymentsReceived = fyCustomerPayments.reduce((sum, p) => sum + p.amount, 0)
@@ -58,16 +56,13 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   }
   
   const filteredPayments = useMemo(() => {
-    let result = fyPayments
+    let result = customerPayments
     
-    if (selectedMonth !== 'all') {
-      const monthStart = startOfMonth(parseISO(selectedMonth + '-01'))
-      const monthEnd = endOfMonth(parseISO(selectedMonth + '-01'))
-      
-      result = result.filter(p => {
-        const pDate = parseISO(p.paymentDate)
-        return isWithinInterval(pDate, { start: monthStart, end: monthEnd })
-      })
+    if (fromDate) {
+      result = result.filter(p => p.paymentDate >= fromDate)
+    }
+    if (toDate) {
+      result = result.filter(p => p.paymentDate <= toDate)
     }
     
     if (selectedCustomer !== 'all') {
@@ -75,7 +70,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
     }
     
     return result
-  }, [fyPayments, selectedMonth, selectedCustomer])
+  }, [customerPayments, fromDate, toDate, selectedCustomer])
   
   const totalReceived = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
 
@@ -279,7 +274,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total Payments Received</p>
-                <p className="text-3xl font-semibold text-foreground">{fyPayments.length}</p>
+                <p className="text-3xl font-semibold text-foreground">{customerPayments.length}</p>
               </div>
               <CurrencyInr size={40} weight="duotone" className="text-success" />
             </div>
@@ -489,20 +484,25 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
             </div>
             
             <div className="flex items-center gap-2">
-              <Label htmlFor="month-filter" className="text-sm font-medium">Month:</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger id="month-filter" className="w-48 h-9">
-                  <SelectValue placeholder="Select Month" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Months</SelectItem>
-                  {fyMonths.map((month) => (
-                    <SelectItem key={month.value} value={month.value}>
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="from-date-filter" className="text-sm font-medium">From:</Label>
+              <Input
+                id="from-date-filter"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-36 h-9"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="to-date-filter" className="text-sm font-medium">To:</Label>
+              <Input
+                id="to-date-filter"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-36 h-9"
+              />
             </div>
             
             <Badge variant="secondary" className="gap-1.5 ml-auto">
@@ -529,7 +529,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fyPayments.length === 0 ? (
+                  {customerPayments.length === 0 ? (
                     <TableRow>
                         No customer payments recorded for FY {currentFY}.
                         No customer payments recorded for FY {currentFY}.

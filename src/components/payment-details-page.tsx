@@ -74,7 +74,8 @@ export default function PaymentDetailsPage({
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [selectedMode, setSelectedMode] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
-  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set(['all']))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
 
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers])
 
@@ -236,13 +237,11 @@ export default function PaymentDetailsPage({
       if (selectedSupplier !== 'all' && detail.payment.supplierId !== selectedSupplier) return false
       if (selectedType === 'advance' && !detail.isAdvance) return false
       if (selectedType === 'allocated' && detail.isAdvance) return false
-      if (!selectedMonths.has('all')) {
-        const paymentMonth = detail.payment.paymentDate.substring(0, 7)
-        if (!selectedMonths.has(paymentMonth)) return false
-      }
+      if (fromDate && detail.payment.paymentDate < fromDate) return false
+      if (toDate && detail.payment.paymentDate > toDate) return false
       return true
     })
-  }, [paymentDetails, selectedSupplier, selectedType, selectedMonths])
+  }, [paymentDetails, selectedSupplier, selectedType, fromDate, toDate])
 
   const summaryStats = useMemo(() => {
     const totalPayments = filteredPaymentDetails.length
@@ -315,81 +314,21 @@ export default function PaymentDetailsPage({
             </div>
 
             <div>
-              <Label>Month</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                  >
-                    <span className="truncate">
-                      {selectedMonths.has('all') 
-                        ? 'All Months' 
-                        : `${selectedMonths.size} of ${getFYMonths(currentFY).length} selected`}
-                    </span>
-                    <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search months..." />
-                    <CommandList>
-                      <CommandEmpty>No month found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem
-                          key="all"
-                          onSelect={() => {
-                            setSelectedMonths(new Set(['all']))
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <div className={cn(
-                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                            selectedMonths.has('all')
-                              ? "bg-primary text-primary-foreground"
-                              : "opacity-50 [&_svg]:invisible"
-                          )}>
-                            <Check className="h-4 w-4" />
-                          </div>
-                          <span>All Months</span>
-                        </CommandItem>
-                        {getFYMonths(currentFY).map((month) => (
-                          <CommandItem
-                            key={month.value}
-                            onSelect={() => {
-                              setSelectedMonths(prev => {
-                                const newSet = new Set(prev)
-                                newSet.delete('all')
-                                if (newSet.has(month.value)) {
-                                  newSet.delete(month.value)
-                                } else {
-                                  newSet.add(month.value)
-                                }
-                                if (newSet.size === 0) {
-                                  return new Set(['all'])
-                                }
-                                return newSet
-                              })
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <div className={cn(
-                              "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                              selectedMonths.has(month.value)
-                                ? "bg-primary text-primary-foreground"
-                                : "opacity-50 [&_svg]:invisible"
-                            )}>
-                              <Check className="h-4 w-4" />
-                            </div>
-                            <span>{month.label}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Label>From Date</Label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>To Date</Label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
             </div>
 
             <div className="flex items-end gap-2 md:col-span-2">
@@ -400,7 +339,8 @@ export default function PaymentDetailsPage({
                   setSelectedSupplier('all')
                   setSelectedMode('all')
                   setSelectedType('all')
-                  setSelectedMonths(new Set(['all']))
+                  setFromDate('')
+                  setToDate('')
                 }}
               >
                 Clear Filters

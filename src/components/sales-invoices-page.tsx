@@ -75,7 +75,8 @@ export default function SalesInvoicesPage({
   const [previewInvoice, setPreviewInvoice] = useState<SalesInvoice | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([])
 
@@ -140,28 +141,21 @@ export default function SalesInvoicesPage({
   const [showInvoiceTerms, setShowInvoiceTerms] = useState(false)
   const [invoiceTerms, setInvoiceTerms] = useState('')
   
-  const fyInvoices = useMemo(() => salesInvoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [salesInvoices, currentFY])
-  const fyMonths = getFYMonths(currentFY)
-  
   const filteredInvoices = useMemo(() => {
-    let result = fyInvoices
+    let result = salesInvoices
     
-    if (selectedMonth !== 'all') {
-      const monthStart = startOfMonth(parseISO(selectedMonth + '-01'))
-      const monthEnd = endOfMonth(parseISO(selectedMonth + '-01'))
-      
-      result = result.filter(inv => {
-        const invDate = parseISO(inv.invoiceDate)
-        return isWithinInterval(invDate, { start: monthStart, end: monthEnd })
-      })
+    if (fromDate) {
+      result = result.filter(inv => inv.invoiceDate >= fromDate)
     }
-    
+    if (toDate) {
+      result = result.filter(inv => inv.invoiceDate <= toDate)
+    }
     if (selectedCustomer !== 'all') {
       result = result.filter(inv => inv.customerId === selectedCustomer)
     }
     
     return result
-  }, [fyInvoices, selectedMonth, selectedCustomer])
+  }, [salesInvoices, fromDate, toDate, selectedCustomer])
   
   const totalMT = filteredInvoices.reduce((sum, inv) => sum + inv.quantityMT, 0)
   const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
@@ -779,7 +773,7 @@ export default function SalesInvoicesPage({
             <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Sales Invoices</p>
-                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{fyInvoices.length}</p>
+                <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{salesInvoices.length}</p>
                 <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-2">
                   <TrendUp className="h-3.5 w-3.5" weight="bold" /> 0% from last month
                 </p>
@@ -1645,18 +1639,23 @@ export default function SalesInvoicesPage({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                      <SelectTrigger className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
-                        <span className="text-slate-400 mr-1">Month:</span>
-                        <SelectValue placeholder="Jul 26" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Months</SelectItem>
-                        {fyMonths.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <span className="text-xs text-slate-500 font-medium">From:</span>
+                    <Input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium">To:</span>
+                    <Input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
+                    />
                   </div>
                 </div>
 

@@ -38,7 +38,8 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [advanceBookingEnabled, setAdvanceBookingEnabled] = useState(false)
   const [formSupplierId, setFormSupplierId] = useState('')
@@ -47,26 +48,19 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [bookingMTInput, setBookingMTInput] = useState('')
   const [bookingMarketRateInput, setBookingMarketRateInput] = useState('')
   
-  const fyPayments = useMemo(() => payments.filter(p => p.fy === currentFY || (p.paymentDate && getFYFromDate(p.paymentDate) === currentFY)), [payments, currentFY])
-  const fyInvoices = useMemo(() => invoices.filter(inv => inv.fy === currentFY || (inv.invoiceDate && getFYFromDate(inv.invoiceDate) === currentFY)), [invoices, currentFY])
-  const fyMonths = getFYMonths(currentFY)
-  
   const { allocations, paymentAdvanceInfo } = useMemo(() => 
-    calculatePaymentAllocations(fyPayments, fyInvoices),
-    [fyPayments, fyInvoices]
+    calculatePaymentAllocations(payments, invoices),
+    [payments, invoices]
   )
   
   const filteredPayments = useMemo(() => {
-    let result = fyPayments
+    let result = payments
     
-    if (selectedMonth !== 'all') {
-      const monthStart = startOfMonth(parseISO(selectedMonth + '-01'))
-      const monthEnd = endOfMonth(parseISO(selectedMonth + '-01'))
-      
-      result = result.filter(p => {
-        const pDate = parseISO(p.paymentDate)
-        return isWithinInterval(pDate, { start: monthStart, end: monthEnd })
-      })
+    if (fromDate) {
+      result = result.filter(p => p.paymentDate >= fromDate)
+    }
+    if (toDate) {
+      result = result.filter(p => p.paymentDate <= toDate)
     }
     
     if (selectedSupplier !== 'all') {
@@ -74,7 +68,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
     }
     
     return result
-  }, [fyPayments, selectedMonth, selectedSupplier])
+  }, [payments, fromDate, toDate, selectedSupplier])
   
   const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
   const paymentAmountNumber = parseFloat(paymentAmount) || 0
@@ -82,7 +76,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const bookingMonthSupplierRate = useMemo(() => {
     if (!formSupplierId) return null
 
-    const latestInvoice = fyInvoices
+    const latestInvoice = invoices
       .filter((invoice) => invoice.supplierId === formSupplierId && invoice.quantityMT > 0)
       .sort((a, b) => {
         const dateDiff = new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()
@@ -110,7 +104,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
       invoiceNo: latestInvoice.invoiceNo,
       invoiceDate: latestInvoice.invoiceDate,
     }
-  }, [formSupplierId, fyInvoices])
+  }, [formSupplierId, invoices])
 
   const bookingMarketRateNumber = parseFloat(bookingMarketRateInput) || 0
   const effectiveBookingMarketRate = bookingMarketRateNumber > 0
@@ -442,7 +436,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   }
 
   const supplierMap = new Map(suppliers.map(s => [s.id, s]))
-  const invoiceMap = new Map(fyInvoices.map(inv => [inv.id, inv]))
+  const invoiceMap = new Map(invoices.map(inv => [inv.id, inv]))
   const itemMap = new Map(items.map(item => [item.id, item]))
 
 
@@ -700,20 +694,25 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="month-filter" className="text-sm font-medium">Month:</Label>
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger id="month-filter" className="w-48 h-9">
-                      <SelectValue placeholder="Select Month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
-                      {fyMonths.map((month) => (
-                        <SelectItem key={month.value} value={month.value}>
-                          {month.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="from-date-filter" className="text-sm font-medium">From:</Label>
+                  <Input
+                    id="from-date-filter"
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-36 h-9"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="to-date-filter" className="text-sm font-medium">To:</Label>
+                  <Input
+                    id="to-date-filter"
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-36 h-9"
+                  />
                 </div>
                 
                 <Badge variant="secondary" className="gap-1.5 ml-auto">
@@ -730,7 +729,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
             </CardContent>
           </Card>
 
-          {fyPayments.length === 0 ? (
+          {payments.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <CurrencyDollar size={48} className="text-muted-foreground mb-4" />

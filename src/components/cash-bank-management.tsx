@@ -591,6 +591,24 @@ export default function CashBankManagement({
                   </SelectContent>
                 </Select>
 
+                {/* Date Range Filters */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-xs font-medium">From:</span>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-8 text-xs bg-white border-slate-200 rounded-xl w-32"
+                  />
+                  <span className="text-slate-400 text-xs font-medium">To:</span>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="h-8 text-xs bg-white border-slate-200 rounded-xl w-32"
+                  />
+                </div>
+
                 {/* Search */}
                 <div className="relative">
                   <MagnifyingGlass className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />

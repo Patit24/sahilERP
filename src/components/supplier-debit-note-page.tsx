@@ -30,25 +30,20 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
   const [editingItem, setEditingItem] = useState<SupplierDebitNote | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<SupplierDebitNote | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [selectedEntity, setSelectedEntity] = useState<string>('all')
   const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
   const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
 
-  const fyItems = useMemo(() => debitNotes.filter(p => p.fy === currentFY || (p.date && getFYFromDate(p.date) === currentFY)), [debitNotes, currentFY])
-  const fyMonths = getFYMonths(currentFY)
-  
   const filteredItems = useMemo(() => {
-    let result = fyItems
+    let result = debitNotes
     
-    if (selectedMonth !== 'all') {
-      const monthStart = startOfMonth(parseISO(selectedMonth + '-01'))
-      const monthEnd = endOfMonth(parseISO(selectedMonth + '-01'))
-      
-      result = result.filter(p => {
-        const pDate = parseISO(p.date)
-        return isWithinInterval(pDate, { start: monthStart, end: monthEnd })
-      })
+    if (fromDate) {
+      result = result.filter(p => p.date >= fromDate)
+    }
+    if (toDate) {
+      result = result.filter(p => p.date <= toDate)
     }
     
     if (selectedEntity !== 'all') {
@@ -56,7 +51,7 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
     }
     
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [fyItems, selectedMonth, selectedEntity])
+  }, [debitNotes, fromDate, toDate, selectedEntity])
   
   const totalAmount = filteredItems.reduce((sum, p) => sum + p.amount, 0)
 
@@ -229,18 +224,23 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="w-full sm:w-[200px]">
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Months</SelectItem>
-              {fyMonths.map(month => (
-                <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-medium">From:</span>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-36 h-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-medium">To:</span>
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-36 h-9"
+          />
         </div>
         <div className="w-full sm:w-[250px]">
           <Select value={selectedEntity} onValueChange={setSelectedEntity}>
