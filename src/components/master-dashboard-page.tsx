@@ -673,7 +673,7 @@ export default function MasterDashboardPage({
       />
 
       {/* ── 4 Insight Cards: Top Supplier, Top Buyer, Top Stocks, Fast & Slow Movers ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* ── Card A: Top Suppliers ── */}
         <div className="bg-white rounded-2xl border border-[#E8EAEF] shadow-[0_2px_12px_rgba(91,95,239,0.06)] overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-200">
