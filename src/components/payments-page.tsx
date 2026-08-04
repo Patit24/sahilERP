@@ -488,7 +488,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
             <DialogHeader>
               <DialogTitle>{editingPayment ? 'Edit Payment' : 'Add New Payment'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} key={editingPayment?.id || 'new-supp-payment'} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="supplierId">Supplier</Label>
                 <Select name="supplierId" value={formSupplierId} onValueChange={setFormSupplierId}>
@@ -511,7 +511,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                   id="paymentDate" 
                   name="paymentDate" 
                   type="date"
-                  defaultValue={editingPayment?.paymentDate}
+                  defaultValue={editingPayment?.paymentDate || format(new Date(), 'yyyy-MM-dd')}
 
                   required 
                 />

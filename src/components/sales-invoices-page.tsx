@@ -816,7 +816,7 @@ export default function SalesInvoicesPage({
 
           {open ? (
             <div className="erp-invoice-page-shell">
-              <form onSubmit={handleSubmit} className="erp-invoice-form erp-invoice-page-form">
+              <form onSubmit={handleSubmit} key={editingInvoice?.id || 'new-sales-invoice'} className="erp-invoice-form erp-invoice-page-form">
                 <div className="erp-invoice-page-header">
                   <div className="flex min-w-0 items-center gap-3">
                     <Button
@@ -976,7 +976,7 @@ export default function SalesInvoicesPage({
                               name="invoiceDate"
                               type="date"
                               className="h-8 bg-background text-xs"
-                              defaultValue={editingInvoice?.invoiceDate}
+                              defaultValue={editingInvoice?.invoiceDate || format(new Date(), 'yyyy-MM-dd')}
 
                               required
                             />

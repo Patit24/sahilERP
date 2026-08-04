@@ -312,7 +312,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
                 <DialogHeader>
                   <DialogTitle>{editingPayment ? 'Edit Customer Payment' : 'Record Customer Payment'}</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} key={editingPayment?.id || 'new-cust-payment'} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="customerId">Customer *</Label>
                     <Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}>
@@ -420,7 +420,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
                           id="paymentDate"
                           name="paymentDate"
                           type="date"
-                          defaultValue={editingPayment?.paymentDate}
+                          defaultValue={editingPayment?.paymentDate || format(new Date(), 'yyyy-MM-dd')}
 
                           required
                         />

@@ -17,6 +17,7 @@ import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculatePaymentA
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog'
 import PurchaseInvoiceDetailsPage from '@/components/purchase-invoice-details-page'
@@ -711,7 +712,7 @@ export default function InvoicesPage({
         document.querySelector('.erp-invoice-body')?.scrollTo({ top: 0 })
         const invoiceDateInput = document.getElementById('invoiceDate') as HTMLInputElement
         if (invoiceDateInput) {
-          invoiceDateInput.value = ''
+          invoiceDateInput.value = format(new Date(), 'yyyy-MM-dd')
         }
       }, 0)
     } else if (!newOpen) {
@@ -942,7 +943,7 @@ export default function InvoicesPage({
 
       {open ? (
         <div className="erp-invoice-page-shell">
-          <form onSubmit={handleSubmit} className="erp-invoice-form erp-invoice-page-form">
+          <form onSubmit={handleSubmit} key={editingInvoice?.id || 'new-purchase-invoice'} className="erp-invoice-form erp-invoice-page-form">
             <div className="erp-invoice-page-header">
               <div className="flex min-w-0 items-center gap-3">
                 <Button
@@ -1101,7 +1102,7 @@ export default function InvoicesPage({
                         id="invoiceDate" 
                         name="invoiceDate" 
                         type="date"
-                        defaultValue={editingInvoice?.invoiceDate}
+                        defaultValue={editingInvoice?.invoiceDate || format(new Date(), 'yyyy-MM-dd')}
 
                         className="h-8 bg-background text-xs"
                         required
