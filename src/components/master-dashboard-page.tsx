@@ -145,8 +145,8 @@ export default function MasterDashboardPage({
   }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns])
 
   const cdAtRiskData = useMemo(() => {
-    return calculateCDAtRisk(purchaseInvoices, payments, paymentAllocations, suppliers)
-  }, [purchaseInvoices, payments, paymentAllocations, suppliers])
+    return calculateCDAtRisk(purchaseInvoices, payments, paymentAllocations, suppliers, items)
+  }, [purchaseInvoices, payments, paymentAllocations, suppliers, items])
 
   const totalPayables = useMemo(() => {
     const totalInvoiceAmount = purchaseInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)

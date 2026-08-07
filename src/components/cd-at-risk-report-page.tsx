@@ -57,7 +57,7 @@ export default function CDAtRiskReportPage({
   }, [payments, purchaseInvoices])
 
   const cdAtRiskData = useMemo(() => {
-    const allData = calculateCDAtRisk(purchaseInvoices, payments, paymentAllocations, suppliers)
+    const allData = calculateCDAtRisk(purchaseInvoices, payments, paymentAllocations, suppliers, items)
     
     if (selectedSuppliers.length === 0) {
       return allData

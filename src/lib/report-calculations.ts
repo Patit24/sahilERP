@@ -333,10 +333,12 @@ export function calculateCDAtRisk(
   purchaseInvoices: PurchaseInvoice[],
   payments: Payment[],
   paymentAllocations: PaymentAllocation[],
-  suppliers: Supplier[]
+  suppliers: Supplier[],
+  items: Item[] = []
 ): CDAtRisk[] {
   const cdAtRisk: CDAtRisk[] = []
   const supplierMap = new Map(suppliers.map(s => [s.id, s]))
+  const itemMap = new Map(items.map(i => [i.id, i]))
   const today = new Date()
 
   purchaseInvoices.forEach(invoice => {
