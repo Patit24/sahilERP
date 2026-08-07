@@ -2339,6 +2339,7 @@ function App() {
               purchaseInvoices={safeInvoices}
               payments={safePayments}
               suppliers={safeSuppliers}
+              items={safeItems}
               currentFY={safeCurrentFY}
               businessName={safeBusinessName}
             />

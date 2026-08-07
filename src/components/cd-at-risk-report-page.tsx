@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { PurchaseInvoice, Payment, Supplier } from '@/lib/types'
+import { PurchaseInvoice, Payment, Supplier, Item } from '@/lib/types'
 import { calculateCDAtRisk, InvoiceCloseCDUnitBreakdown } from '@/lib/report-calculations'
 import { calculatePaymentAllocations, formatCurrency, formatMT } from '@/lib/calculations'
 import { Warning, Clock, TrendDown, CaretDown, FilePdf, Shield, CoinVertical, Receipt, Funnel, X } from '@phosphor-icons/react'
@@ -37,6 +37,7 @@ interface CDAtRiskReportPageProps {
   purchaseInvoices: PurchaseInvoice[]
   payments: Payment[]
   suppliers: Supplier[]
+  items?: Item[]
   currentFY: string
   businessName?: string
 }
@@ -45,6 +46,7 @@ export default function CDAtRiskReportPage({
   purchaseInvoices,
   payments,
   suppliers,
+  items = [],
   currentFY,
   businessName = 'Steel Trading ERP'
 }: CDAtRiskReportPageProps) {
