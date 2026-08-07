@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn, FixedScheme, ReceivedDiscount, ExpenseEntry, ExpenseType, MTBooking } from '@/lib/types'
 import { calculateItemStockMap } from '@/lib/report-calculations'
+import { normalizeLineItem } from '@/lib/unit-conversion-service'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -345,20 +346,12 @@ export default function InvoicesPage({
     const item = items.find((candidate) => candidate.id === itemId)
     const basicRate = item?.purchasePrice || 0
     const rate = calculateRateWithItemGst(basicRate, itemId)
-    const defaultEntryUnit = item?.unit || 'MT'
+    const defaultEntryUnit = item?.unit || 'KG'
     const activeUnit = chosenUnit || defaultEntryUnit
 
-    let quantityMT = rawQuantity
-    let entryQuantity = rawQuantity
-
-    if (item) {
-      const factor = item.conversionFactor || 1000
-      if (activeUnit === item.alternativeUnit) {
-        quantityMT = rawQuantity / factor
-      } else {
-        quantityMT = rawQuantity
-      }
-    }
+    const norm = normalizeLineItem(item, rawQuantity, activeUnit, rate)
+    const quantityMT = norm.baseQuantity
+    const entryQuantity = rawQuantity
 
     setInvoiceItems(prev => {
       const existingIndex = prev.findIndex(existing => existing.itemId === itemId)
@@ -367,30 +360,37 @@ export default function InvoicesPage({
         // Item already exists, merge quantities
         const updated = [...prev]
         const existing = updated[existingIndex]
-        const newQuantityMT = (existing.quantityMT || 0) + quantityMT
         const newEntryQuantity = (existing.entryQuantity || 0) + entryQuantity
-        const qtyForAmount = newEntryQuantity > 0 ? newEntryQuantity : newQuantityMT
+        const newNorm = normalizeLineItem(item, newEntryQuantity, activeUnit, existing.rate)
         
         updated[existingIndex] = {
           ...existing,
-          quantityMT: newQuantityMT,
+          quantityMT: newNorm.baseQuantity,
           entryQuantity: newEntryQuantity,
           entryUnit: activeUnit,
-          amount: parseFloat((qtyForAmount * existing.rate).toFixed(2))
+          baseQuantity: newNorm.baseQuantity,
+          baseRate: newNorm.baseRate,
+          enteredQuantity: newEntryQuantity,
+          enteredUnit: activeUnit,
+          amount: parseFloat((newNorm.baseAmount).toFixed(2))
         }
         return updated
       }
 
       // If it doesn't exist, create a new row or fill an empty one
-      const qtyForAmount = entryQuantity > 0 ? entryQuantity : quantityMT
-      const row = {
+      const row: InvoiceItem = {
         itemId,
-        quantityMT,
+        quantityMT: norm.baseQuantity,
         basicRate,
         rate,
-        amount: parseFloat((qtyForAmount * rate).toFixed(2)),
+        amount: parseFloat((norm.baseAmount).toFixed(2)),
         entryUnit: activeUnit,
-        entryQuantity
+        entryQuantity,
+        baseQuantity: norm.baseQuantity,
+        baseRate: norm.baseRate,
+        enteredQuantity: entryQuantity,
+        enteredUnit: activeUnit,
+        enteredRate: rate
       }
 
       const emptyIndex = prev.findIndex(existing => !existing.itemId)
@@ -423,17 +423,19 @@ export default function InvoicesPage({
       if (field === 'itemId') {
         const newItemId = value as string
         const selectedDef = items.find(i => i.id === newItemId)
-        const defaultUnit = selectedDef?.unit || 'MT'
+        const defaultUnit = selectedDef?.unit || 'KG'
         
         const existingIndex = prev.findIndex((r, i) => r.itemId === newItemId && i !== index)
         
         if (existingIndex !== -1) {
           // Merge into existing row
           const existing = { ...updated[existingIndex] }
-          existing.quantityMT = (existing.quantityMT || 0) + (itemRow.quantityMT || 0)
-          existing.entryQuantity = (existing.entryQuantity || 0) + (itemRow.entryQuantity || 0)
-          const qtyForAmount = (existing.entryQuantity || 0) > 0 ? existing.entryQuantity : existing.quantityMT
-          existing.amount = parseFloat((qtyForAmount * existing.rate).toFixed(2))
+          const combinedEntryQty = (existing.entryQuantity || 0) + (itemRow.entryQuantity || 0)
+          const normCombined = normalizeLineItem(selectedDef, combinedEntryQty, existing.entryUnit || defaultUnit, existing.rate)
+          existing.quantityMT = normCombined.baseQuantity
+          existing.entryQuantity = combinedEntryQty
+          existing.baseQuantity = normCombined.baseQuantity
+          existing.amount = parseFloat((normCombined.baseAmount).toFixed(2))
           updated[existingIndex] = existing
           
           // Clear current row
@@ -453,29 +455,9 @@ export default function InvoicesPage({
         }
       } else if (field === 'entryUnit') {
         itemRow.entryUnit = value as string
-        if (selectedItemDef) {
-          const factor = selectedItemDef.conversionFactor || 1000
-          if (value === selectedItemDef.alternativeUnit) {
-            itemRow.quantityMT = (itemRow.entryQuantity || 0) / factor
-          } else {
-            itemRow.quantityMT = itemRow.entryQuantity || 0
-          }
-        }
       } else if (field === 'entryQuantity' || field === 'quantityMT') {
         const numVal = parseFloat(value as string) || 0
         itemRow.entryQuantity = numVal
-        
-        if (selectedItemDef) {
-          const factor = selectedItemDef.conversionFactor || 1000
-          const activeUnit = itemRow.entryUnit || selectedItemDef.unit
-          if (activeUnit === selectedItemDef.alternativeUnit) {
-            itemRow.quantityMT = numVal / factor
-          } else {
-            itemRow.quantityMT = numVal
-          }
-        } else {
-          itemRow.quantityMT = numVal
-        }
       } else if (field === 'weightKG') {
         const valStr = value as string
         const numVal = valStr !== '' ? parseFloat(valStr) : undefined
@@ -492,10 +474,18 @@ export default function InvoicesPage({
         itemRow.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
       }
       
-      const qtyForAmount = (itemRow.entryQuantity !== undefined && itemRow.entryQuantity !== null && itemRow.entryQuantity > 0)
-        ? itemRow.entryQuantity
-        : (itemRow.quantityMT || 0)
-      itemRow.amount = parseFloat((qtyForAmount * (itemRow.rate || 0)).toFixed(2))
+      const currentEntryQty = itemRow.entryQuantity !== undefined && itemRow.entryQuantity !== null ? itemRow.entryQuantity : (itemRow.quantityMT || 0)
+      const currentUnit = itemRow.entryUnit || selectedItemDef?.unit || 'KG'
+      const currentRate = itemRow.rate || 0
+
+      const norm = normalizeLineItem(selectedItemDef, currentEntryQty, currentUnit, currentRate)
+      itemRow.quantityMT = norm.baseQuantity
+      itemRow.baseQuantity = norm.baseQuantity
+      itemRow.baseRate = norm.baseRate
+      itemRow.enteredQuantity = currentEntryQty
+      itemRow.enteredUnit = currentUnit
+      itemRow.enteredRate = currentRate
+      itemRow.amount = parseFloat((norm.baseAmount).toFixed(2))
 
       updated[index] = itemRow
       return updated
