@@ -74,7 +74,8 @@ import {
   DiscountAllocation,
   FixedScheme,
   MTBooking,
-  SupplierCDRuleVersion
+  SupplierCDRuleVersion,
+  Item
 } from './types'
 
 function toDateKey(date: string): string {

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -107,60 +108,80 @@ export default function PaymentDetailsPage({
             if (!invoice) return null
           
           const wasAdvanceAllocation = advanceInfo?.allocationIsAdvanceMap.get(alloc.id) || false
-          const days = Math.floor((new Date(alloc.allocationDate).getTime() - new Date(invoice.invoiceDate).getTime()) / (1000 * 60 * 60 * 24))
-          const applicableDays = Math.max(0, days)
+
+          const invoiceDateObj = new Date(invoice.invoiceDate)
+          const paymentDateObj = new Date(payment.paymentDate)
+          invoiceDateObj.setHours(0, 0, 0, 0)
+          paymentDateObj.setHours(0, 0, 0, 0)
+          const days = Math.max(0, Math.floor((paymentDateObj.getTime() - invoiceDateObj.getTime()) / (1000 * 60 * 60 * 24)))
           
-          let effectiveRate = 0
-          if (wasAdvanceAllocation) {
-            effectiveRate = advanceCDPercentage
-          } else {
-            const slab = supplier.cdSlabs?.find(s => applicableDays >= s.fromDays && applicableDays <= s.toDays)
-            effectiveRate = slab?.cdPercentage || 0
+          const advanceCDForThisAlloc = expectedDiscounts.find(
+            ed => ed.id === `advanceCD-${alloc.id}` && ed.type === 'advanceCD'
+          )
+          const regularCDForThisAlloc = expectedDiscounts.find(
+            ed => ed.id === `paymentCD-${alloc.id}` && ed.type === 'paymentCD'
+          )
+          
+          const advanceCDEarnedForAlloc = advanceCDForThisAlloc?.expectedAmount || 0
+          const regularCDEarnedForAlloc = regularCDForThisAlloc?.expectedAmount || 0
+          
+          let regularCDPercentage = 0
+          if (regularCDEarnedForAlloc > 0 && alloc.allocatedAmount > 0) {
+            regularCDPercentage = (regularCDEarnedForAlloc / alloc.allocatedAmount) * 100
           }
           
-          const cdEarned = (alloc.amount * effectiveRate) / 100
-          const advanceCDEarned = wasAdvanceAllocation ? cdEarned : 0
-          const regularCDEarned = !wasAdvanceAllocation ? cdEarned : 0
+          const cdEarned = advanceCDEarnedForAlloc + regularCDEarnedForAlloc
+
+          const totalCDFromInvoice = payment.doNotApplyCD ? 0 : expectedDiscounts
+            .filter(ed => ed.invoiceId === invoice.id && ed.paymentId === payment.id)
+            .reduce((sum, cd) => sum + cd.expectedAmount, 0)
           
-          const totalInvPaid = paymentAllocations
-            .filter(a => a.invoiceId === invoice.id)
-            .reduce((sum, a) => sum + a.amount, 0)
+          const cdPerMT = invoice.quantityMT > 0 ? totalCDFromInvoice / invoice.quantityMT : 0
+
+          const invoiceAllocations = paymentAllocations.filter(a => a.invoiceId === invoice.id)
+          const totalInvoiceAllocated = invoiceAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
+          const isInvoiceFullyPaid = totalInvoiceAllocated >= invoice.invoiceAmount
           
-          const isInvoiceFullyPaid = totalInvPaid >= invoice.invoiceAmount
+          const lastPaymentForInvoice = payments
+            .filter(p => invoiceAllocations.some(a => a.paymentId === p.id))
+            .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0]
           
           let invoiceCloseCDEarned = 0
           let invoiceCloseCDDays = 0
           let invoiceCloseCDRate = 0
           
-          if (isInvoiceFullyPaid && supplier.invoiceCloseCDSlabs && supplier.invoiceCloseCDSlabs.length > 0) {
-            const lastAllocation = paymentAllocations
-              .filter(a => a.invoiceId === invoice.id)
-              .sort((a, b) => new Date(b.allocationDate).getTime() - new Date(a.allocationDate).getTime())[0]
+          if (isInvoiceFullyPaid && lastPaymentForInvoice && lastPaymentForInvoice.id === payment.id && !payment.doNotApplyCD) {
+            const invoiceCloseCDs = expectedDiscounts.filter(
+              ed => ed.invoiceId === invoice.id && ed.type === 'invoiceCloseCD'
+            )
             
-            if (lastAllocation) {
-              invoiceCloseCDDays = Math.floor((new Date(lastAllocation.allocationDate).getTime() - new Date(invoice.invoiceDate).getTime()) / (1000 * 60 * 60 * 24))
-              const applicableCloseDays = Math.max(0, invoiceCloseCDDays)
+            if (invoiceCloseCDs.length > 0) {
+              invoiceCloseCDEarned = invoiceCloseCDs.reduce((sum, ed) => sum + ed.expectedAmount, 0)
+              invoiceCloseCDRate = invoiceCloseCDs[0].ratePerMT
               
-              const closeSlab = supplier.invoiceCloseCDSlabs.find(s => applicableCloseDays >= s.fromDays && applicableCloseDays <= s.toDays)
-              if (closeSlab) {
-                invoiceCloseCDRate = closeSlab.cdPercentage
-                invoiceCloseCDEarned = (invoice.invoiceAmount * closeSlab.cdPercentage) / 100
-              }
+              const invDateObj = new Date(invoice.invoiceDate)
+              const pmtDateObj = new Date(payment.paymentDate)
+              invDateObj.setHours(0, 0, 0, 0)
+              pmtDateObj.setHours(0, 0, 0, 0)
+              
+              invoiceCloseCDDays = Math.max(0, Math.floor(
+                (pmtDateObj.getTime() - invDateObj.getTime()) / (1000 * 60 * 60 * 24)
+              ))
             }
           }
-          
+
           return {
             invoice,
-            allocatedAmount: alloc.amount,
-            advanceAmount: wasAdvanceAllocation ? alloc.amount : 0,
-            regularAmount: !wasAdvanceAllocation ? alloc.amount : 0,
-            days: applicableDays,
+            allocatedAmount: alloc.allocatedAmount,
+            advanceAmount: wasAdvanceAllocation ? alloc.allocatedAmount : 0,
+            regularAmount: wasAdvanceAllocation ? 0 : alloc.allocatedAmount,
+            days,
             cdEarned,
-            advanceCDEarned,
-            regularCDEarned,
-            cdPercentage: effectiveRate,
+            advanceCDEarned: advanceCDEarnedForAlloc,
+            regularCDEarned: regularCDEarnedForAlloc,
+            cdPercentage: wasAdvanceAllocation ? 0 : regularCDPercentage,
             advanceCDPercentage: wasAdvanceAllocation ? advanceCDPercentage : 0,
-            cdPerMT: invoice.quantityMT > 0 ? cdEarned / invoice.quantityMT : 0,
+            cdPerMT,
             invoiceCloseCDEarned,
             invoiceCloseCDDays,
             invoiceCloseCDRate
