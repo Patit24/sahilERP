@@ -41,6 +41,7 @@ export default function InventoryReportPage({
 
   const totals = useMemo(() => {
     const balanceGrouped: Record<string, number> = {}
+    let totalOpeningValue = 0
     let totalPurchaseValue = 0
     let totalSalesValue = 0
     let totalStockValue = 0
@@ -50,6 +51,7 @@ export default function InventoryReportPage({
       const bQty = item.balanceMT
       balanceGrouped[bUnit] = (balanceGrouped[bUnit] || 0) + bQty
       
+      totalOpeningValue += item.openingStockValue || 0
       totalPurchaseValue += item.totalPurchaseAmount || 0
       totalSalesValue += item.totalSalesAmount || 0
       totalStockValue += item.currentStockValue || 0
@@ -62,6 +64,7 @@ export default function InventoryReportPage({
     }
 
     return { 
+      totalOpeningValue,
       totalPurchaseValue,
       totalSalesValue,
       balanceFormatted: formatGrouped(balanceGrouped),
@@ -99,19 +102,24 @@ export default function InventoryReportPage({
     doc.text('SUMMARY', 16, yPos + 5)
     
     doc.setFontSize(10)
-    doc.text('Total Purchase:', 16, yPos + 11)
+    doc.text('Opening Stock:', 16, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatAmount(totals.totalPurchaseValue), 16, yPos + 15)
+    doc.text(formatAmount(totals.totalOpeningValue), 16, yPos + 15)
+
+    doc.setFont('helvetica', 'bold')
+    doc.text('Total Purchase:', 80, yPos + 11)
+    doc.setFont('helvetica', 'normal')
+    doc.text(formatAmount(totals.totalPurchaseValue), 80, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
-    doc.text('Total Sales:', 90, yPos + 11)
+    doc.text('Total Sales:', 140, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatAmount(totals.totalSalesValue), 90, yPos + 15)
+    doc.text(formatAmount(totals.totalSalesValue), 140, yPos + 15)
     
     doc.setFont('helvetica', 'bold')
-    doc.text('Closing Stock Value:', 160, yPos + 11)
+    doc.text('Closing Stock Value:', 200, yPos + 11)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatAmount(totals.totalStockValue), 160, yPos + 15)
+    doc.text(formatAmount(totals.totalStockValue), 200, yPos + 15)
 
     const tableData = inventoryData.map(item => {
       const secUnit = item.secondaryUnit
@@ -218,7 +226,17 @@ export default function InventoryReportPage({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="bg-white border-slate-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Opening Stock Value</CardTitle>
+            <Package className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl md:text-2xl font-mono font-extrabold text-slate-900">{formatCurrency(totals.totalOpeningValue)}</div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Purchase Value</CardTitle>
@@ -251,9 +269,18 @@ export default function InventoryReportPage({
       </div>
 
       <Card className="bg-white border-slate-200 shadow-2xs overflow-hidden">
-        <CardHeader className="bg-slate-50/80 border-b border-slate-200 py-4">
-          <CardTitle className="text-base font-bold text-slate-900">Category & Item-wise Inventory Report</CardTitle>
-          <CardDescription>Purchases (+), Sales (-), and remaining balance grouped by item & category</CardDescription>
+        <CardHeader className="bg-slate-50/80 border-b border-slate-200 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base font-bold text-slate-900">Category & Item-wise Inventory Report</CardTitle>
+            <CardDescription>Purchases (+), Sales (-), and remaining balance grouped by item & category</CardDescription>
+          </div>
+          <div className="flex items-center gap-3 bg-purple-50/90 border border-purple-200 rounded-lg px-4 py-2 shrink-0">
+            <Package className="h-5 w-5 text-purple-600 shrink-0" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-purple-700">Total Stocks Value</p>
+              <p className="text-lg font-mono font-extrabold text-purple-950">{formatCurrency(totals.totalStockValue)}</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

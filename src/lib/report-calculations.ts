@@ -313,6 +313,10 @@ export function calculateInventoryReport(
       currentStockValue = 0
     }
 
+    const openingStockVal = openingStockMT > 0
+      ? (openingStockMT * (avgPurchaseRateBase || (masterOpeningBase > 0 ? masterOpeningValue / masterOpeningBase : 0)))
+      : 0
+
     inventory.push({
       itemId: item.id,
       itemName: item.name,
@@ -321,7 +325,7 @@ export function calculateInventoryReport(
       alternativeUnit: secUnit,
       conversionFactor: factor,
       openingStockMT,
-      openingStockValue: masterOpeningValue,
+      openingStockValue: Math.max(0, openingStockVal),
       totalPurchaseMT,
       totalPurchaseAmount,
       totalSalesMT,
