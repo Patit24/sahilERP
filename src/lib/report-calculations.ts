@@ -18,6 +18,7 @@ import {
   PurchaseReturn,
   SalesReturn
 } from './types'
+import { PeriodFilterState, isRecordInPeriod, isRecordBeforePeriod } from '@/components/period-date-filter'
 import {
   toBaseQuantity,
   toBaseRate,
@@ -118,12 +119,15 @@ export function getItemNormalizedQty(
   return { primaryQty: baseQty, altQty, usedUnit: entryUnit }
 }
 
+
 export function calculateInventoryReport(
   items: Item[],
   purchaseInvoices: PurchaseInvoice[],
   salesInvoices: SalesInvoice[],
   purchaseReturns: PurchaseReturn[] = [],
-  salesReturns: SalesReturn[] = []
+  salesReturns: SalesReturn[] = [],
+  periodFilter?: PeriodFilterState,
+  currentFY?: string
 ): InventoryData[] {
   const inventory: InventoryData[] = []
 
@@ -132,9 +136,15 @@ export function calculateInventoryReport(
     const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : undefined
     const factor = getItemConversionFactor(item, altUnit)
 
-    const openingBase = toBaseQuantity(item, item.openingStock || 0, primaryUnit)
-    const openingStockValue = item.openingValue || 0
-    const openingAlt = altUnit ? fromBaseQuantity(item, openingBase, altUnit) : openingBase
+    const masterOpeningBase = toBaseQuantity(item, item.openingStock || 0, primaryUnit)
+    const masterOpeningValue = item.openingValue || 0
+    const masterOpeningAlt = altUnit ? fromBaseQuantity(item, masterOpeningBase, altUnit) : masterOpeningBase
+
+    let priorPurchaseBase = 0
+    let priorPurchaseAlt = 0
+
+    let priorSalesBase = 0
+    let priorSalesAlt = 0
 
     let totalPurchaseBase = 0
     let totalPurchaseAlt = 0
@@ -152,12 +162,12 @@ export function calculateInventoryReport(
 
     const purchaseBatches: { date: Date; quantityPrimary: number; rate: number; amount: number }[] = []
 
-    if (openingBase > 0 && openingStockValue > 0) {
+    if (masterOpeningBase > 0 && masterOpeningValue > 0) {
       purchaseBatches.push({
         date: new Date('1900-01-01'),
-        quantityPrimary: openingBase,
-        rate: openingStockValue / openingBase,
-        amount: openingStockValue
+        quantityPrimary: masterOpeningBase,
+        rate: masterOpeningValue / masterOpeningBase,
+        amount: masterOpeningValue
       })
     }
 
@@ -166,19 +176,25 @@ export function calculateInventoryReport(
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty, usedUnit } = getItemNormalizedQty(invItem, item, factor)
-            totalPurchaseBase += primaryQty
-            totalPurchaseAlt += altQty
-            totalPurchaseAmount += invItem.amount || 0
+            
+            if (isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)) {
+              priorPurchaseBase += primaryQty
+              priorPurchaseAlt += altQty
+            } else if (isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) {
+              totalPurchaseBase += primaryQty
+              totalPurchaseAlt += altQty
+              totalPurchaseAmount += invItem.amount || 0
 
-            if (altUnit && usedUnit.toUpperCase() === altUnit.toUpperCase()) purchaseAltUnitCount++
-            else purchasePrimaryUnitCount++
+              if (altUnit && usedUnit.toUpperCase() === altUnit.toUpperCase()) purchaseAltUnitCount++
+              else purchasePrimaryUnitCount++
 
-            purchaseBatches.push({
-              date: new Date(invoice.invoiceDate),
-              quantityPrimary: primaryQty,
-              rate: primaryQty > 0 ? (invItem.amount || 0) / primaryQty : 0,
-              amount: invItem.amount || 0
-            })
+              purchaseBatches.push({
+                date: new Date(invoice.invoiceDate),
+                quantityPrimary: primaryQty,
+                rate: primaryQty > 0 ? (invItem.amount || 0) / primaryQty : 0,
+                amount: invItem.amount || 0
+              })
+            }
           }
         })
       }
@@ -189,9 +205,14 @@ export function calculateInventoryReport(
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty } = getItemNormalizedQty(invItem, item, factor)
-            totalPurchaseBase -= primaryQty
-            totalPurchaseAlt -= altQty
-            totalPurchaseAmount -= invItem.amount || 0
+            if (isRecordBeforePeriod(ret.returnDate, periodFilter, currentFY)) {
+              priorPurchaseBase -= primaryQty
+              priorPurchaseAlt -= altQty
+            } else if (isRecordInPeriod(ret.returnDate, ret.fy, periodFilter, currentFY)) {
+              totalPurchaseBase -= primaryQty
+              totalPurchaseAlt -= altQty
+              totalPurchaseAmount -= invItem.amount || 0
+            }
           }
         })
       }
@@ -202,12 +223,17 @@ export function calculateInventoryReport(
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty, usedUnit } = getItemNormalizedQty(invItem, item, factor)
-            totalSalesBase += primaryQty
-            totalSalesAlt += altQty
-            totalSalesAmount += invItem.amount || 0
+            if (isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)) {
+              priorSalesBase += primaryQty
+              priorSalesAlt += altQty
+            } else if (isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) {
+              totalSalesBase += primaryQty
+              totalSalesAlt += altQty
+              totalSalesAmount += invItem.amount || 0
 
-            if (altUnit && usedUnit.toUpperCase() === altUnit.toUpperCase()) saleAltUnitCount++
-            else salePrimaryUnitCount++
+              if (altUnit && usedUnit.toUpperCase() === altUnit.toUpperCase()) saleAltUnitCount++
+              else salePrimaryUnitCount++
+            }
           }
         })
       }
@@ -218,13 +244,22 @@ export function calculateInventoryReport(
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty } = getItemNormalizedQty(invItem, item, factor)
-            totalSalesBase -= primaryQty
-            totalSalesAlt -= altQty
-            totalSalesAmount -= invItem.amount || 0
+            if (isRecordBeforePeriod(ret.returnDate, periodFilter, currentFY)) {
+              priorSalesBase -= primaryQty
+              priorSalesAlt -= altQty
+            } else if (isRecordInPeriod(ret.returnDate, ret.fy, periodFilter, currentFY)) {
+              totalSalesBase -= primaryQty
+              totalSalesAlt -= altQty
+              totalSalesAmount -= invItem.amount || 0
+            }
           }
         })
       }
     })
+
+    // Opening Stock on From Date (Period Start Date)
+    const openingBase = masterOpeningBase + priorPurchaseBase - priorSalesBase
+    const openingAlt = masterOpeningAlt + priorPurchaseAlt - priorSalesAlt
 
     const balanceBase = (openingBase + totalPurchaseBase) - totalSalesBase
     const balanceAlt = (openingAlt + totalPurchaseAlt) - totalSalesAlt
@@ -247,7 +282,7 @@ export function calculateInventoryReport(
     const secBalance = balanceAlt
 
     const totalAvailableBase = openingBase + totalPurchaseBase
-    const totalAvailableAmount = openingStockValue + totalPurchaseAmount
+    const totalAvailableAmount = masterOpeningValue + totalPurchaseAmount
     const avgPurchaseRateBase = totalAvailableBase > 0 ? totalAvailableAmount / totalAvailableBase : 0
     const avgSalesRateBase = totalSalesBase > 0 ? totalSalesAmount / totalSalesBase : 0
 
@@ -286,7 +321,7 @@ export function calculateInventoryReport(
       alternativeUnit: secUnit,
       conversionFactor: factor,
       openingStockMT,
-      openingStockValue,
+      openingStockValue: masterOpeningValue,
       totalPurchaseMT,
       totalPurchaseAmount,
       totalSalesMT,

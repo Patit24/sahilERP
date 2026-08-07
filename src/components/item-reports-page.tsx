@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Item, PurchaseInvoice, SalesInvoice, Supplier, Customer, ExpenseEntry, ExpenseType } from '@/lib/types'
 import { Download, Package } from '@phosphor-icons/react'
 import { exportItemReportToPDF } from '@/lib/pdf-export'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
 
 interface ItemReportsPageProps {
   items: Item[]
@@ -82,11 +83,13 @@ export default function ItemReportsPage({
   businessName
 }: ItemReportsPageProps) {
   const [selectedItemId, setSelectedItemId] = useState<string>('all')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
 
   const purchaseDetails = useMemo(() => {
     const details = new Map<string, ItemPurchaseDetail>()
     
     purchaseInvoices.forEach(invoice => {
+      if (!isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) return
       if (!invoice.items || !Array.isArray(invoice.items)) return
       
       invoice.items.forEach(item => {
@@ -131,6 +134,7 @@ export default function ItemReportsPage({
     const details = new Map<string, ItemSalesDetail>()
     
     salesInvoices.forEach(invoice => {
+      if (!isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) return
       if (!invoice.items || !Array.isArray(invoice.items)) return
       
       invoice.items.forEach(item => {
@@ -169,7 +173,7 @@ export default function ItemReportsPage({
     })
     
     return Array.from(details.values()).sort((a, b) => b.totalAmount - a.totalAmount)
-  }, [salesInvoices, items])
+  }, [salesInvoices, items, periodFilter, currentFY])
 
   const itemTransactions = useMemo(() => {
     if (selectedItemId === 'all') return []
@@ -177,6 +181,7 @@ export default function ItemReportsPage({
     const transactions: ItemTransactionDetail[] = []
     
     purchaseInvoices.forEach(invoice => {
+      if (!isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) return
       if (!invoice.items || !Array.isArray(invoice.items)) return
       
       const item = invoice.items.find(i => i.itemId === selectedItemId)
@@ -195,6 +200,7 @@ export default function ItemReportsPage({
     })
     
     salesInvoices.forEach(invoice => {
+      if (!isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) return
       if (!invoice.items || !Array.isArray(invoice.items)) return
       
       const item = invoice.items.find(i => i.itemId === selectedItemId)
@@ -213,7 +219,7 @@ export default function ItemReportsPage({
     })
     
     return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [selectedItemId, purchaseInvoices, salesInvoices, suppliers, customers])
+  }, [selectedItemId, purchaseInvoices, salesInvoices, suppliers, customers, periodFilter, currentFY])
 
   const invoiceItemCosts = useMemo(() => {
     const costs: InvoiceItemCostDetail[] = []
@@ -322,25 +328,34 @@ export default function ItemReportsPage({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Filter by Item</CardTitle>
-              <CardDescription>Select an item to view detailed reports</CardDescription>
+              <CardTitle>Filter Options</CardTitle>
+              <CardDescription>Select item and period date filter to view detailed reports</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-            <SelectTrigger className="w-full max-w-md">
-              <SelectValue placeholder="Select item" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Items</SelectItem>
-              {items.map(item => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end justify-between">
+            <div className="flex-1 w-full max-w-md space-y-1.5">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Select Item</label>
+              <Select value={selectedItemId} onValueChange={setSelectedItemId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select item" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Items</SelectItem>
+                  {items.map(item => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase text-muted-foreground hidden md:block">Filter Period</label>
+              <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

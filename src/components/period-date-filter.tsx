@@ -26,7 +26,6 @@ interface PeriodDateFilterProps {
 }
 
 export function getPreviousFY(currentFY: string): string {
-  // currentFY like "FY2026-27" or "2026-27"
   const norm = currentFY.startsWith('FY') ? currentFY.slice(2) : currentFY
   const [startYearStr] = norm.split('-')
   const startYear = parseInt(startYearStr, 10)
@@ -102,6 +101,88 @@ export function PeriodDateFilter({
       )}
     </div>
   )
+}
+
+/**
+ * Returns exact startISO and endISO (YYYY-MM-DD) for a period filter state.
+ */
+export function getPeriodDateBounds(
+  filterState?: PeriodFilterState,
+  currentFYSetting?: string
+): { startISO: string | null; endISO: string | null } {
+  if (!filterState) return { startISO: null, endISO: null }
+
+  const { periodType, fromDate, toDate } = filterState
+  const currentFYNorm = currentFYSetting
+    ? (currentFYSetting.startsWith('FY') ? currentFYSetting : `FY${currentFYSetting}`)
+    : 'FY2026-27'
+
+  if (periodType === 'current_fy') {
+    const startYearStr = currentFYNorm.replace('FY', '').split('-')[0]
+    const startYear = parseInt(startYearStr, 10) || 2026
+    return {
+      startISO: `${startYear}-04-01`,
+      endISO: `${startYear + 1}-03-31`
+    }
+  }
+
+  if (periodType === 'previous_fy') {
+    const prevFY = getPreviousFY(currentFYNorm)
+    const startYearStr = prevFY.replace('FY', '').split('-')[0]
+    const startYear = parseInt(startYearStr, 10) || 2025
+    return {
+      startISO: `${startYear}-04-01`,
+      endISO: `${startYear + 1}-03-31`
+    }
+  }
+
+  if (periodType === 'current_month') {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const lastDay = new Date(y, now.getMonth() + 1, 0).getDate()
+    const lastDayStr = String(lastDay).padStart(2, '0')
+    return {
+      startISO: `${y}-${m}-01`,
+      endISO: `${y}-${m}-${lastDayStr}`
+    }
+  }
+
+  if (periodType === 'previous_month') {
+    const now = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const y = prev.getFullYear()
+    const m = String(prev.getMonth() + 1).padStart(2, '0')
+    const lastDay = new Date(y, prev.getMonth() + 1, 0).getDate()
+    const lastDayStr = String(lastDay).padStart(2, '0')
+    return {
+      startISO: `${y}-${m}-01`,
+      endISO: `${y}-${m}-${lastDayStr}`
+    }
+  }
+
+  if (periodType === 'custom') {
+    return {
+      startISO: fromDate || null,
+      endISO: toDate || null
+    }
+  }
+
+  return { startISO: null, endISO: null }
+}
+
+/**
+ * Helper function to test if a record date is strictly BEFORE the active period.
+ */
+export function isRecordBeforePeriod(
+  recordDate?: string,
+  filterState?: PeriodFilterState,
+  currentFYSetting?: string
+): boolean {
+  if (!filterState || !recordDate) return false
+  const { startISO } = getPeriodDateBounds(filterState, currentFYSetting)
+  if (!startISO) return false
+  return recordDate.slice(0, 10) < startISO
 }
 
 /**

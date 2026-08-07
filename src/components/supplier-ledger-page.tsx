@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { BookOpen, TrendUp, TrendDown, FilePdf } from '@phosphor-icons/react'
 import { formatCurrency, getFYFromDate } from '@/lib/calculations'
 import { exportSupplierLedgerPDF, SupplierLedgerEntry } from '@/lib/pdf-export'
-import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod, getPreviousFY } from '@/components/period-date-filter'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod, getPreviousFY, getPeriodDateBounds, isRecordBeforePeriod } from '@/components/period-date-filter'
 import { toast } from 'sonner'
 
 interface SupplierLedgerPageProps {
@@ -24,134 +24,149 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
 
-  const ledgerEntries = useMemo(() => {
-    if (!selectedSupplierId) return []
-
-    const entries: LedgerEntry[] = []
-    const isMatchDate = (d?: string, fy?: string) => isRecordInPeriod(d, fy, periodFilter, currentFY)
-    
-    const supplier = suppliers.find(s => s.id === selectedSupplierId)
-    const openingBalance = supplier?.openingBalance || 0
-
-    if (openingBalance !== 0) {
-      entries.push({
-        date: '1900-01-01',
-        description: 'Opening Balance',
-        debit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
-        credit: openingBalance > 0 ? openingBalance : 0,
-        balance: 0,
-        type: 'invoice',
-        refId: 'opening-balance'
-      })
+  const { openingBalanceOnFromDate, ledgerEntries, summary } = useMemo(() => {
+    if (!selectedSupplierId) {
+      return {
+        openingBalanceOnFromDate: 0,
+        ledgerEntries: [],
+        summary: { openingBalance: 0, totalDebit: 0, totalCredit: 0, closingBalance: 0 }
+      }
     }
 
-    const supplierInvoices = invoices.filter(
-      inv => inv.supplierId === selectedSupplierId && isMatchDate(inv.invoiceDate, inv.fy)
-    )
-    const supplierPayments = payments.filter(
-      pay => pay.supplierId === selectedSupplierId && isMatchDate(pay.paymentDate, pay.fy)
-    )
+    const supplier = suppliers.find(s => s.id === selectedSupplierId)
+    const initialMasterOpening = supplier?.openingBalance || 0
 
-    const entriesWithTimestamp: Array<LedgerEntry & { timestamp: number }> = []
+    const { startISO } = getPeriodDateBounds(periodFilter, currentFY)
 
-    supplierInvoices.forEach(invoice => {
-      const timestamp = invoice.createdAt || new Date(invoice.invoiceDate).getTime()
-      entriesWithTimestamp.push({
-        date: invoice.invoiceDate,
-        description: `Purchase Invoice`,
-        invoiceNo: invoice.invoiceNo,
-        debit: 0,
-        credit: invoice.invoiceAmount,
-        balance: 0,
-        type: 'invoice',
-        refId: invoice.id,
-        timestamp
-      })
+    let priorDebits = 0
+    let priorCredits = 0
+    const inPeriodEntriesWithTimestamp: Array<LedgerEntry & { timestamp: number }> = []
+
+    // Purchase Invoices (Credit)
+    invoices.forEach(invoice => {
+      if (invoice.supplierId !== selectedSupplierId) return
+      if (isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)) {
+        priorCredits += invoice.invoiceAmount
+      } else if (isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) {
+        inPeriodEntriesWithTimestamp.push({
+          date: invoice.invoiceDate,
+          description: `Purchase Invoice`,
+          invoiceNo: invoice.invoiceNo,
+          debit: 0,
+          credit: invoice.invoiceAmount,
+          balance: 0,
+          type: 'invoice',
+          refId: invoice.id,
+          timestamp: invoice.createdAt || new Date(invoice.invoiceDate).getTime()
+        })
+      }
     })
 
-    supplierPayments.forEach(payment => {
-      const timestamp = payment.createdAt || new Date(payment.paymentDate).getTime()
-      entriesWithTimestamp.push({
-        date: payment.paymentDate,
-        description: 'Payment',
-        debit: payment.amount,
-        credit: 0,
-        balance: 0,
-        type: 'payment',
-        refId: payment.id,
-        timestamp
-      })
+    // Payments (Debit)
+    payments.forEach(payment => {
+      if (payment.supplierId !== selectedSupplierId) return
+      if (isRecordBeforePeriod(payment.paymentDate, periodFilter, currentFY)) {
+        priorDebits += payment.amount
+      } else if (isRecordInPeriod(payment.paymentDate, payment.fy, periodFilter, currentFY)) {
+        inPeriodEntriesWithTimestamp.push({
+          date: payment.paymentDate,
+          description: 'Payment',
+          debit: payment.amount,
+          credit: 0,
+          balance: 0,
+          type: 'payment',
+          refId: payment.id,
+          timestamp: payment.createdAt || new Date(payment.paymentDate).getTime()
+        })
+      }
     })
 
-
-    const supplierDebitNotesFiltered = debitNotes.filter(
-      dn => dn.supplierId === selectedSupplierId && isMatchDate(dn.date, dn.fy)
-    )
-    const supplierPurchaseReturnsFiltered = purchaseReturns.filter(
-      pr => pr.supplierId === selectedSupplierId && isMatchDate(pr.returnDate, pr.fy)
-    )
-
-    supplierDebitNotesFiltered.forEach(dn => {
-      const timestamp = dn.createdAt || new Date(dn.date).getTime()
-      entriesWithTimestamp.push({
-        date: dn.date,
-        description: 'Debit Note',
-        debit: dn.amount,
-        credit: 0,
-        balance: 0,
-        type: 'payment',
-        refId: dn.id,
-        timestamp
-      })
+    // Debit Notes (Debit)
+    debitNotes.forEach(dn => {
+      if (dn.supplierId !== selectedSupplierId) return
+      if (isRecordBeforePeriod(dn.date, periodFilter, currentFY)) {
+        priorDebits += dn.amount
+      } else if (isRecordInPeriod(dn.date, dn.fy, periodFilter, currentFY)) {
+        inPeriodEntriesWithTimestamp.push({
+          date: dn.date,
+          description: 'Debit Note',
+          debit: dn.amount,
+          credit: 0,
+          balance: 0,
+          type: 'payment',
+          refId: dn.id,
+          timestamp: dn.createdAt || new Date(dn.date).getTime()
+        })
+      }
     })
 
-    supplierPurchaseReturnsFiltered.forEach(pr => {
-      const timestamp = pr.createdAt || new Date(pr.returnDate).getTime()
-      entriesWithTimestamp.push({
-        date: pr.returnDate,
-        description: 'Purchase Return',
-        debit: pr.amount,
-        credit: 0,
-        balance: 0,
-        type: 'payment',
-        refId: pr.id,
-        timestamp
-      })
+    // Purchase Returns (Debit)
+    purchaseReturns.forEach(pr => {
+      if (pr.supplierId !== selectedSupplierId) return
+      if (isRecordBeforePeriod(pr.returnDate, periodFilter, currentFY)) {
+        priorDebits += pr.amount
+      } else if (isRecordInPeriod(pr.returnDate, pr.fy, periodFilter, currentFY)) {
+        inPeriodEntriesWithTimestamp.push({
+          date: pr.returnDate,
+          description: 'Purchase Return',
+          debit: pr.amount,
+          credit: 0,
+          balance: 0,
+          type: 'payment',
+          refId: pr.id,
+          timestamp: pr.createdAt || new Date(pr.returnDate).getTime()
+        })
+      }
     })
 
-    entriesWithTimestamp.sort((a, b) => {
+    // Sort in-period entries chronologically
+    inPeriodEntriesWithTimestamp.sort((a, b) => {
       const dateA = new Date(a.date).toISOString().split('T')[0]
       const dateB = new Date(b.date).toISOString().split('T')[0]
-      
-      if (dateA !== dateB) {
-        return new Date(a.date).getTime() - new Date(b.date).getTime()
-      }
-      
-      if (a.timestamp !== b.timestamp) {
-        return a.timestamp - b.timestamp
-      }
-
+      if (dateA !== dateB) return new Date(a.date).getTime() - new Date(b.date).getTime()
+      if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp
       return (a.refId || '').localeCompare(b.refId || '')
     })
 
-    entries.push(...entriesWithTimestamp)
+    // Opening Balance on From Date
+    const openingBal = initialMasterOpening + priorCredits - priorDebits
 
-    let runningBalance = 0
-    entries.forEach(entry => {
-      runningBalance += entry.credit - entry.debit
-      entry.balance = runningBalance
+    const finalEntries: LedgerEntry[] = []
+
+    // 1st Row: Opening Balance on From Date
+    finalEntries.push({
+      date: startISO || 'Opening',
+      description: `Opening Balance (as of ${startISO || 'Start'})`,
+      debit: openingBal < 0 ? Math.abs(openingBal) : 0,
+      credit: openingBal > 0 ? openingBal : 0,
+      balance: openingBal,
+      type: 'invoice',
+      refId: 'opening-balance'
     })
 
-    return entries
-  }, [selectedSupplierId, invoices, payments, debitNotes, purchaseReturns, currentFY, suppliers])
+    let runningBalance = openingBal
+    let periodDebitTotal = 0
+    let periodCreditTotal = 0
 
-  const summary = useMemo(() => {
-    const totalDebit = ledgerEntries.reduce((sum, e) => sum + e.debit, 0)
-    const totalCredit = ledgerEntries.reduce((sum, e) => sum + e.credit, 0)
-    const closingBalance = totalCredit - totalDebit
+    inPeriodEntriesWithTimestamp.forEach(entry => {
+      periodDebitTotal += entry.debit
+      periodCreditTotal += entry.credit
+      runningBalance += entry.credit - entry.debit
+      entry.balance = runningBalance
+      finalEntries.push(entry)
+    })
 
-    return { totalDebit, totalCredit, closingBalance }
-  }, [ledgerEntries])
+    return {
+      openingBalanceOnFromDate: openingBal,
+      ledgerEntries: finalEntries,
+      summary: {
+        openingBalance: openingBal,
+        totalDebit: periodDebitTotal,
+        totalCredit: periodCreditTotal,
+        closingBalance: runningBalance
+      }
+    }
+  }, [selectedSupplierId, invoices, payments, debitNotes, purchaseReturns, currentFY, suppliers, periodFilter])
 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId)
 
@@ -184,7 +199,7 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
       totalDebit: summary.totalDebit,
       totalCredit: summary.totalCredit,
       closingBalance: summary.closingBalance,
-      openingBalance: selectedSupplier.openingBalance || 0
+      openingBalance: summary.openingBalance
     })
 
     toast.success('PDF exported successfully')
@@ -244,45 +259,57 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
 
             {selectedSupplierId && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                  <Card className="bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">Total Payments</p>
-                          <p className="text-2xl font-semibold text-foreground">{formatCurrency(summary.totalDebit)}</p>
-                        </div>
-                        <TrendUp size={32} weight="duotone" className="text-destructive" />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                  <Card className="bg-slate-50 border-slate-200">
+                    <CardContent className="pt-5 pb-4">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Opening Balance</p>
+                        <p className="text-xl font-bold text-slate-900">{formatCurrency(Math.abs(summary.openingBalance))}</p>
+                        <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                          {summary.openingBalance > 0 ? 'Cr (To Pay)' : summary.openingBalance < 0 ? 'Dr (Advance Paid)' : 'Nil'}
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-                    <CardContent className="pt-6">
+                  <Card className="bg-emerald-50/70 border-emerald-200">
+                    <CardContent className="pt-5 pb-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-muted-foreground mb-1">Total Purchases</p>
-                          <p className="text-2xl font-semibold text-foreground">{formatCurrency(summary.totalCredit)}</p>
+                          <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-1">Period Purchases</p>
+                          <p className="text-xl font-bold text-emerald-950">{formatCurrency(summary.totalCredit)}</p>
                         </div>
-                        <TrendDown size={32} weight="duotone" className="text-success" />
+                        <TrendDown size={28} weight="duotone" className="text-emerald-600" />
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className={`bg-gradient-to-br ${
+                  <Card className="bg-blue-50/70 border-blue-200">
+                    <CardContent className="pt-5 pb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">Period Paid</p>
+                          <p className="text-xl font-bold text-blue-950">{formatCurrency(summary.totalDebit)}</p>
+                        </div>
+                        <TrendUp size={28} weight="duotone" className="text-blue-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className={`border ${
                     summary.closingBalance > 0 
-                      ? 'from-success/10 to-success/5 border-success/20' 
-                      : 'from-warning/10 to-warning/5 border-warning/20'
+                      ? 'bg-amber-50/70 border-amber-200' 
+                      : summary.closingBalance < 0
+                      ? 'bg-emerald-50/70 border-emerald-200'
+                      : 'bg-slate-50 border-slate-200'
                   }`}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">Outstanding Balance</p>
-                          <p className="text-2xl font-semibold text-foreground">{formatCurrency(Math.abs(summary.closingBalance))}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {summary.closingBalance > 0 ? 'To Pay' : summary.closingBalance < 0 ? 'Advance' : 'Cleared'}
-                          </p>
-                        </div>
+                    <CardContent className="pt-5 pb-4">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Closing Balance</p>
+                        <p className="text-xl font-bold text-slate-900">{formatCurrency(Math.abs(summary.closingBalance))}</p>
+                        <p className="text-[11px] font-medium text-slate-600 mt-0.5">
+                          {summary.closingBalance > 0 ? 'Cr (To Pay)' : summary.closingBalance < 0 ? 'Dr (Advance Paid)' : 'Cleared'}
+                        </p>
                       </div>
                     </CardContent>
                   </Card>

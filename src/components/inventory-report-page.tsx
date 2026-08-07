@@ -11,6 +11,8 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { toast } from 'sonner'
 
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState } from '@/components/period-date-filter'
+
 interface InventoryReportPageProps {
   items: Item[]
   purchaseInvoices: PurchaseInvoice[]
@@ -30,9 +32,11 @@ export default function InventoryReportPage({
   currentFY,
   businessName = 'Steel Trading ERP'
 }: InventoryReportPageProps) {
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
+
   const inventoryData = useMemo(() => {
-    return calculateInventoryReport(items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns)
-  }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns])
+    return calculateInventoryReport(items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns, periodFilter, currentFY)
+  }, [items, purchaseInvoices, salesInvoices, purchaseReturns, salesReturns, periodFilter, currentFY])
 
 
   const totals = useMemo(() => {
@@ -183,7 +187,8 @@ export default function InventoryReportPage({
             Category-wise inventory position, purchases (+), sales (-), and stock valuation
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
