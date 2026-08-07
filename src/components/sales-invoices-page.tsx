@@ -1026,37 +1026,15 @@ export default function SalesInvoicesPage({
                                            className="erp-reference-cell-input font-mono text-right flex-1 min-w-[70px]"
                                          />
                                          {(() => {
-                                           const sel = items.find(i => i.id === item.itemId)
-                                           const baseUnit = sel?.unit || 'KG'
-                                           const defaultAlt = sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' ? sel.alternativeUnit : baseUnit
-                                           const activeUnit = item.entryUnit || defaultAlt
-                                           return (
-                                             <select
-                                               value={activeUnit}
-                                               onChange={(e) => updateInvoiceItem(index, 'entryUnit', e.target.value)}
-                                               className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
-                                             >
-                                               {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
-                                                 <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
-                                               )}
-                                               <option value={baseUnit}>{baseUnit}</option>
-                                             </select>
-                                           )
-                                         })()}
+                                            const sel = items.find(i => i.id === item.itemId)
+                                            const baseUnit = sel?.unit || 'KG'
+                                            return (
+                                              <span className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-2 py-1 text-slate-800">
+                                                {baseUnit}
+                                              </span>
+                                            )
+                                          })()}
                                        </div>
-                                       {(() => {
-                                         const sel = items.find(i => i.id === item.itemId)
-                                         if (sel && item.entryUnit && item.entryUnit !== sel.unit && sel.conversionFactor) {
-                                           const baseQty = (item.entryQuantity || 0) * sel.conversionFactor
-                                           const baseRate = (item.rate || 0) / sel.conversionFactor
-                                           return (
-                                             <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded text-right">
-                                               Base: {baseQty.toLocaleString('en-IN')} {sel.unit} (@ ₹{baseRate.toFixed(2)}/{sel.unit})
-                                             </span>
-                                           )
-                                         }
-                                         return null
-                                       })()}
                                      </div>
                                     <Input
                                       type="number"

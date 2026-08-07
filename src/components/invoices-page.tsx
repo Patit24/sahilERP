@@ -1157,34 +1157,13 @@ export default function InvoicesPage({
                               {(() => {
                                 const sel = items.find(i => i.id === invoiceItem.itemId)
                                 const baseUnit = sel?.unit || 'KG'
-                                const activeUnit = invoiceItem.entryUnit || baseUnit
                                 return (
-                                  <select
-                                    value={activeUnit}
-                                    onChange={(e) => updateInvoiceItem(index, 'entryUnit', e.target.value)}
-                                    className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
-                                  >
-                                    <option value={baseUnit}>{baseUnit}</option>
-                                    {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
-                                      <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
-                                    )}
-                                  </select>
+                                  <span className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-2 py-1 text-slate-800">
+                                    {baseUnit}
+                                  </span>
                                 )
                               })()}
                             </div>
-                            {(() => {
-                              const sel = items.find(i => i.id === invoiceItem.itemId)
-                              if (sel && invoiceItem.entryUnit && invoiceItem.entryUnit !== sel.unit && sel.conversionFactor) {
-                                const baseQty = (invoiceItem.entryQuantity || 0) * sel.conversionFactor
-                                const baseRate = (invoiceItem.rate || 0) / sel.conversionFactor
-                                return (
-                                  <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded text-right">
-                                    Base: {baseQty.toLocaleString('en-IN')} {sel.unit} (@ ₹{baseRate.toFixed(2)}/{sel.unit})
-                                  </span>
-                                )
-                              }
-                              return null
-                            })()}
                           </div>
                           <Input
                             type="number"
