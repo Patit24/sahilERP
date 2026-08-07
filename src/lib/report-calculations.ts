@@ -137,14 +137,18 @@ export function calculateInventoryReport(
     const factor = getItemConversionFactor(item, altUnit)
 
     const masterOpeningBase = toBaseQuantity(item, item.openingStock || 0, primaryUnit)
-    const masterOpeningValue = item.openingValue || 0
+    const masterOpeningValue = (item.openingValue !== undefined && item.openingValue !== null && item.openingValue > 0)
+      ? item.openingValue
+      : (masterOpeningBase * toBaseRate(item, item.purchasePrice || 0, primaryUnit))
     const masterOpeningAlt = altUnit ? fromBaseQuantity(item, masterOpeningBase, altUnit) : masterOpeningBase
 
     let priorPurchaseBase = 0
     let priorPurchaseAlt = 0
+    let priorPurchaseAmount = 0
 
     let priorSalesBase = 0
     let priorSalesAlt = 0
+    let priorSalesAmount = 0
 
     let totalPurchaseBase = 0
     let totalPurchaseAlt = 0
@@ -180,6 +184,7 @@ export function calculateInventoryReport(
             if (isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)) {
               priorPurchaseBase += primaryQty
               priorPurchaseAlt += altQty
+              priorPurchaseAmount += invItem.amount || 0
             } else if (isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) {
               totalPurchaseBase += primaryQty
               totalPurchaseAlt += altQty
@@ -208,6 +213,7 @@ export function calculateInventoryReport(
             if (isRecordBeforePeriod(ret.returnDate, periodFilter, currentFY)) {
               priorPurchaseBase -= primaryQty
               priorPurchaseAlt -= altQty
+              priorPurchaseAmount -= invItem.amount || 0
             } else if (isRecordInPeriod(ret.returnDate, ret.fy, periodFilter, currentFY)) {
               totalPurchaseBase -= primaryQty
               totalPurchaseAlt -= altQty
@@ -226,6 +232,7 @@ export function calculateInventoryReport(
             if (isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)) {
               priorSalesBase += primaryQty
               priorSalesAlt += altQty
+              priorSalesAmount += invItem.amount || 0
             } else if (isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) {
               totalSalesBase += primaryQty
               totalSalesAlt += altQty
@@ -247,6 +254,7 @@ export function calculateInventoryReport(
             if (isRecordBeforePeriod(ret.returnDate, periodFilter, currentFY)) {
               priorSalesBase -= primaryQty
               priorSalesAlt -= altQty
+              priorSalesAmount -= invItem.amount || 0
             } else if (isRecordInPeriod(ret.returnDate, ret.fy, periodFilter, currentFY)) {
               totalSalesBase -= primaryQty
               totalSalesAlt -= altQty
@@ -260,6 +268,7 @@ export function calculateInventoryReport(
     // Opening Stock on From Date (Period Start Date)
     const openingBase = masterOpeningBase + priorPurchaseBase - priorSalesBase
     const openingAlt = masterOpeningAlt + priorPurchaseAlt - priorSalesAlt
+    const openingStockVal = Math.max(0, masterOpeningValue + priorPurchaseAmount - priorSalesAmount)
 
     const balanceBase = (openingBase + totalPurchaseBase) - totalSalesBase
     const balanceAlt = (openingAlt + totalPurchaseAlt) - totalSalesAlt
@@ -312,10 +321,6 @@ export function calculateInventoryReport(
     } else if (balanceBase <= 0) {
       currentStockValue = 0
     }
-
-    const openingStockVal = openingStockMT > 0
-      ? (openingStockMT * (avgPurchaseRateBase || (masterOpeningBase > 0 ? masterOpeningValue / masterOpeningBase : 0)))
-      : 0
 
     inventory.push({
       itemId: item.id,
