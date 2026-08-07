@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { BookOpen, TrendUp, TrendDown, FilePdf } from '@phosphor-icons/react'
 import { formatCurrency, getFYFromDate } from '@/lib/calculations'
 import { exportSupplierLedgerPDF, SupplierLedgerEntry } from '@/lib/pdf-export'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
 import { toast } from 'sonner'
 
 interface SupplierLedgerPageProps {
@@ -21,12 +22,13 @@ interface SupplierLedgerPageProps {
 
 export default function SupplierLedgerPage({ suppliers, invoices, payments, debitNotes, purchaseReturns, currentFY, businessName }: SupplierLedgerPageProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
 
   const ledgerEntries = useMemo(() => {
     if (!selectedSupplierId) return []
 
     const entries: LedgerEntry[] = []
-    const isMatchFY = (d?: string, fy?: string) => !currentFY || (fy === currentFY) || (d ? getFYFromDate(d) === currentFY : false)
+    const isMatchDate = (d?: string, fy?: string) => isRecordInPeriod(d, fy, periodFilter, currentFY)
     
     const supplier = suppliers.find(s => s.id === selectedSupplierId)
     const openingBalance = supplier?.openingBalance || 0
@@ -44,10 +46,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
     }
 
     const supplierInvoices = invoices.filter(
-      inv => inv.supplierId === selectedSupplierId && isMatchFY(inv.invoiceDate, inv.fy)
+      inv => inv.supplierId === selectedSupplierId && isMatchDate(inv.invoiceDate, inv.fy)
     )
     const supplierPayments = payments.filter(
-      pay => pay.supplierId === selectedSupplierId && isMatchFY(pay.paymentDate, pay.fy)
+      pay => pay.supplierId === selectedSupplierId && isMatchDate(pay.paymentDate, pay.fy)
     )
 
     const entriesWithTimestamp: Array<LedgerEntry & { timestamp: number }> = []
@@ -83,10 +85,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
 
 
     const supplierDebitNotesFiltered = debitNotes.filter(
-      dn => dn.supplierId === selectedSupplierId && isMatchFY(dn.date, dn.fy)
+      dn => dn.supplierId === selectedSupplierId && isMatchDate(dn.date, dn.fy)
     )
     const supplierPurchaseReturnsFiltered = purchaseReturns.filter(
-      pr => pr.supplierId === selectedSupplierId && isMatchFY(pr.returnDate, pr.fy)
+      pr => pr.supplierId === selectedSupplierId && isMatchDate(pr.returnDate, pr.fy)
     )
 
     supplierDebitNotesFiltered.forEach(dn => {
@@ -218,8 +220,8 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex gap-4 items-end">
-              <div className="flex-1 space-y-2">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-end justify-between">
+              <div className="flex-1 space-y-2 w-full md:w-auto">
                 <label className="text-sm font-medium">Select Supplier</label>
                 <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
                   <SelectTrigger>
@@ -233,6 +235,10 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground hidden md:block">Filter Period</label>
+                <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
               </div>
             </div>
 
@@ -284,7 +290,7 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
 
                 <div className="mt-6">
                   <h4 className="text-sm font-semibold mb-3 text-foreground">
-                    Ledger Entries for {selectedSupplier?.name} - FY {currentFY}
+                    Ledger Entries for {selectedSupplier?.name} {periodFilter.periodType === 'all_time' ? '(All Time)' : periodFilter.periodType === 'current_month' ? '(Current Month)' : periodFilter.periodType === 'specific_fy' ? `(${periodFilter.specificFY})` : periodFilter.periodType === 'custom' ? `(${periodFilter.fromDate || '...'} to ${periodFilter.toDate || '...'})` : `- ${currentFY}`}
                   </h4>
                   <div className="rounded-lg border border-border">
                     <Table>

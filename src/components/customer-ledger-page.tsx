@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BookOpen, TrendUp, TrendDown } from '@phosphor-icons/react'
 import { formatCurrency, getFYFromDate } from '@/lib/calculations'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
 
 interface CustomerLedgerPageProps {
   customers: Customer[]
@@ -17,13 +18,14 @@ interface CustomerLedgerPageProps {
 
 export default function CustomerLedgerPage({ customers, salesInvoices, customerPayments, creditNotes, salesReturns, currentFY }: CustomerLedgerPageProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
 
   const ledgerEntries = useMemo(() => {
     if (!selectedCustomerId) return []
 
     const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
     const entries: LedgerEntry[] = []
-    const isMatchFY = (d?: string, fy?: string) => !currentFY || (fy === currentFY) || (d ? getFYFromDate(d) === currentFY : false)
+    const isMatchDate = (d?: string, fy?: string) => isRecordInPeriod(d, fy, periodFilter, currentFY)
 
     if (selectedCustomer?.openingBalance && selectedCustomer.openingBalance > 0) {
       entries.push({
@@ -38,10 +40,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
     }
 
     const customerInvoices = salesInvoices.filter(
-      inv => inv.customerId === selectedCustomerId && isMatchFY(inv.invoiceDate, inv.fy)
+      inv => inv.customerId === selectedCustomerId && isMatchDate(inv.invoiceDate, inv.fy)
     )
     const customerPaymentsFiltered = customerPayments.filter(
-      pay => pay.customerId === selectedCustomerId && isMatchFY(pay.paymentDate, pay.fy)
+      pay => pay.customerId === selectedCustomerId && isMatchDate(pay.paymentDate, pay.fy)
     )
 
     customerInvoices.forEach(invoice => {
@@ -72,10 +74,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
     })
 
     const customerCreditNotesFiltered = creditNotes.filter(
-      cn => cn.customerId === selectedCustomerId && isMatchFY(cn.date, cn.fy)
+      cn => cn.customerId === selectedCustomerId && isMatchDate(cn.date, cn.fy)
     )
     const customerSalesReturnsFiltered = salesReturns.filter(
-      sr => sr.customerId === selectedCustomerId && isMatchFY(sr.returnDate, sr.fy)
+      sr => sr.customerId === selectedCustomerId && isMatchDate(sr.returnDate, sr.fy)
     )
 
     customerCreditNotesFiltered.forEach(cn => {
@@ -144,8 +146,8 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex gap-4 items-end">
-              <div className="flex-1 space-y-2">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-end justify-between">
+              <div className="flex-1 space-y-2 w-full md:w-auto">
                 <label className="text-sm font-medium">Select Customer</label>
                 <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
                   <SelectTrigger>
@@ -159,6 +161,10 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground hidden md:block">Filter Period</label>
+                <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
               </div>
             </div>
 
@@ -210,7 +216,7 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
 
                 <div className="mt-6">
                   <h4 className="text-sm font-semibold mb-3 text-foreground">
-                    Ledger Entries for {selectedCustomer?.name} - FY {currentFY}
+                    Ledger Entries for {selectedCustomer?.name} {periodFilter.periodType === 'all_time' ? '(All Time)' : periodFilter.periodType === 'current_month' ? '(Current Month)' : periodFilter.periodType === 'specific_fy' ? `(${periodFilter.specificFY})` : periodFilter.periodType === 'custom' ? `(${periodFilter.fromDate || '...'} to ${periodFilter.toDate || '...'})` : `- ${currentFY}`}
                   </h4>
                   <div className="rounded-lg border border-border">
                     <Table>

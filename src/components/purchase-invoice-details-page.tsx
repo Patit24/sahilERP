@@ -96,6 +96,8 @@ interface InvoiceDetails {
   annualDiscountPerMT: number
 }
 
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+
 export default function PurchaseInvoiceDetailsPage({
   invoices,
   payments,
@@ -112,8 +114,7 @@ export default function PurchaseInvoiceDetailsPage({
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [searchInvoiceNo, setSearchInvoiceNo] = useState(initialInvoiceNo)
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
   const [includeAnnualDiscount, setIncludeAnnualDiscount] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, Record<string, boolean>>>({})
 
@@ -123,8 +124,7 @@ export default function PurchaseInvoiceDetailsPage({
       setSearchInvoiceNo(initialInvoiceNo)
       setSelectedSupplier('all')
       setSelectedStatus('all')
-      setFromDate('')
-      setToDate('')
+      setPeriodFilter(defaultPeriodFilterState)
     }
   }, [initialInvoiceNo])
 
@@ -325,11 +325,10 @@ export default function PurchaseInvoiceDetailsPage({
       if (selectedSupplier !== 'all' && detail.invoice.supplierId !== selectedSupplier) return false
       if (selectedStatus !== 'all' && detail.status !== selectedStatus) return false
       if (searchInvoiceNo && !detail.invoice.invoiceNo.toLowerCase().includes(searchInvoiceNo.toLowerCase())) return false
-      if (fromDate && detail.invoice.invoiceDate < fromDate) return false
-      if (toDate && detail.invoice.invoiceDate > toDate) return false
+      if (!isRecordInPeriod(detail.invoice.invoiceDate, detail.invoice.fy, periodFilter, currentFY)) return false
       return true
     })
-  }, [invoiceDetails, selectedSupplier, selectedStatus, searchInvoiceNo, fromDate, toDate])
+  }, [invoiceDetails, selectedSupplier, selectedStatus, searchInvoiceNo, periodFilter, currentFY])
 
   const summaryStats = useMemo(() => {
     const totalInvoices = filteredInvoiceDetails.length
@@ -464,25 +463,7 @@ export default function PurchaseInvoiceDetailsPage({
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">From Date</Label>
-            <Input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="h-11 rounded-2xl bg-background/80 shadow-sm"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">To Date</Label>
-            <Input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="h-11 rounded-2xl bg-background/80 shadow-sm"
-            />
-          </div>
+          <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
 
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold uppercase text-muted-foreground">Search Invoice</Label>
@@ -501,8 +482,7 @@ export default function PurchaseInvoiceDetailsPage({
                 setSelectedSupplier('all')
                 setSelectedStatus('all')
                 setSearchInvoiceNo('')
-                setFromDate('')
-                setToDate('')
+                setPeriodFilter(defaultPeriodFilterState)
               }}
               className="h-11 rounded-2xl"
             >

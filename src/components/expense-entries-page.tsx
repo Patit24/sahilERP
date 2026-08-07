@@ -80,10 +80,8 @@ export default function ExpenseEntriesPage({
   const [typeDescription, setTypeDescription] = useState('')
   const [typeLinkType, setTypeLinkType] = useState<'invoice' | 'netprofit'>('netprofit')
 
-  // Date / FY Filters State (Date to date / current fy and previous fy)
-  const [fyFilterMode, setFyFilterMode] = useState<'current' | 'previous' | 'custom' | 'all'>('current')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  // Date / FY Filters State
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
 
   // Search & Register Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -108,20 +106,8 @@ export default function ExpenseEntriesPage({
 
   // Filter Expense Entries by Selected Date / FY Mode
   const dateFilteredExpenses = useMemo(() => {
-    return expenseEntries.filter((e) => {
-      if (dateFrom && e.expenseDate < dateFrom) return false
-      if (dateTo && e.expenseDate > dateTo) return false
-      if (fyFilterMode === 'current' && !dateFrom && !dateTo) {
-        return e.fy === currentFY || (e.expenseDate && getFYFromDate(e.expenseDate) === currentFY)
-      }
-      if (fyFilterMode === 'previous' && !dateFrom && !dateTo) {
-        const [startYr] = currentFY.replace('FY', '').split('-').map(Number)
-        const prevFY = `FY${startYr - 1}-${(startYr).toString().slice(-2)}`
-        return e.fy === prevFY
-      }
-      return true
-    })
-  }, [expenseEntries, currentFY, fyFilterMode, dateFrom, dateTo])
+    return expenseEntries.filter((e) => isRecordInPeriod(e.expenseDate, e.fy, periodFilter, currentFY))
+  }, [expenseEntries, currentFY, periodFilter])
 
   // Summary Card 1: Total Expenses
   const totalExpenses = useMemo(() => {
@@ -361,36 +347,7 @@ export default function ExpenseEntriesPage({
         {/* Date to date / current fy and previous fy Filter + Add/manage Expenses Type Button */}
         <div className="flex flex-wrap items-center gap-2.5">
           
-          {/* FY / Date Filter Dropdown */}
-          <Select value={fyFilterMode} onValueChange={(val: any) => setFyFilterMode(val)}>
-            <SelectTrigger className="w-44 h-9 bg-white border-slate-200 text-xs font-semibold rounded-xl">
-              <span className="text-slate-400 mr-1">Period:</span>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Current FY ({currentFY})</SelectItem>
-              <SelectItem value="previous">Previous FY</SelectItem>
-              <SelectItem value="custom">Custom Date Range</SelectItem>
-              <SelectItem value="all">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-slate-500 font-medium">From:</span>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 text-xs w-32 bg-white rounded-xl"
-            />
-            <span className="text-xs text-slate-500 font-medium">To:</span>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 text-xs w-32 bg-white rounded-xl"
-            />
-          </div>
+          <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
 
           {/* Action Button from Diagram: Add/manage Expenses type */}
           <Button

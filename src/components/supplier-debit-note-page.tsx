@@ -17,6 +17,8 @@ import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'da
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+
 interface SupplierDebitNotePageProps {
   debitNotes: SupplierDebitNote[]
   setDebitNotes: (updater: (prev: SupplierDebitNote[]) => SupplierDebitNote[]) => void
@@ -30,28 +32,20 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
   const [editingItem, setEditingItem] = useState<SupplierDebitNote | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<SupplierDebitNote | null>(null)
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
   const [selectedEntity, setSelectedEntity] = useState<string>('all')
   const [selectedEntityInForm, setSelectedEntityInForm] = useState<string>('')
   const [entityComboboxOpen, setEntityComboboxOpen] = useState(false)
 
   const filteredItems = useMemo(() => {
-    let result = debitNotes
-    
-    if (fromDate) {
-      result = result.filter(p => p.date >= fromDate)
-    }
-    if (toDate) {
-      result = result.filter(p => p.date <= toDate)
-    }
+    let result = debitNotes.filter(p => isRecordInPeriod(p.date, p.fy, periodFilter, currentFY))
     
     if (selectedEntity !== 'all') {
       result = result.filter(p => p.supplierId === selectedEntity)
     }
     
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [debitNotes, fromDate, toDate, selectedEntity])
+  }, [debitNotes, periodFilter, currentFY, selectedEntity])
   
   const totalAmount = filteredItems.reduce((sum, p) => sum + p.amount, 0)
 
@@ -224,24 +218,7 @@ export default function SupplierDebitNotePage({ debitNotes, setDebitNotes, suppl
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-medium">From:</span>
-          <Input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="w-36 h-9"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-medium">To:</span>
-          <Input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="w-36 h-9"
-          />
-        </div>
+        <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
         <div className="w-full sm:w-[250px]">
           <Select value={selectedEntity} onValueChange={setSelectedEntity}>
             <SelectTrigger>

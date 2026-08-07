@@ -74,8 +74,7 @@ export default function PaymentDetailsPage({
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [selectedMode, setSelectedMode] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
 
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers])
 
@@ -108,85 +107,60 @@ export default function PaymentDetailsPage({
             if (!invoice) return null
           
           const wasAdvanceAllocation = advanceInfo?.allocationIsAdvanceMap.get(alloc.id) || false
+          const days = Math.floor((new Date(alloc.allocationDate).getTime() - new Date(invoice.invoiceDate).getTime()) / (1000 * 60 * 60 * 24))
+          const applicableDays = Math.max(0, days)
           
-          const invoiceDate = new Date(invoice.invoiceDate)
-          const paymentDate = new Date(payment.paymentDate)
-          invoiceDate.setHours(0, 0, 0, 0)
-          paymentDate.setHours(0, 0, 0, 0)
-          
-          const calculatedDays = Math.floor(
-            (paymentDate.getTime() - invoiceDate.getTime()) / 
-            (1000 * 60 * 60 * 24)
-          )
-          const days = Math.max(0, calculatedDays)
-          
-          const advanceCDForThisAlloc = expectedDiscounts.find(
-            ed => ed.id === `advanceCD-${alloc.id}` && ed.type === 'advanceCD'
-          )
-          const regularCDForThisAlloc = expectedDiscounts.find(
-            ed => ed.id === `paymentCD-${alloc.id}` && ed.type === 'paymentCD'
-          )
-          
-          const advanceCDEarnedForAlloc = advanceCDForThisAlloc?.expectedAmount || 0
-          const regularCDEarnedForAlloc = regularCDForThisAlloc?.expectedAmount || 0
-          
-          let regularCDPercentage = 0
-          if (regularCDEarnedForAlloc > 0 && alloc.allocatedAmount > 0) {
-            regularCDPercentage = (regularCDEarnedForAlloc / alloc.allocatedAmount) * 100
+          let effectiveRate = 0
+          if (wasAdvanceAllocation) {
+            effectiveRate = advanceCDPercentage
+          } else {
+            const slab = supplier.cdSlabs?.find(s => applicableDays >= s.fromDays && applicableDays <= s.toDays)
+            effectiveRate = slab?.cdPercentage || 0
           }
           
-          const cdEarned = advanceCDEarnedForAlloc + regularCDEarnedForAlloc
-
-          const totalCDFromInvoice = payment.doNotApplyCD ? 0 : expectedDiscounts
-            .filter(ed => ed.invoiceId === invoice.id && ed.paymentId === payment.id)
-            .reduce((sum, cd) => sum + cd.expectedAmount, 0)
+          const cdEarned = (alloc.amount * effectiveRate) / 100
+          const advanceCDEarned = wasAdvanceAllocation ? cdEarned : 0
+          const regularCDEarned = !wasAdvanceAllocation ? cdEarned : 0
           
-          const cdPerMT = invoice.quantityMT > 0 ? totalCDFromInvoice / invoice.quantityMT : 0
-
-          const invoiceAllocations = paymentAllocations.filter(a => a.invoiceId === invoice.id)
-          const totalInvoiceAllocated = invoiceAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
-          const isInvoiceFullyPaid = totalInvoiceAllocated >= invoice.invoiceAmount
+          const totalInvPaid = paymentAllocations
+            .filter(a => a.invoiceId === invoice.id)
+            .reduce((sum, a) => sum + a.amount, 0)
           
-          const lastPaymentForInvoice = payments
-            .filter(p => invoiceAllocations.some(a => a.paymentId === p.id))
-            .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0]
+          const isInvoiceFullyPaid = totalInvPaid >= invoice.invoiceAmount
           
           let invoiceCloseCDEarned = 0
           let invoiceCloseCDDays = 0
           let invoiceCloseCDRate = 0
           
-          if (isInvoiceFullyPaid && lastPaymentForInvoice && lastPaymentForInvoice.id === payment.id && !payment.doNotApplyCD) {
-            const invoiceCloseCDs = expectedDiscounts.filter(
-              ed => ed.invoiceId === invoice.id && ed.type === 'invoiceCloseCD'
-            )
+          if (isInvoiceFullyPaid && supplier.invoiceCloseCDSlabs && supplier.invoiceCloseCDSlabs.length > 0) {
+            const lastAllocation = paymentAllocations
+              .filter(a => a.invoiceId === invoice.id)
+              .sort((a, b) => new Date(b.allocationDate).getTime() - new Date(a.allocationDate).getTime())[0]
             
-            if (invoiceCloseCDs.length > 0) {
-              invoiceCloseCDEarned = invoiceCloseCDs.reduce((sum, ed) => sum + ed.expectedAmount, 0)
-              invoiceCloseCDRate = invoiceCloseCDs[0].ratePerMT
+            if (lastAllocation) {
+              invoiceCloseCDDays = Math.floor((new Date(lastAllocation.allocationDate).getTime() - new Date(invoice.invoiceDate).getTime()) / (1000 * 60 * 60 * 24))
+              const applicableCloseDays = Math.max(0, invoiceCloseCDDays)
               
-              const invoiceDateObj = new Date(invoice.invoiceDate)
-              const paymentDateObj = new Date(payment.paymentDate)
-              invoiceDateObj.setHours(0, 0, 0, 0)
-              paymentDateObj.setHours(0, 0, 0, 0)
-              
-              invoiceCloseCDDays = Math.max(0, Math.floor(
-                (paymentDateObj.getTime() - invoiceDateObj.getTime()) / (1000 * 60 * 60 * 24)
-              ))
+              const closeSlab = supplier.invoiceCloseCDSlabs.find(s => applicableCloseDays >= s.fromDays && applicableCloseDays <= s.toDays)
+              if (closeSlab) {
+                invoiceCloseCDRate = closeSlab.cdPercentage
+                invoiceCloseCDEarned = (invoice.invoiceAmount * closeSlab.cdPercentage) / 100
+              }
             }
           }
-
+          
           return {
             invoice,
-            allocatedAmount: alloc.allocatedAmount,
-            advanceAmount: wasAdvanceAllocation ? alloc.allocatedAmount : 0,
-            regularAmount: wasAdvanceAllocation ? 0 : alloc.allocatedAmount,
-            days,
+            allocatedAmount: alloc.amount,
+            advanceAmount: wasAdvanceAllocation ? alloc.amount : 0,
+            regularAmount: !wasAdvanceAllocation ? alloc.amount : 0,
+            days: applicableDays,
             cdEarned,
-            advanceCDEarned: advanceCDEarnedForAlloc,
-            regularCDEarned: regularCDEarnedForAlloc,
-            cdPercentage: wasAdvanceAllocation ? 0 : regularCDPercentage,
+            advanceCDEarned,
+            regularCDEarned,
+            cdPercentage: effectiveRate,
             advanceCDPercentage: wasAdvanceAllocation ? advanceCDPercentage : 0,
-            cdPerMT,
+            cdPerMT: invoice.quantityMT > 0 ? cdEarned / invoice.quantityMT : 0,
             invoiceCloseCDEarned,
             invoiceCloseCDDays,
             invoiceCloseCDRate
@@ -194,8 +168,8 @@ export default function PaymentDetailsPage({
         })
         .filter((ai): ai is NonNullable<typeof ai> => ai !== null)
         
-        const allocatedAmount = payAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
-        const unallocatedAmount = payment.amount - allocatedAmount
+        const allocatedAmount = allocatedInvoices.reduce((sum, ai) => sum + ai.allocatedAmount, 0)
+        const unallocatedAmount = Math.max(0, payment.amount - allocatedAmount)
         
         const totalRegularCDEarned = expectedDiscounts
           .filter(ed => ed.paymentId === payment.id && ed.type === 'paymentCD')
@@ -237,11 +211,10 @@ export default function PaymentDetailsPage({
       if (selectedSupplier !== 'all' && detail.payment.supplierId !== selectedSupplier) return false
       if (selectedType === 'advance' && !detail.isAdvance) return false
       if (selectedType === 'allocated' && detail.isAdvance) return false
-      if (fromDate && detail.payment.paymentDate < fromDate) return false
-      if (toDate && detail.payment.paymentDate > toDate) return false
+      if (!isRecordInPeriod(detail.payment.paymentDate, detail.payment.fy, periodFilter, currentFY)) return false
       return true
     })
-  }, [paymentDetails, selectedSupplier, selectedType, fromDate, toDate])
+  }, [paymentDetails, selectedSupplier, selectedType, periodFilter, currentFY])
 
   const summaryStats = useMemo(() => {
     const totalPayments = filteredPaymentDetails.length
@@ -313,23 +286,7 @@ export default function PaymentDetailsPage({
               </Select>
             </div>
 
-            <div>
-              <Label>From Date</Label>
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>To Date</Label>
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
-            </div>
+            <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
 
             <div className="flex items-end gap-2 md:col-span-2">
               <Button 
@@ -339,8 +296,7 @@ export default function PaymentDetailsPage({
                   setSelectedSupplier('all')
                   setSelectedMode('all')
                   setSelectedType('all')
-                  setFromDate('')
-                  setToDate('')
+                  setPeriodFilter(defaultPeriodFilterState)
                 }}
               >
                 Clear Filters

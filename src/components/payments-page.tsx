@@ -18,6 +18,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
 
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+
 interface PaymentsPageProps {
   payments: Payment[]
   setPayments: (updater: (prev: Payment[]) => Payment[]) => void
@@ -38,8 +40,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null)
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   const [advanceBookingEnabled, setAdvanceBookingEnabled] = useState(false)
   const [formSupplierId, setFormSupplierId] = useState('')
@@ -54,21 +55,14 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
   )
   
   const filteredPayments = useMemo(() => {
-    let result = payments
-    
-    if (fromDate) {
-      result = result.filter(p => p.paymentDate >= fromDate)
-    }
-    if (toDate) {
-      result = result.filter(p => p.paymentDate <= toDate)
-    }
+    let result = payments.filter(p => isRecordInPeriod(p.paymentDate, p.fy, periodFilter, currentFY))
     
     if (selectedSupplier !== 'all') {
       result = result.filter(p => p.supplierId === selectedSupplier)
     }
     
     return result
-  }, [payments, fromDate, toDate, selectedSupplier])
+  }, [payments, periodFilter, currentFY, selectedSupplier])
   
   const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
   const paymentAmountNumber = parseFloat(paymentAmount) || 0
@@ -674,7 +668,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
 
           <Card className="border-border">
             <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <FunnelSimple size={18} className="text-muted-foreground" />
                   <Label htmlFor="supplier-filter" className="text-sm font-medium">Supplier:</Label>
@@ -693,27 +687,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
                   </Select>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="from-date-filter" className="text-sm font-medium">From:</Label>
-                  <Input
-                    id="from-date-filter"
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="w-36 h-9"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="to-date-filter" className="text-sm font-medium">To:</Label>
-                  <Input
-                    id="to-date-filter"
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="w-36 h-9"
-                  />
-                </div>
+                <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
                 
                 <Badge variant="secondary" className="gap-1.5 ml-auto">
                   {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}

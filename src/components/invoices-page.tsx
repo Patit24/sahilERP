@@ -54,6 +54,8 @@ interface InvoicesPageProps {
 
 const DEFAULT_INVOICE_TERMS = '1. Goods once sold will not be taken back or exchanged\n2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only'
 
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+
 export default function InvoicesPage({
   invoices,
   setInvoices,
@@ -89,8 +91,7 @@ export default function InvoicesPage({
   const [detailsInvoice, setDetailsInvoice] = useState<PurchaseInvoice | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [invoiceToDelete, setInvoiceToDelete] = useState<PurchaseInvoice | null>(null)
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all')
   type AdditionalCharge = { id: string; remarks: string; basicRate: number; taxMode: 'none' | 'gst'; gstRate: number; finalAmt: number };
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([])
@@ -199,20 +200,12 @@ export default function InvoicesPage({
   }, [invoiceItems, items, additionalCostFinal])
   
   const filteredInvoices = useMemo(() => {
-    let result = invoices
-    
-    if (fromDate) {
-      result = result.filter(inv => inv.invoiceDate >= fromDate)
-    }
-    if (toDate) {
-      result = result.filter(inv => inv.invoiceDate <= toDate)
-    }
+    let result = invoices.filter(inv => isRecordInPeriod(inv.invoiceDate, inv.fy, periodFilter, currentFY))
     if (selectedSupplier !== 'all') {
       result = result.filter(inv => inv.supplierId === selectedSupplier)
     }
-    
     return result
-  }, [invoices, fromDate, toDate, selectedSupplier])
+  }, [invoices, periodFilter, currentFY, selectedSupplier])
   
   const totalMT = filteredInvoices.reduce((sum, inv) => sum + inv.quantityMT, 0)
   const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.invoiceAmount, 0)
@@ -1785,25 +1778,7 @@ export default function InvoicesPage({
                 </Select>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">From:</span>
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">To:</span>
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
-                />
-              </div>
+              <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
             </div>
 
             <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/60">

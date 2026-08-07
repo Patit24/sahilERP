@@ -19,6 +19,8 @@ import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'da
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+
 interface CustomerPaymentsPageProps {
   customerPayments: CustomerPayment[]
   setCustomerPayments: (updater: (prev: CustomerPayment[]) => CustomerPayment[]) => void
@@ -38,8 +40,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   const [editingPayment, setEditingPayment] = useState<CustomerPayment | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [paymentToDelete, setPaymentToDelete] = useState<CustomerPayment | null>(null)
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(defaultPeriodFilterState)
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
   const [selectedCustomerInForm, setSelectedCustomerInForm] = useState<string>('')
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false)
@@ -56,21 +57,14 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
   }
   
   const filteredPayments = useMemo(() => {
-    let result = customerPayments
-    
-    if (fromDate) {
-      result = result.filter(p => p.paymentDate >= fromDate)
-    }
-    if (toDate) {
-      result = result.filter(p => p.paymentDate <= toDate)
-    }
+    let result = customerPayments.filter(p => isRecordInPeriod(p.paymentDate, p.fy, periodFilter, currentFY))
     
     if (selectedCustomer !== 'all') {
       result = result.filter(p => p.customerId === selectedCustomer)
     }
     
     return result
-  }, [customerPayments, fromDate, toDate, selectedCustomer])
+  }, [customerPayments, periodFilter, currentFY, selectedCustomer])
   
   const totalReceived = filteredPayments.reduce((sum, p) => sum + p.amount, 0)
 
@@ -483,27 +477,7 @@ export default function CustomerPaymentsPage({ customerPayments, setCustomerPaym
               </Select>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Label htmlFor="from-date-filter" className="text-sm font-medium">From:</Label>
-              <Input
-                id="from-date-filter"
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-36 h-9"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label htmlFor="to-date-filter" className="text-sm font-medium">To:</Label>
-              <Input
-                id="to-date-filter"
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-36 h-9"
-              />
-            </div>
+            <PeriodDateFilter currentFY={currentFY} value={periodFilter} onChange={setPeriodFilter} />
             
             <Badge variant="secondary" className="gap-1.5 ml-auto">
               {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}
