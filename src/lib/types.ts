@@ -147,6 +147,11 @@ export interface InvoiceItem {
   amount: number
   entryUnit?: string
   entryQuantity?: number
+  baseQuantity?: number
+  baseRate?: number
+  enteredQuantity?: number
+  enteredUnit?: string
+  enteredRate?: number
 }
 
 export interface PurchaseInvoice {
@@ -439,6 +444,9 @@ export interface PurchaseLayer {
   itemName: string
   category?: string
   activeUnit: string
+  baseUnit?: string
+  baseQty?: number
+  baseLandingCost?: number
   unitWeightKG: number
   purchaseDate: string
   qty: number
@@ -466,6 +474,8 @@ export interface SaleAllocation {
   itemId: string
   itemName: string
   activeUnit: string
+  baseUnit?: string
+  baseAllocatedQty?: number
   allocatedQty: number
   fifoCostPerUnit: number
   sellingPricePerUnit: number
