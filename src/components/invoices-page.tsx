@@ -1150,31 +1150,47 @@ export default function InvoicesPage({
                             </SelectContent>
                           </Select>
                           <Input value="-" disabled className="erp-reference-cell-input text-center" />
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              step="0.001"
-                              min="0"
-                              value={invoiceItem.entryQuantity ?? (invoiceItem.quantityMT || '')}
-                              onChange={(e) => updateInvoiceItem(index, 'entryQuantity', e.target.value)}
-                              placeholder="0"
-                              className="erp-reference-cell-input font-mono text-right flex-1 min-w-[70px]"
-                            />
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                value={invoiceItem.entryQuantity ?? (invoiceItem.quantityMT || '')}
+                                onChange={(e) => updateInvoiceItem(index, 'entryQuantity', e.target.value)}
+                                placeholder="0"
+                                className="erp-reference-cell-input font-mono text-right flex-1 min-w-[70px]"
+                              />
+                              {(() => {
+                                const sel = items.find(i => i.id === invoiceItem.itemId)
+                                const baseUnit = sel?.unit || 'KG'
+                                const activeUnit = invoiceItem.entryUnit || baseUnit
+                                return (
+                                  <select
+                                    value={activeUnit}
+                                    onChange={(e) => updateInvoiceItem(index, 'entryUnit', e.target.value)}
+                                    className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
+                                  >
+                                    <option value={baseUnit}>{baseUnit}</option>
+                                    {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
+                                      <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
+                                    )}
+                                  </select>
+                                )
+                              })()}
+                            </div>
                             {(() => {
                               const sel = items.find(i => i.id === invoiceItem.itemId)
-                              const activeUnit = invoiceItem.entryUnit || sel?.unit || 'MT'
-                              return (
-                                <select
-                                  value={activeUnit}
-                                  onChange={(e) => updateInvoiceItem(index, 'entryUnit', e.target.value)}
-                                  className="text-xs font-bold font-mono bg-slate-100 border border-slate-300 rounded px-1 py-1 text-slate-800 focus:outline-none"
-                                >
-                                  <option value={sel?.unit || 'MT'}>{sel?.unit || 'MT'}</option>
-                                  {sel?.alternativeUnit && sel.alternativeUnit !== 'NONE' && (
-                                    <option value={sel.alternativeUnit}>{sel.alternativeUnit}</option>
-                                  )}
-                                </select>
-                              )
+                              if (sel && invoiceItem.entryUnit && invoiceItem.entryUnit !== sel.unit && sel.conversionFactor) {
+                                const baseQty = (invoiceItem.entryQuantity || 0) * sel.conversionFactor
+                                const baseRate = (invoiceItem.rate || 0) / sel.conversionFactor
+                                return (
+                                  <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded text-right">
+                                    Base: {baseQty.toLocaleString('en-IN')} {sel.unit} (@ ₹{baseRate.toFixed(2)}/{sel.unit})
+                                  </span>
+                                )
+                              }
+                              return null
                             })()}
                           </div>
                           <Input

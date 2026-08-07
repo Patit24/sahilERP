@@ -1106,9 +1106,10 @@ export function formatCurrency(amount: number): string {
   }).format(val)
 }
 
-export function formatMT(mt: number): string {
-  const val = Number.isFinite(Number(mt)) ? Number(mt) : 0
-  return `${val.toFixed(2)} MT`
+export function formatMT(qty: number, unit?: string): string {
+  const val = Number.isFinite(Number(qty)) ? Number(qty) : 0
+  const unitSuffix = unit ? ` ${unit}` : ''
+  return `${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}${unitSuffix}`
 }
 
 export function getCurrentFY(): string {
