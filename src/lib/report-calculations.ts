@@ -2,57 +2,30 @@
  * REPORT CALCULATIONS MODULE
  * ==========================
  * 
- * This module contains calculation functions for reports that must remain consistent
- * with the Dashboard and all other views.
- * 
- * CRITICAL: CD AT RISK CALCULATION (Single Source of Truth)
- * ==========================================================
- * 
- * The CD at Risk calculation uses SLAB-DIFFERENCE logic:
- * 
- * Risk = (Current Slab CD - Next Slab CD)
- * 
- * This represents the LOSS due to slab downgrade, NOT the full potential CD amount.
- * 
- * Example:
- *   - Invoice with pending ₹1,00,000
- *   - Current slab: 0-7 days = 2.75% → ₹2,750
- *   - Next slab: 8-10 days = 2.5% → ₹2,500
- *   - CD at Risk = ₹2,750 - ₹2,500 = ₹250 (NOT ₹2,750)
- * 
- * This logic is used by:
- *   - Dashboard → CD Expiry Alerts (cd-expiry-alert.tsx)
- *   - CD at Risk Report → Summary & Details (cd-at-risk-report-page.tsx)
- *   - All other views referencing CD risk
- * 
- * DO NOT create parallel/duplicate calculation logic elsewhere.
- * DO NOT calculate CD risk as full CD amount.
- * 
- * The calculateCDAtRisk() function below is the ONLY place where
- * total CD risk should be calculated.
+ * Strict Base Unit Normalization Architecture
+ * All inventory calculations use Primary (Base) Units as single source of truth.
  */
 
 import {
   PurchaseInvoice,
   SalesInvoice,
   Payment,
-  CustomerPayment,
   ExpenseEntry,
-  ExpenseType,
   Supplier,
   Customer,
   Item,
-  FixedScheme,
-  ReceivedDiscount,
   PaymentAllocation,
   PurchaseReturn,
   SalesReturn
 } from './types'
 import {
-  calculatePaymentAllocations,
-  calculateExpectedDiscounts,
-  calculateDiscountAllocations
-} from './calculations'
+  toBaseQuantity,
+  toBaseRate,
+  fromBaseQuantity,
+  fromBaseRate,
+  getItemConversionFactor,
+  normalizeLineItem
+} from './unit-conversion-service'
 
 export interface InventoryData {
   itemId: string
@@ -121,40 +94,27 @@ export interface CDAtRisk {
   invoiceCloseCDBreakdown?: InvoiceCloseCDUnitBreakdown[]
 }
 
+/**
+ * Normalizes an invoice item into Base Quantity and Alternate Quantity.
+ */
 export function getItemNormalizedQty(
-  invItem: { entryQuantity?: number; quantityMT?: number; entryUnit?: string },
+  invItem: { entryQuantity?: number; quantityMT?: number; entryUnit?: string; enteredQuantity?: number; enteredUnit?: string },
   item: Item,
   conversionFactor?: number
 ): { primaryQty: number; altQty: number; usedUnit: string } {
-  const primaryUnit = item.unit || 'MT'
-  const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : undefined
-
-  let factor = conversionFactor || item.conversionFactor
-  if (!factor || factor <= 0) {
-    if (primaryUnit === 'MT' && altUnit === 'KG') factor = 1000
-    else if (primaryUnit === 'KG' && altUnit === 'MT') factor = 0.001
-    else factor = 1
-  }
-
-  const entryUnit = invItem.entryUnit || primaryUnit
-  let primaryQty = 0
-  let altQty = 0
-
-  if (altUnit && entryUnit === altUnit) {
-    const rawQty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+  const primaryUnit = item.unit || 'KG'
+  const entryUnit = invItem.enteredUnit || invItem.entryUnit || primaryUnit
+  const rawQty = (invItem.enteredQuantity !== undefined && invItem.enteredQuantity !== null && invItem.enteredQuantity > 0)
+    ? invItem.enteredQuantity
+    : ((invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
       ? invItem.entryQuantity
-      : (invItem.quantityMT ? invItem.quantityMT * factor : 0)
-    altQty = rawQty
-    primaryQty = factor >= 1 ? rawQty / factor : rawQty * factor
-  } else {
-    const rawQty = (invItem.quantityMT !== undefined && invItem.quantityMT !== null && invItem.quantityMT > 0)
-      ? invItem.quantityMT
-      : (invItem.entryQuantity || 0)
-    primaryQty = rawQty
-    altQty = factor >= 1 ? rawQty * factor : rawQty / factor
-  }
+      : (invItem.quantityMT || 0))
 
-  return { primaryQty, altQty, usedUnit: entryUnit }
+  const baseQty = toBaseQuantity(item, rawQty, entryUnit)
+  const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : undefined
+  const altQty = altUnit ? fromBaseQuantity(item, baseQty, altUnit) : baseQty
+
+  return { primaryQty: baseQty, altQty, usedUnit: entryUnit }
 }
 
 export function calculateInventoryReport(
@@ -167,41 +127,35 @@ export function calculateInventoryReport(
   const inventory: InventoryData[] = []
 
   items.forEach(item => {
-    const primaryUnit = item.unit || 'MT'
+    const primaryUnit = item.unit || 'KG'
     const altUnit = item.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : undefined
+    const factor = getItemConversionFactor(item, altUnit)
 
-    let factor = item.conversionFactor
-    if (!factor || factor <= 0) {
-      if (primaryUnit === 'MT' && altUnit === 'KG') factor = 1000
-      else if (primaryUnit === 'KG' && altUnit === 'MT') factor = 0.001
-      else factor = 1
-    }
-
-    const openingPrimary = item.openingStock || 0
+    const openingBase = toBaseQuantity(item, item.openingStock || 0, primaryUnit)
     const openingStockValue = item.openingValue || 0
-    const openingAlt = factor >= 1 ? openingPrimary * factor : openingPrimary / factor
+    const openingAlt = altUnit ? fromBaseQuantity(item, openingBase, altUnit) : openingBase
 
-    let totalPurchasePrimary = 0
+    let totalPurchaseBase = 0
     let totalPurchaseAlt = 0
     let totalPurchaseAmount = 0
 
-    let totalSalesPrimary = 0
+    let totalSalesBase = 0
     let totalSalesAlt = 0
     let totalSalesAmount = 0
 
     let purchaseAltUnitCount = 0
     let purchasePrimaryUnitCount = 0
-    
+
     let saleAltUnitCount = 0
     let salePrimaryUnitCount = 0
 
     const purchaseBatches: { date: Date; quantityPrimary: number; rate: number; amount: number }[] = []
 
-    if (openingPrimary > 0 && openingStockValue > 0) {
+    if (openingBase > 0 && openingStockValue > 0) {
       purchaseBatches.push({
         date: new Date('1900-01-01'),
-        quantityPrimary: openingPrimary,
-        rate: openingStockValue / openingPrimary,
+        quantityPrimary: openingBase,
+        rate: openingStockValue / openingBase,
         amount: openingStockValue
       })
     }
@@ -211,11 +165,11 @@ export function calculateInventoryReport(
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty, usedUnit } = getItemNormalizedQty(invItem, item, factor)
-            totalPurchasePrimary += primaryQty
+            totalPurchaseBase += primaryQty
             totalPurchaseAlt += altQty
             totalPurchaseAmount += invItem.amount || 0
 
-            if (altUnit && usedUnit === altUnit) purchaseAltUnitCount++
+            if (altUnit && usedUnit.toUpperCase() === altUnit.toUpperCase()) purchaseAltUnitCount++
             else purchasePrimaryUnitCount++
 
             purchaseBatches.push({
@@ -234,7 +188,7 @@ export function calculateInventoryReport(
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty } = getItemNormalizedQty(invItem, item, factor)
-            totalPurchasePrimary -= primaryQty
+            totalPurchaseBase -= primaryQty
             totalPurchaseAlt -= altQty
             totalPurchaseAmount -= invItem.amount || 0
           }
@@ -247,11 +201,11 @@ export function calculateInventoryReport(
         invoice.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty, usedUnit } = getItemNormalizedQty(invItem, item, factor)
-            totalSalesPrimary += primaryQty
+            totalSalesBase += primaryQty
             totalSalesAlt += altQty
             totalSalesAmount += invItem.amount || 0
 
-            if (altUnit && usedUnit === altUnit) saleAltUnitCount++
+            if (altUnit && usedUnit.toUpperCase() === altUnit.toUpperCase()) saleAltUnitCount++
             else salePrimaryUnitCount++
           }
         })
@@ -263,7 +217,7 @@ export function calculateInventoryReport(
         ret.items.forEach(invItem => {
           if (invItem.itemId === item.id) {
             const { primaryQty, altQty } = getItemNormalizedQty(invItem, item, factor)
-            totalSalesPrimary -= primaryQty
+            totalSalesBase -= primaryQty
             totalSalesAlt -= altQty
             totalSalesAmount -= invItem.amount || 0
           }
@@ -271,41 +225,35 @@ export function calculateInventoryReport(
       }
     })
 
-    const balancePrimary = (openingPrimary + totalPurchasePrimary) - totalSalesPrimary
+    const balanceBase = (openingBase + totalPurchaseBase) - totalSalesBase
     const balanceAlt = (openingAlt + totalPurchaseAlt) - totalSalesAlt
 
-    // Determine preferred units based on actual usage
     const preferAltPurchase = Boolean(altUnit && purchaseAltUnitCount > 0 && purchaseAltUnitCount >= purchasePrimaryUnitCount)
     const preferAltSale = Boolean(altUnit && saleAltUnitCount > 0 && saleAltUnitCount >= salePrimaryUnitCount)
-
-    // Always prefer alternative unit on top for display — alt unit (KG/PCS) is always mainUnit
     const preferAltOverall = Boolean(altUnit)
 
-    const mainUnit = altUnit ? altUnit : primaryUnit
-    const secUnit = altUnit ? primaryUnit : undefined
+    const mainUnit = primaryUnit
+    const secUnit = altUnit
 
-    const openingStockMT = preferAltOverall ? openingAlt : openingPrimary
-    const totalPurchaseMT = preferAltOverall ? totalPurchaseAlt : totalPurchasePrimary
-    const totalSalesMT = preferAltOverall ? totalSalesAlt : totalSalesPrimary
-    const balanceMT = preferAltOverall ? balanceAlt : balancePrimary
+    const openingStockMT = openingBase
+    const totalPurchaseMT = totalPurchaseBase
+    const totalSalesMT = totalSalesBase
+    const balanceMT = balanceBase
 
-    const secOpeningStock = preferAltOverall ? openingPrimary : openingAlt
-    const secTotalPurchase = preferAltOverall ? totalPurchasePrimary : totalPurchaseAlt
-    const secTotalSales = preferAltOverall ? totalSalesPrimary : totalSalesAlt
-    const secBalance = preferAltOverall ? balancePrimary : balanceAlt
+    const secOpeningStock = openingAlt
+    const secTotalPurchase = totalPurchaseAlt
+    const secTotalSales = totalSalesAlt
+    const secBalance = balanceAlt
 
-    const totalAvailablePrimary = openingPrimary + totalPurchasePrimary
+    const totalAvailableBase = openingBase + totalPurchaseBase
     const totalAvailableAmount = openingStockValue + totalPurchaseAmount
-    const avgPurchaseRatePrimary = totalAvailablePrimary > 0 ? totalAvailableAmount / totalAvailablePrimary : 0
-    const avgSalesRatePrimary = totalSalesPrimary > 0 ? totalSalesAmount / totalSalesPrimary : 0
-
-    const avgPurchaseRate = preferAltOverall ? (factor >= 1 ? avgPurchaseRatePrimary / factor : avgPurchaseRatePrimary * factor) : avgPurchaseRatePrimary
-    const avgSalesRate = preferAltOverall ? (factor >= 1 ? avgSalesRatePrimary / factor : avgSalesRatePrimary * factor) : avgSalesRatePrimary
+    const avgPurchaseRateBase = totalAvailableBase > 0 ? totalAvailableAmount / totalAvailableBase : 0
+    const avgSalesRateBase = totalSalesBase > 0 ? totalSalesAmount / totalSalesBase : 0
 
     let currentStockValue = 0
-    if (balancePrimary > 0 && purchaseBatches.length > 0) {
+    if (balanceBase > 0 && purchaseBatches.length > 0) {
       purchaseBatches.sort((a, b) => a.date.getTime() - b.date.getTime())
-      let remainingSales = totalSalesPrimary
+      let remainingSales = totalSalesBase
       let calculatedBalance = 0
 
       for (const batch of purchaseBatches) {
@@ -322,10 +270,10 @@ export function calculateInventoryReport(
         }
       }
 
-      if (calculatedBalance !== balancePrimary && Math.abs(calculatedBalance - balancePrimary) > 0.01) {
-        currentStockValue = balancePrimary * avgPurchaseRatePrimary
+      if (calculatedBalance !== balanceBase && Math.abs(calculatedBalance - balanceBase) > 0.01) {
+        currentStockValue = balanceBase * avgPurchaseRateBase
       }
-    } else if (balancePrimary <= 0) {
+    } else if (balanceBase <= 0) {
       currentStockValue = 0
     }
 
@@ -343,8 +291,8 @@ export function calculateInventoryReport(
       totalSalesMT,
       totalSalesAmount,
       balanceMT,
-      avgPurchaseRate,
-      avgSalesRate,
+      avgPurchaseRate: avgPurchaseRateBase,
+      avgSalesRate: avgSalesRateBase,
       currentStockValue: isNaN(currentStockValue) || !isFinite(currentStockValue) ? 0 : Math.max(0, currentStockValue),
       secondaryUnit: secUnit,
       secondaryOpeningStock: secOpeningStock,
@@ -380,20 +328,6 @@ export function calculateItemStockMap(
   return stockMap
 }
 
-/**
- * Calculate CD at Risk using slab-difference logic
- * 
- * IMPORTANT: This function calculates the LOSS due to slab downgrade,
- * not the full potential CD amount.
- * 
- * For each invoice with pending amount:
- * - Payment CD Risk = (Current Slab % × Pending) - (Next Slab % × Pending)
- * - Invoice Close CD Risk = (Current Slab Rate/MT × Qty) - (Next Slab Rate/MT × Qty)
- * - Total Risk = Payment CD Risk + Invoice Close CD Risk
- * 
- * This is the SINGLE SOURCE OF TRUTH for CD risk calculations.
- * Used by Dashboard alerts and CD at Risk reports.
- */
 export function calculateCDAtRisk(
   purchaseInvoices: PurchaseInvoice[],
   payments: Payment[],
@@ -418,7 +352,7 @@ export function calculateCDAtRisk(
       if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
         let matchQty = 0
         inv.items.forEach(invItem => {
-          const itemUnit = invItem.entryUnit || 'MT'
+          const itemUnit = invItem.entryUnit || 'KG'
           if (itemUnit === targetUnit) {
             const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
               ? invItem.entryQuantity
@@ -445,7 +379,7 @@ export function calculateCDAtRisk(
       ) || []
 
       const currentSlabPaymentCDRate = currentPaymentCDRule?.percentageRate || 0
-      const currentSlabInvoiceCloseCDRate = currentInvoiceCloseCDRules.length > 0 ? currentInvoiceCloseCDRules[0].ratePerMT : 0 // For display
+      const currentSlabInvoiceCloseCDRate = currentInvoiceCloseCDRules.length > 0 ? currentInvoiceCloseCDRules[0].ratePerMT : 0
 
       const nextPaymentCDSlab = supplier.paymentCDRules
         ?.filter(rule => rule.minDays > daysSinceInvoice)
@@ -453,7 +387,6 @@ export function calculateCDAtRisk(
 
       const nextInvoiceCloseCDRules = supplier.invoiceCloseCDRules
         ?.filter(rule => rule.minDays > daysSinceInvoice)
-        // Group by minDays and find the earliest next slab rules
       const minNextDays = nextInvoiceCloseCDRules && nextInvoiceCloseCDRules.length > 0 
         ? Math.min(...nextInvoiceCloseCDRules.map(r => r.minDays))
         : 0
@@ -467,27 +400,24 @@ export function calculateCDAtRisk(
       const invoiceCloseCDNextSlabMinDays = nextInvoiceCloseCDSlab ? nextInvoiceCloseCDSlab.minDays : 0
 
       const nextSlabPaymentCDRate = nextPaymentCDSlab?.percentageRate || 0
-      const nextSlabInvoiceCloseCDRate = nextInvoiceCloseCDSlab?.ratePerMT || 0 // For display
+      const nextSlabInvoiceCloseCDRate = nextInvoiceCloseCDSlab?.ratePerMT || 0
 
       const nextSlabDays = nextPaymentCDSlab?.minDays || nextInvoiceCloseCDSlab?.minDays || 0
       const daysUntilNextSlab = nextSlabDays > 0 ? nextSlabDays - daysSinceInvoice : 0
 
-      // Calculate total Payment CD at current slab (full amount)
       const totalPaymentCDAtCurrentSlab = (pendingAmount * currentSlabPaymentCDRate) / 100
       
-      // Calculate Payment CD risk (slab difference, not full amount)
       const currentPaymentCD = (pendingAmount * currentSlabPaymentCDRate) / 100
       const nextPaymentCD = (pendingAmount * nextSlabPaymentCDRate) / 100
-      const paymentCDRisk = currentPaymentCD - nextPaymentCD  // LOSS due to downgrade
+      const paymentCDRisk = currentPaymentCD - nextPaymentCD
 
-      // Calculate Invoice Close CD risk & unit breakdown
       let currentInvoiceCloseCD = 0
       let nextInvoiceCloseCD = 0
       const invoiceCloseCDBreakdown: InvoiceCloseCDUnitBreakdown[] = []
 
       const allTargetUnits = (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0)
-        ? Array.from(new Set(invoice.items.map(i => i.entryUnit || 'MT')))
-        : ['MT']
+        ? Array.from(new Set(invoice.items.map(i => i.entryUnit || 'KG')))
+        : ['KG']
 
       allTargetUnits.forEach(targetUnit => {
         const qty = getInvoiceQtyForUnit(invoice, targetUnit)
@@ -522,9 +452,7 @@ export function calculateCDAtRisk(
         }
       })
 
-      const invoiceCloseCDRisk = currentInvoiceCloseCD - nextInvoiceCloseCD  // LOSS due to downgrade
-
-      // Total risk is sum of both losses
+      const invoiceCloseCDRisk = currentInvoiceCloseCD - nextInvoiceCloseCD
       const totalCDAtRisk = paymentCDRisk + invoiceCloseCDRisk
 
       cdAtRisk.push({
