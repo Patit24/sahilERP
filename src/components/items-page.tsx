@@ -445,7 +445,7 @@ export default function ItemsPage({
                                   </span>
                                   {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
                                     <span className="text-[10px] text-slate-500 font-mono">
-                                      1 {item.unit} = {item.conversionFactor ? item.conversionFactor.toLocaleString() : (item.unit === 'MT' ? '1,000' : '1')} {item.alternativeUnit}
+                                      1 {item.alternativeUnit} = {item.conversionFactor && item.conversionFactor > 1 ? item.conversionFactor.toLocaleString() : (item.unit === 'KG' && item.alternativeUnit === 'MT' ? '1,000' : '1')} {item.unit}
                                     </span>
                                   )}
                                 </div>

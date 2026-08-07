@@ -99,13 +99,17 @@ export function ItemEditorDialog({
     setPurchasePrice(item?.purchasePrice?.toString() || '')
     setSalesPrice(item?.salesPrice?.toString() || '')
     const initialUnit = item?.unit || 'NONE'
+    const initialAlt = item?.alternativeUnit || 'NONE'
     setUnit(initialUnit)
-    setAlternativeUnit(item?.alternativeUnit || 'NONE')
-    setPrimaryUnitRatio(item?.primaryUnitRatio?.toString() || '1')
-    setAlternativeUnitRatio(item?.alternativeUnitRatio?.toString() || '1')
+    setAlternativeUnit(initialAlt)
+    
+    const defaultPrimRatio = item?.primaryUnitRatio?.toString() || ((initialUnit === 'KG' && initialAlt === 'MT') ? '1000' : '1')
+    const defaultAltRatio = item?.alternativeUnitRatio?.toString() || '1'
+    setPrimaryUnitRatio(defaultPrimRatio)
+    setAlternativeUnitRatio(defaultAltRatio)
     setUnitWeightKG(
       item?.conversionFactor?.toString() ||
-      (initialUnit === 'MT' ? '1000' : (initialUnit === 'KG' ? '1' : '1'))
+      (initialUnit === 'MT' || initialAlt === 'MT' ? '1000' : (initialUnit === 'KG' ? '1' : '1'))
     )
     setOpeningStock(item?.openingStock?.toString() || '')
   }, [open, item])
@@ -187,7 +191,23 @@ export function ItemEditorDialog({
     const primRatio = parseFloat(primaryUnitRatio) || 1
     const altRatio = parseFloat(alternativeUnitRatio) || 1
     const parsedWeightKG = parseFloat(unitWeightKG) || 1
-    const conversionFactor = unit === 'MT' ? 1000 : (unit === 'KG' ? 1 : parsedWeightKG)
+    
+    let conversionFactor = 1
+    if (alternativeUnit && alternativeUnit !== 'NONE') {
+      if (unit === 'KG' && alternativeUnit === 'MT') {
+        conversionFactor = primRatio > 0 && altRatio > 0 ? (primRatio / altRatio) : 1000
+      } else if (unit === 'MT' && alternativeUnit === 'KG') {
+        conversionFactor = primRatio > 0 && altRatio > 0 ? (altRatio / primRatio) : 1000
+      } else {
+        conversionFactor = primRatio > 0 && altRatio > 0 ? (primRatio / altRatio) : 1
+      }
+    } else if (unit === 'MT') {
+      conversionFactor = 1000
+    } else if (unit === 'KG') {
+      conversionFactor = 1
+    } else {
+      conversionFactor = parsedWeightKG || 1
+    }
 
     onSave({
       ...(item || {}),

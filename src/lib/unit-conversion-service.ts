@@ -35,16 +35,16 @@ export function getItemConversionFactor(item?: Item | null, targetUnit?: string)
 
   if (primaryUnit === currentTarget) return 1
 
-  if (item.conversionFactor && item.conversionFactor > 0) {
-    const altUnit = (item.alternativeUnit || '').toUpperCase()
-    if (altUnit && currentTarget === altUnit) {
+  const altUnit = (item.alternativeUnit || '').toUpperCase()
+
+  // Standard MT <-> KG handling with fallback
+  if ((primaryUnit === 'KG' && (currentTarget === 'MT' || altUnit === 'MT')) ||
+      (primaryUnit === 'MT' && (currentTarget === 'KG' || altUnit === 'KG'))) {
+    if (item.conversionFactor && item.conversionFactor > 1) {
       return item.conversionFactor
     }
+    return 1000
   }
-
-  // Standard fallback conversions
-  if (primaryUnit === 'KG' && currentTarget === 'MT') return 1000
-  if (primaryUnit === 'MT' && currentTarget === 'KG') return 0.001
 
   if (item.conversionFactor && item.conversionFactor > 0) {
     return item.conversionFactor
