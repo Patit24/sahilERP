@@ -24,7 +24,8 @@ import {
   fromBaseQuantity,
   fromBaseRate,
   getItemConversionFactor,
-  normalizeLineItem
+  normalizeLineItem,
+  getInvoiceQtyForUnit as getNormalizedInvoiceQtyForUnit
 } from './unit-conversion-service'
 
 export interface InventoryData {
@@ -349,20 +350,7 @@ export function calculateCDAtRisk(
     const pendingAmount = invoice.invoiceAmount - allocatedAmount
 
     const getInvoiceQtyForUnit = (inv: PurchaseInvoice, targetUnit: string): number => {
-      if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
-        let matchQty = 0
-        inv.items.forEach(invItem => {
-          const itemUnit = invItem.entryUnit || 'KG'
-          if (itemUnit === targetUnit) {
-            const qty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
-              ? invItem.entryQuantity
-              : (invItem.quantityMT || 0)
-            matchQty += qty
-          }
-        })
-        return matchQty
-      }
-      return targetUnit === 'MT' ? (inv.quantityMT || 0) : 0
+      return getNormalizedInvoiceQtyForUnit(inv, targetUnit, itemMap)
     }
 
     if (pendingAmount > 0) {

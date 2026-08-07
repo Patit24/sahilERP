@@ -151,3 +151,49 @@ export function normalizeLineItem(
     conversionFactor
   }
 }
+
+/**
+ * Calculates total quantity of a Purchase Invoice converted into the target unit (e.g. 'MT' or 'KG').
+ * Uses Base Quantity normalization as single source of truth so purchases in KG, MT, BAG, BOX earn correct scheme discounts.
+ */
+export function getInvoiceQtyForUnit(
+  inv: { items?: any[]; quantityMT?: number },
+  targetUnit: string = 'MT',
+  itemMap?: Map<string, Item>
+): number {
+  const target = (targetUnit || 'MT').toUpperCase()
+
+  if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
+    let totalQty = 0
+    inv.items.forEach(invItem => {
+      const itemDef = itemMap?.get(invItem.itemId)
+      const primaryUnit = (itemDef?.unit || 'KG').toUpperCase()
+      const enteredUnit = (invItem.entryUnit || primaryUnit).toUpperCase()
+      const rawQty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
+        ? invItem.entryQuantity
+        : (invItem.quantityMT || 0)
+
+      const baseQty = invItem.baseQuantity || toBaseQuantity(itemDef, rawQty, enteredUnit)
+
+      if (target === 'MT') {
+        const factor = primaryUnit === 'KG' ? 1000 : (itemDef?.conversionFactor || 1)
+        totalQty += factor > 0 ? baseQty / factor : baseQty
+      } else if (target === 'KG') {
+        const factor = primaryUnit === 'MT' ? 1000 : 1
+        totalQty += baseQty * factor
+      } else if (target === primaryUnit) {
+        totalQty += baseQty
+      } else if (itemDef) {
+        totalQty += fromBaseQuantity(itemDef, baseQty, target)
+      } else {
+        totalQty += rawQty
+      }
+    })
+    return totalQty
+  }
+
+  // Fallback if no items array
+  const rawMT = inv.quantityMT || 0
+  if (target === 'KG') return rawMT * 1000
+  return rawMT
+}
