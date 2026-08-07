@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { BookOpen, TrendUp, TrendDown, FilePdf } from '@phosphor-icons/react'
 import { formatCurrency, getFYFromDate } from '@/lib/calculations'
 import { exportSupplierLedgerPDF, SupplierLedgerEntry } from '@/lib/pdf-export'
-import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod, getPreviousFY } from '@/components/period-date-filter'
 import { toast } from 'sonner'
 
 interface SupplierLedgerPageProps {
@@ -290,7 +290,7 @@ export default function SupplierLedgerPage({ suppliers, invoices, payments, debi
 
                 <div className="mt-6">
                   <h4 className="text-sm font-semibold mb-3 text-foreground">
-                    Ledger Entries for {selectedSupplier?.name} {periodFilter.periodType === 'all_time' ? '(All Time)' : periodFilter.periodType === 'current_month' ? '(Current Month)' : periodFilter.periodType === 'specific_fy' ? `(${periodFilter.specificFY})` : periodFilter.periodType === 'custom' ? `(${periodFilter.fromDate || '...'} to ${periodFilter.toDate || '...'})` : `- ${currentFY}`}
+                    Ledger Entries for {selectedSupplier?.name} {periodFilter.periodType === 'current_month' ? '(Current Month)' : periodFilter.periodType === 'previous_month' ? '(Previous Month)' : periodFilter.periodType === 'previous_fy' ? `(${getPreviousFY(currentFY)})` : periodFilter.periodType === 'custom' ? `(${periodFilter.fromDate || '...'} to ${periodFilter.toDate || '...'})` : `- ${currentFY}`}
                   </h4>
                   <div className="rounded-lg border border-border">
                     <Table>

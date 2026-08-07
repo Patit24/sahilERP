@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BookOpen, TrendUp, TrendDown } from '@phosphor-icons/react'
 import { formatCurrency, getFYFromDate } from '@/lib/calculations'
-import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod } from '@/components/period-date-filter'
+import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod, getPreviousFY } from '@/components/period-date-filter'
 
 interface CustomerLedgerPageProps {
   customers: Customer[]
@@ -216,7 +216,7 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
 
                 <div className="mt-6">
                   <h4 className="text-sm font-semibold mb-3 text-foreground">
-                    Ledger Entries for {selectedCustomer?.name} {periodFilter.periodType === 'all_time' ? '(All Time)' : periodFilter.periodType === 'current_month' ? '(Current Month)' : periodFilter.periodType === 'specific_fy' ? `(${periodFilter.specificFY})` : periodFilter.periodType === 'custom' ? `(${periodFilter.fromDate || '...'} to ${periodFilter.toDate || '...'})` : `- ${currentFY}`}
+                    Ledger Entries for {selectedCustomer?.name} {periodFilter.periodType === 'current_month' ? '(Current Month)' : periodFilter.periodType === 'previous_month' ? '(Previous Month)' : periodFilter.periodType === 'previous_fy' ? `(${getPreviousFY(currentFY)})` : periodFilter.periodType === 'custom' ? `(${periodFilter.fromDate || '...'} to ${periodFilter.toDate || '...'})` : `- ${currentFY}`}
                   </h4>
                   <div className="rounded-lg border border-border">
                     <Table>

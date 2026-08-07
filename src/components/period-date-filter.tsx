@@ -1,87 +1,81 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Calendar } from '@phosphor-icons/react'
 import { getFYFromDate } from '@/lib/calculations'
 
-export type PeriodType = 'current_fy' | 'current_month' | 'all_time' | 'specific_fy' | 'custom'
+export type PeriodType = 'current_month' | 'previous_month' | 'current_fy' | 'previous_fy' | 'custom'
 
 export interface PeriodFilterState {
   periodType: PeriodType
-  specificFY: string
   fromDate: string
   toDate: string
 }
 
 export const defaultPeriodFilterState: PeriodFilterState = {
   periodType: 'current_fy',
-  specificFY: '',
   fromDate: '',
   toDate: ''
 }
 
 interface PeriodDateFilterProps {
   currentFY: string
-  availableFYs?: string[]
   value: PeriodFilterState
   onChange: (newState: PeriodFilterState) => void
   className?: string
 }
 
+export function getPreviousFY(currentFY: string): string {
+  // currentFY like "FY2026-27" or "2026-27"
+  const norm = currentFY.startsWith('FY') ? currentFY.slice(2) : currentFY
+  const [startYearStr] = norm.split('-')
+  const startYear = parseInt(startYearStr, 10)
+  const prevStart = startYear - 1
+  const prevEnd = (prevStart + 1).toString().slice(-2)
+  return `FY${prevStart}-${prevEnd}`
+}
+
 export function PeriodDateFilter({
   currentFY,
-  availableFYs = ['FY2026-27', 'FY2025-26', 'FY2024-25', 'FY2023-24'],
   value,
   onChange,
   className = ''
 }: PeriodDateFilterProps) {
-  const normCurrentFY = currentFY ? (currentFY.startsWith('FY') ? currentFY : `FY${currentFY}`) : 'FY2026-27'
+  const normCurrentFY = currentFY
+    ? (currentFY.startsWith('FY') ? currentFY : `FY${currentFY}`)
+    : 'FY2026-27'
 
-  const allFYs = useMemo(() => {
-    const list = new Set(availableFYs.map(f => f.startsWith('FY') ? f : `FY${f}`))
-    list.add(normCurrentFY)
-    return Array.from(list).sort().reverse()
-  }, [availableFYs, normCurrentFY])
-
-  const handlePeriodSelect = (val: string) => {
-    if (val === 'current_fy') {
-      onChange({ ...value, periodType: 'current_fy', specificFY: '' })
-    } else if (val === 'current_month') {
-      onChange({ ...value, periodType: 'current_month', specificFY: '' })
-    } else if (val === 'all_time') {
-      onChange({ ...value, periodType: 'all_time', specificFY: '' })
-    } else if (val === 'custom') {
-      onChange({ ...value, periodType: 'custom', specificFY: '' })
-    } else if (val.startsWith('FY')) {
-      onChange({ ...value, periodType: 'specific_fy', specificFY: val })
-    }
-  }
-
-  const selectedSelectValue = value.periodType === 'specific_fy'
-    ? value.specificFY
-    : value.periodType
+  const previousFY = useMemo(() => getPreviousFY(normCurrentFY), [normCurrentFY])
 
   const currentMonthLabel = useMemo(() => {
     const now = new Date()
     return now.toLocaleString('en-IN', { month: 'short', year: 'numeric' })
   }, [])
 
+  const previousMonthLabel = useMemo(() => {
+    const now = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return prev.toLocaleString('en-IN', { month: 'short', year: 'numeric' })
+  }, [])
+
+  const handlePeriodSelect = (val: string) => {
+    onChange({ ...value, periodType: val as PeriodType })
+  }
+
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       <div className="flex items-center gap-1.5 bg-background border rounded-md px-2.5 py-1 text-sm shadow-sm">
         <Calendar className="text-muted-foreground w-4 h-4 shrink-0" />
         <span className="text-xs font-medium text-muted-foreground hidden sm:inline">Period:</span>
-        <Select value={selectedSelectValue} onValueChange={handlePeriodSelect}>
-          <SelectTrigger className="h-7 border-0 bg-transparent p-0 text-xs font-medium focus:ring-0 min-w-[140px] focus:outline-none">
+        <Select value={value.periodType} onValueChange={handlePeriodSelect}>
+          <SelectTrigger className="h-7 border-0 bg-transparent p-0 text-xs font-medium focus:ring-0 min-w-[160px] focus:outline-none">
             <SelectValue placeholder="Select Period" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="current_fy">Current FY ({normCurrentFY})</SelectItem>
             <SelectItem value="current_month">Current Month ({currentMonthLabel})</SelectItem>
-            <SelectItem value="all_time">All Time (Historical)</SelectItem>
-            {allFYs.filter(fy => fy !== normCurrentFY).map(fy => (
-              <SelectItem key={fy} value={fy}>Previous Year ({fy})</SelectItem>
-            ))}
+            <SelectItem value="previous_month">Previous Month ({previousMonthLabel})</SelectItem>
+            <SelectItem value="current_fy">Current FY ({normCurrentFY})</SelectItem>
+            <SelectItem value="previous_fy">Previous FY ({previousFY})</SelectItem>
             <SelectItem value="custom">Custom Date Range</SelectItem>
           </SelectContent>
         </Select>
@@ -120,26 +114,24 @@ export function isRecordInPeriod(
   currentFYSetting?: string
 ): boolean {
   if (!filterState) return true
-  const { periodType, specificFY, fromDate, toDate } = filterState
+  const { periodType, fromDate, toDate } = filterState
 
-  if (periodType === 'all_time') return true
+  const currentFYNorm = currentFYSetting
+    ? (currentFYSetting.startsWith('FY') ? currentFYSetting : `FY${currentFYSetting}`)
+    : 'FY2026-27'
 
   const computedFY = recordDate ? getFYFromDate(recordDate) : ''
   const normRecordFY = recordFY
     ? (recordFY.startsWith('FY') ? recordFY : `FY${recordFY}`)
     : computedFY
 
-  const currentFYNorm = currentFYSetting
-    ? (currentFYSetting.startsWith('FY') ? currentFYSetting : `FY${currentFYSetting}`)
-    : 'FY2026-27'
-
   if (periodType === 'current_fy') {
     return normRecordFY === currentFYNorm || computedFY === currentFYNorm
   }
 
-  if (periodType === 'specific_fy') {
-    const targetFY = specificFY.startsWith('FY') ? specificFY : `FY${specificFY}`
-    return normRecordFY === targetFY || computedFY === targetFY
+  if (periodType === 'previous_fy') {
+    const prevFY = getPreviousFY(currentFYNorm)
+    return normRecordFY === prevFY || computedFY === prevFY
   }
 
   if (periodType === 'current_month') {
@@ -149,6 +141,17 @@ export function isRecordInPeriod(
     return (
       recordD.getFullYear() === now.getFullYear() &&
       recordD.getMonth() === now.getMonth()
+    )
+  }
+
+  if (periodType === 'previous_month') {
+    if (!recordDate) return false
+    const now = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const recordD = new Date(recordDate)
+    return (
+      recordD.getFullYear() === prev.getFullYear() &&
+      recordD.getMonth() === prev.getMonth()
     )
   }
 
