@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
+import { toBaseQuantity } from '@/lib/unit-conversion-service'
 import { PurchaseInvoice, Payment, Supplier, Item, FixedScheme, ReceivedDiscount, ExpenseEntry, MTBooking } from '@/lib/types'
 import { FileText, Package, Calculator, ArrowLeft, DownloadSimple } from '@phosphor-icons/react'
 
@@ -82,12 +83,9 @@ export function PurchaseInvoiceDetailsView({
     // Base Weight in KG
     const totalInvoiceWeightKG = (invoice.items || []).reduce((sum, item) => {
       const itemData = itemMap.get(item.itemId)
-      const baseQty = item.entryQuantity || item.quantityMT || 0
-      const unitWeight = item.weightKG && baseQty > 0
-        ? item.weightKG / baseQty
-        : (itemData?.conversionFactor || (item.entryUnit === 'MT' || itemData?.unit === 'MT' ? 1000 : 1))
-      const itemWeight = item.weightKG || (baseQty * unitWeight)
-      return sum + itemWeight
+      const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit)
+      const factor = itemData?.unit === 'MT' ? 1000 : 1
+      return sum + (baseQty * factor)
     }, 0)
 
     // Per item cost breakdowns
@@ -99,12 +97,12 @@ export function PurchaseInvoiceDetailsView({
       const activeQuantity = active.qty
       const displayQtyUnit = active.displayQtyUnit
 
-      const baseQty = item.entryQuantity || item.quantityMT || 1
-      const totalItemAmount = item.amount || ((item.rate || 0) * baseQty)
+      const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit) || activeQuantity || 1
+      const totalItemAmount = item.amount || ((item.rate || 0) * (item.entryQuantity || item.quantityMT || 1))
       const pricePerUnit = activeQuantity > 0 ? totalItemAmount / activeQuantity : (item.rate || 0)
 
-      const itemWeightKG = item.weightKG || (item.quantityMT ? item.quantityMT * 1000 : 0) || (activeQuantity * (itemData?.conversionFactor || 1))
-      const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : 0
+      const itemWeightKG = baseQty * (itemData?.unit === 'MT' ? 1000 : 1)
+      const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : (1 / (invoice.items?.length || 1))
 
       const itemFixedDiscTotal = fixedSchemeTotal * weightShare
       const itemPaymentCDTotal = paymentCDTotal * weightShare

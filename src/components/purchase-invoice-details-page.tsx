@@ -28,6 +28,7 @@ import {
 } from '@/lib/types'
 import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths, getFYFromDate } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
+import { toBaseQuantity } from '@/lib/unit-conversion-service'
 import { FileText, Calendar, Package, CurrencyDollar, CreditCard, TrendDown, Calculator, CaretDown, Check } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -223,12 +224,9 @@ export default function PurchaseInvoiceDetailsPage({
         // Calculate total Base Weight in KG for all items in the invoice
         const totalInvoiceWeightKG = (invoice.items || []).reduce((sum, item) => {
           const itemData = itemMap.get(item.itemId)
-          const activeUnit = itemData?.unit || 'MT'
-          const unitWeightKG = item.weightKG && item.quantityMT > 0
-            ? item.weightKG / item.quantityMT
-            : (itemData?.conversionFactor || (activeUnit === 'MT' ? 1000 : 1))
-          const itemWeight = item.weightKG || (item.quantityMT * unitWeightKG)
-          return sum + itemWeight
+          const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit)
+          const factor = itemData?.unit === 'MT' ? 1000 : 1
+          return sum + (baseQty * factor)
         }, 0)
 
         const cdPerMT = invoice.quantityMT > 0 ? totalCDEarned / invoice.quantityMT : 0
@@ -239,12 +237,12 @@ export default function PurchaseInvoiceDetailsPage({
           fixedSchemePerMT: invoice.quantityMT > 0 ? fixedSchemeTotal / invoice.quantityMT : 0,
           totalCDPerMT: cdPerMT
         }
-
         const annualDiscountPerMT = supplier.annualTarget?.ratePerMT || 0
 
         // Per KG allocation rates
         const expenseRatePerKG = totalInvoiceWeightKG > 0 ? totalLinkedExpense / totalInvoiceWeightKG : 0
         const addCostRatePerKG = totalInvoiceWeightKG > 0 ? totalAdditionalCost / totalInvoiceWeightKG : 0
+
         const fixedDiscRatePerKG = totalInvoiceWeightKG > 0 ? fixedSchemeTotal / totalInvoiceWeightKG : 0
         const paymentCDRatePerKG = totalInvoiceWeightKG > 0 ? paymentCDTotal / totalInvoiceWeightKG : 0
         const closeCDRatePerKG = totalInvoiceWeightKG > 0 ? invoiceCloseCDTotal / totalInvoiceWeightKG : 0
@@ -258,12 +256,12 @@ export default function PurchaseInvoiceDetailsPage({
           const activeQuantity = active.qty
           const displayQtyUnit = active.displayQtyUnit
 
-          const baseQty = item.entryQuantity || item.quantityMT || 1
-          const totalItemAmount = item.amount || ((item.rate || 0) * baseQty)
+          const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit) || activeQuantity || 1
+          const totalItemAmount = item.amount || ((item.rate || 0) * (item.entryQuantity || item.quantityMT || 1))
           const pricePerUnit = activeQuantity > 0 ? totalItemAmount / activeQuantity : (item.rate || 0)
 
-          const itemWeightKG = item.weightKG || (item.quantityMT ? item.quantityMT * 1000 : 0) || (activeQuantity * (itemData?.conversionFactor || 1))
-          const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : 0
+          const itemWeightKG = baseQty * (itemData?.unit === 'MT' ? 1000 : 1)
+          const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : (1 / (invoice.items?.length || 1))
 
           const itemFixedDiscTotal = fixedSchemeTotal * weightShare
           const itemPaymentCDTotal = paymentCDTotal * weightShare
