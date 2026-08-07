@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { PurchaseInvoice, Supplier, Item, InvoiceItem, Payment, SalesInvoice, PurchaseReturn, SalesReturn, FixedScheme, ReceivedDiscount, ExpenseEntry, ExpenseType, MTBooking } from '@/lib/types'
 import { calculateItemStockMap } from '@/lib/report-calculations'
-import { normalizeLineItem } from '@/lib/unit-conversion-service'
+import { normalizeLineItem, getItemConversionFactor } from '@/lib/unit-conversion-service'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -1174,9 +1174,10 @@ export default function InvoicesPage({
                             </div>
                             {(() => {
                               const sel = items.find(i => i.id === invoiceItem.itemId)
-                              if (sel && invoiceItem.entryUnit && invoiceItem.entryUnit !== sel.unit && sel.conversionFactor) {
-                                const baseQty = (invoiceItem.entryQuantity || 0) * sel.conversionFactor
-                                const baseRate = (invoiceItem.rate || 0) / sel.conversionFactor
+                              if (sel && invoiceItem.entryUnit && invoiceItem.entryUnit !== sel.unit) {
+                                const factor = getItemConversionFactor(sel, invoiceItem.entryUnit)
+                                const baseQty = (invoiceItem.entryQuantity || 0) * factor
+                                const baseRate = factor > 0 ? (invoiceItem.rate || 0) / factor : 0
                                 return (
                                   <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded text-right">
                                     Base: {baseQty.toLocaleString('en-IN')} {sel.unit} (@ ₹{baseRate.toFixed(2)}/{sel.unit})

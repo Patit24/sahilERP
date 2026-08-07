@@ -3,7 +3,7 @@ import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecord
 import { SalesInvoice, Customer, Item, InvoiceItem, CustomerPayment, PurchaseInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
 import { buildPurchaseLayers, allocateSalesFIFO } from '@/lib/fifo-engine'
 import { calculateItemStockMap } from '@/lib/report-calculations'
-import { normalizeLineItem } from '@/lib/unit-conversion-service'
+import { normalizeLineItem, getItemConversionFactor } from '@/lib/unit-conversion-service'
 import { Counter, CashBankTransaction } from '@/lib/cash-bank-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -1046,9 +1046,10 @@ export default function SalesInvoicesPage({
                                        </div>
                                        {(() => {
                                          const sel = items.find(i => i.id === item.itemId)
-                                         if (sel && item.entryUnit && item.entryUnit !== sel.unit && sel.conversionFactor) {
-                                           const baseQty = (item.entryQuantity || 0) * sel.conversionFactor
-                                           const baseRate = (item.rate || 0) / sel.conversionFactor
+                                         if (sel && item.entryUnit && item.entryUnit !== sel.unit) {
+                                           const factor = getItemConversionFactor(sel, item.entryUnit)
+                                            const baseQty = (item.entryQuantity || 0) * factor
+                                           const baseRate = factor > 0 ? (item.rate || 0) / factor : 0
                                            return (
                                              <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded text-right">
                                                Base: {baseQty.toLocaleString('en-IN')} {sel.unit} (@ ₹{baseRate.toFixed(2)}/{sel.unit})
