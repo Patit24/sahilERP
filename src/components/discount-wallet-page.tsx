@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ReceivedDiscount, Supplier, PurchaseInvoice, Payment, DiscountCategory, FixedScheme, PendingDiscount, ExpectedAnnualDiscount, PendingAnnualDiscount, MTBooking } from '@/lib/types'
+import { ReceivedDiscount, Supplier, PurchaseInvoice, Payment, DiscountCategory, FixedScheme, PendingDiscount, ExpectedAnnualDiscount, PendingAnnualDiscount, MTBooking, Item } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -43,6 +43,7 @@ interface DiscountWalletPageProps {
   setReceivedDiscounts?: (updater: (prev: ReceivedDiscount[]) => ReceivedDiscount[]) => void
   fixedSchemes?: FixedScheme[]
   mtBookings?: MTBooking[]
+  items?: Item[]
   currentFY: string
   businessName?: string
   isLocked?: boolean
@@ -60,6 +61,7 @@ export default function DiscountWalletPage({
   setReceivedDiscounts,
   fixedSchemes = [],
   mtBookings = [],
+  items = [],
   currentFY,
   businessName,
   isLocked = false
@@ -125,8 +127,8 @@ export default function DiscountWalletPage({
   )
 
   const expectedDiscounts = useMemo(() => 
-    calculateExpectedDiscounts(fyInvoices, fyPayments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings),
-    [fyInvoices, fyPayments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings]
+    calculateExpectedDiscounts(fyInvoices, fyPayments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items),
+    [fyInvoices, fyPayments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items]
   )
 
   const expectedAnnual = useMemo(() => 

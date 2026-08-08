@@ -118,6 +118,7 @@ export interface FixedScheme {
 export interface AnnualTarget {
   targetMT: number
   ratePerMT: number
+  unit?: string
 }
 
 export interface Customer {
@@ -354,6 +355,7 @@ export interface MTBooking {
   orderDate: string
   consumeStartDate: string
   bookedMT: number
+  unit?: string
   notes?: string
   fy: string
   rateMode: 'auto' | 'manual'

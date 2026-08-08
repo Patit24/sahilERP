@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Supplier, PaymentCDRule, InvoiceCloseCDRule } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tag, Trash, Info, Percent, Clock, Gear, CaretDown, CaretRight } from '@phosphor-icons/react'
 import { formatCurrency } from '@/lib/calculations'
+import { getAvailableUnits } from '@/lib/custom-data-store'
 import { toast } from 'sonner'
 
 interface SupplierCDRulesPageProps {
@@ -18,18 +19,15 @@ interface SupplierCDRulesPageProps {
   isLocked?: boolean
 }
 
-const availableUnits = [
-  { value: 'MT', label: 'MT' },
-  { value: 'PCS', label: 'PCS' },
-  { value: 'BOX', label: 'BOX' },
-  { value: 'PKT', label: 'PKT' },
-  { value: 'BTL', label: 'BTL' },
-  { value: 'JAR', label: 'JAR' },
-  { value: 'TIN', label: 'TIN' },
-  { value: 'KG', label: 'KG' },
-]
-
 export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked }: SupplierCDRulesPageProps) {
+  const [availableUnits, setAvailableUnits] = useState(() => getAvailableUnits())
+
+  useEffect(() => {
+    const syncUnits = () => setAvailableUnits(getAvailableUnits())
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => window.removeEventListener('custom-units-updated', syncUnits)
+  }, [])
+
   // DO NOT auto-select supplier! Start empty until user selects a supplier
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
 
@@ -68,6 +66,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
   // Draft form states for Annual Target modal (FRESH START)
   const [draftTargetMT, setDraftTargetMT] = useState<string>('')
   const [draftTargetRate, setDraftTargetRate] = useState<string>('')
+  const [draftTargetUnit, setDraftTargetUnit] = useState<string>('MT')
   const [targetChangeReason, setTargetChangeReason] = useState<string>('')
 
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId)
@@ -102,8 +101,9 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
   const openEditTargetModal = () => {
     if (!selectedSupplier) return
     setTargetEffectiveDate(new Date().toISOString().split('T')[0])
-    setDraftTargetMT('')
-    setDraftTargetRate('')
+    setDraftTargetMT(selectedSupplier.annualTarget?.targetMT?.toString() || '')
+    setDraftTargetRate(selectedSupplier.annualTarget?.ratePerMT?.toString() || '')
+    setDraftTargetUnit(selectedSupplier.annualTarget?.unit || 'MT')
     setTargetChangeReason('')
     setEditTargetModalOpen(true)
   }
@@ -278,7 +278,8 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
     if (!selectedSupplier) return
     const mt = parseFloat(draftTargetMT) || 0
     const rate = parseFloat(draftTargetRate) || 0
-    const annualTarget = (mt > 0 || rate > 0) ? { targetMT: mt, ratePerMT: rate } : undefined
+    const unit = draftTargetUnit || 'MT'
+    const annualTarget = (mt > 0 || rate > 0) ? { targetMT: mt, ratePerMT: rate, unit } : undefined
 
     const currentVersions = selectedSupplier.cdRuleVersions || []
     const newVersionNumber = currentVersions.length + 1
@@ -525,13 +526,13 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
               <div>
                 <div className="text-slate-400 font-semibold uppercase text-[10px]">Target Volume</div>
                 <div className="font-mono font-extrabold text-slate-900 text-base mt-0.5">
-                  {selectedSupplier.annualTarget?.targetMT !== undefined ? `${selectedSupplier.annualTarget.targetMT} MT` : 'Not configured'}
+                  {selectedSupplier.annualTarget?.targetMT !== undefined ? `${selectedSupplier.annualTarget.targetMT} ${selectedSupplier.annualTarget?.unit || 'MT'}` : 'Not configured'}
                 </div>
               </div>
               <div>
                 <div className="text-slate-400 font-semibold uppercase text-[10px]">Rate / UNIT</div>
                 <div className="font-mono font-extrabold text-emerald-700 text-base mt-0.5">
-                  {selectedSupplier.annualTarget?.ratePerMT !== undefined ? `${formatCurrency(selectedSupplier.annualTarget.ratePerMT)} / MT` : 'Not configured'}
+                  {selectedSupplier.annualTarget?.ratePerMT !== undefined ? `${formatCurrency(selectedSupplier.annualTarget.ratePerMT)} / ${selectedSupplier.annualTarget?.unit || 'MT'}` : 'Not configured'}
                 </div>
               </div>
             </div>
@@ -796,7 +797,20 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-700">Target Volume (MT)</Label>
+              <Label className="text-xs font-bold text-slate-700">Target Unit *</Label>
+              <select
+                value={draftTargetUnit}
+                onChange={(e) => setDraftTargetUnit(e.target.value)}
+                className="h-9 w-full text-xs rounded-md border border-input bg-white px-2 font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {availableUnits.map((u) => (
+                  <option key={u.value} value={u.value}>{u.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-700">Target Volume ({draftTargetUnit})</Label>
               <Input
                 type="number"
                 step="any"
@@ -808,7 +822,7 @@ export default function SupplierCDRulesPage({ suppliers, setSuppliers, isLocked 
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-700">Target Rate per MT (₹)</Label>
+              <Label className="text-xs font-bold text-slate-700">Target Rate per {draftTargetUnit} (₹)</Label>
               <Input
                 type="number"
                 step="any"

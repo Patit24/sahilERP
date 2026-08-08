@@ -4,8 +4,8 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "vite",
-        "kill": "fuser -k 5000/tcp",
+        "dev": "vite --port 3000",
+        "kill": "fuser -k 3000/tcp",
         "build": "tsc -b --noCheck && vite build",
         "test": "vitest run",
         "lint": "eslint .",

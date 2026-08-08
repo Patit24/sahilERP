@@ -60,6 +60,20 @@ import {
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import CDExpiryAlert from '@/components/cd-expiry-alert'
 
+function formatUnitSummary(volumeMap: Record<string, number>, maxUnits: number = 2): string {
+  if (!volumeMap) return ''
+  const entries = Object.entries(volumeMap).filter(([_, qty]) => (Number(qty) || 0) > 0)
+  if (entries.length === 0) return '0 items in stock'
+
+  const formatted = entries.map(([unit, qty]) => `${(Number(qty) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unit}`)
+  if (formatted.length <= maxUnits) {
+    return formatted.join(' • ')
+  }
+  const topUnits = formatted.slice(0, maxUnits).join(' • ')
+  const remaining = formatted.length - maxUnits
+  return `${topUnits} (+${remaining} more)`
+}
+
 interface MasterDashboardPageProps {
   currentUser?: any
   cashBankCounters?: any[]
@@ -132,9 +146,10 @@ export default function MasterDashboardPage({
       paymentAdvanceInfo,
       suppliers,
       fixedSchemes,
-      mtBookings
+      mtBookings,
+      items
     )
-  }, [purchaseInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings])
+  }, [purchaseInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items])
 
   const expectedAnnual = useMemo(() => {
     return calculateExpectedAnnualDiscounts(purchaseInvoices, suppliers)
@@ -526,18 +541,9 @@ export default function MasterDashboardPage({
               formatFn={formatCurrency}
               className="text-2xl font-extrabold text-slate-900 tracking-tight"
             />
-            <div className="text-[11px] text-slate-500 font-medium mt-1 space-y-0.5">
-              {Object.keys(stockSummary).length > 0 ? (
-                Object.entries(stockSummary).map(([unit, qty]) => (
-                  <div key={unit}>{(Number(qty) || 0).toFixed(3)} {unit}</div>
-                ))
-              ) : (
-                <>
-                  <div>9000.000 KG</div>
-                  <div>1475.000 PCS</div>
-                </>
-              )}
-            </div>
+            <p className="text-[11px] text-slate-500 font-semibold mt-1 truncate">
+              {formatUnitSummary(stockSummary)}
+            </p>
           </div>
           <Sparkline color="#2563EB" />
         </AnimatedCard>
@@ -606,12 +612,9 @@ export default function MasterDashboardPage({
               formatFn={formatCurrency}
               className="text-2xl font-extrabold text-slate-900 tracking-tight"
             />
-            <div className="text-[11px] text-slate-400 font-medium mt-1 space-y-0.5">
-              <div>{salesInvoices.length} Invoices</div>
-              {Object.entries(salesVolumeByUnit).map(([unit, qty]) => (
-                <div key={unit}>{(Number(qty) || 0).toFixed(3)} {unit}</div>
-              ))}
-            </div>
+            <p className="text-[11px] text-slate-400 font-medium mt-1 truncate">
+              {salesInvoices.length} Invoices{formatUnitSummary(salesVolumeByUnit, 1) !== '0 items in stock' && formatUnitSummary(salesVolumeByUnit, 1) ? ` • ${formatUnitSummary(salesVolumeByUnit, 1)}` : ''}
+            </p>
           </div>
         </AnimatedCard>
 
@@ -632,12 +635,9 @@ export default function MasterDashboardPage({
               formatFn={formatCurrency}
               className="text-2xl font-extrabold text-slate-900 tracking-tight"
             />
-            <div className="text-[11px] text-slate-400 font-medium mt-1 space-y-0.5">
-              <div>{purchaseInvoices.length} Invoices</div>
-              {Object.entries(purchaseVolumeByUnit).map(([unit, qty]) => (
-                <div key={unit}>{(Number(qty) || 0).toFixed(3)} {unit}</div>
-              ))}
-            </div>
+            <p className="text-[11px] text-slate-400 font-medium mt-1 truncate">
+              {purchaseInvoices.length} Invoices{formatUnitSummary(purchaseVolumeByUnit, 1) !== '0 items in stock' && formatUnitSummary(purchaseVolumeByUnit, 1) ? ` • ${formatUnitSummary(purchaseVolumeByUnit, 1)}` : ''}
+            </p>
           </div>
         </AnimatedCard>
 
@@ -907,8 +907,8 @@ export default function MasterDashboardPage({
                             style={{ width: `${Math.max(pct, isFast ? 0 : 5)}%`, backgroundColor: rankColor }}
                           />
                         </div>
-                        <span className="text-[10px] text-slate-400 font-medium shrink-0">
-                          {(Number(item.balanceMT) || 0).toFixed(2)} stk
+                        <span className="text-[10px] text-slate-500 font-semibold shrink-0">
+                          Bal: {(Number(item.balanceMT) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} {item.unit || ''}
                         </span>
                       </div>
                     </div>

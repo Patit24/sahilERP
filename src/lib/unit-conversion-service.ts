@@ -153,47 +153,152 @@ export function normalizeLineItem(
 }
 
 /**
- * Calculates total quantity of a Purchase Invoice converted into the target unit (e.g. 'MT' or 'KG').
+ * Helper to identify container (larger) vs piece (smaller) units.
+ */
+function isPieceUnit(unit?: string): boolean {
+  if (!unit) return false
+  const u = unit.toUpperCase()
+  return u === 'BTL' || u === 'PCS' || u === 'NOS' || u === 'UNIT' || u === 'ITEM' || u === 'KG' || u === 'GM'
+}
+
+function isContainerUnit(unit?: string): boolean {
+  if (!unit) return false
+  const u = unit.toUpperCase()
+  return u === 'BUNDLE' || u === 'BOX' || u === 'PKT' || u === 'CARTON' || u === 'BAG' || u === 'MT' || u === 'QTL' || u === 'PALLET' || u === 'CONTAINER'
+}
+
+/**
+ * Evaluates whether a source unit can be converted to a target unit for a given item definition.
+ * Enforces strict unit compatibility validation across fixed schemes and discount engines.
+ */
+export function isUnitCompatible(
+  item: Item | null | undefined,
+  fromUnit?: string,
+  toUnit?: string
+): boolean {
+  if (!toUnit || toUnit.trim() === '' || toUnit.toUpperCase() === 'ALL' || toUnit.toUpperCase() === 'ANY') {
+    return true
+  }
+
+  const srcUnit = (fromUnit || item?.unit || '').toUpperCase()
+  const tgtUnit = toUnit.toUpperCase()
+
+  if (!srcUnit) return false
+  if (srcUnit === tgtUnit) return true
+
+  // Standard MT <-> KG compatibility
+  if ((srcUnit === 'MT' || srcUnit === 'KG') && (tgtUnit === 'MT' || tgtUnit === 'KG')) {
+    return true
+  }
+
+  if (item) {
+    const primUnit = (item.unit || '').toUpperCase()
+    const altUnit = (item.alternativeUnit || '').toUpperCase()
+
+    // Check if target matches primary or alternate unit of item
+    const targetMatches = (tgtUnit === primUnit) || (altUnit !== '' && altUnit !== 'NONE' && tgtUnit === altUnit)
+    const sourceMatches = (srcUnit === primUnit) || (altUnit !== '' && altUnit !== 'NONE' && srcUnit === altUnit) ||
+      ((srcUnit === 'MT' || srcUnit === 'KG') && (primUnit === 'MT' || primUnit === 'KG' || altUnit === 'MT' || altUnit === 'KG'))
+
+    if (targetMatches && sourceMatches) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Converts quantity of an item from a source unit to a target unit using item's conversion factor.
+ * Returns 0 if units are incompatible.
+ */
+export function convertItemQuantity(
+  item: Item | null | undefined,
+  quantity: number = 0,
+  fromUnit?: string,
+  toUnit?: string
+): number {
+  if (!quantity || quantity <= 0) return 0
+
+  // STRICT UNIT COMPATIBILITY CHECK: Zero eligibility on complete unit mismatch
+  if (!isUnitCompatible(item, fromUnit, toUnit)) {
+    return 0
+  }
+
+  const srcUnit = (fromUnit || item?.unit || 'KG').toUpperCase()
+  const tgtUnit = (toUnit || item?.unit || 'KG').toUpperCase()
+
+  if (srcUnit === tgtUnit) return quantity
+
+  // Standard MT <-> KG handling
+  if (srcUnit === 'MT' && tgtUnit === 'KG') {
+    const factor = (item?.conversionFactor && item.conversionFactor > 1) ? item.conversionFactor : 1000
+    return quantity * factor
+  }
+  if (srcUnit === 'KG' && tgtUnit === 'MT') {
+    const factor = (item?.conversionFactor && item.conversionFactor > 1) ? item.conversionFactor : 1000
+    return factor > 0 ? quantity / factor : quantity
+  }
+
+  if (!item) return quantity
+
+  const primUnit = (item.unit || 'KG').toUpperCase()
+  const altUnit = (item.alternativeUnit || '').toUpperCase()
+  const factor = item.conversionFactor && item.conversionFactor > 0 ? item.conversionFactor : 1
+
+  if (factor === 1 && srcUnit !== tgtUnit) {
+    return quantity
+  }
+
+  if ((srcUnit === primUnit && tgtUnit === altUnit) || (srcUnit === altUnit && tgtUnit === primUnit)) {
+    if (isContainerUnit(primUnit) && isPieceUnit(altUnit)) {
+      if (srcUnit === primUnit && tgtUnit === altUnit) return quantity * factor
+      if (srcUnit === altUnit && tgtUnit === primUnit) return factor > 0 ? quantity / factor : quantity
+    } else {
+      if (srcUnit === altUnit && tgtUnit === primUnit) return quantity * factor
+      if (srcUnit === primUnit && tgtUnit === altUnit) return factor > 0 ? quantity / factor : quantity
+    }
+  }
+
+  const baseQty = toBaseQuantity(item, quantity, srcUnit)
+  return fromBaseQuantity(item, baseQty, tgtUnit)
+}
+
+/**
+ * Calculates total quantity of a Purchase Invoice converted into the target unit (e.g. 'MT' or 'KG' or 'BTL' or 'PCS').
  * Uses Base Quantity normalization as single source of truth so purchases in KG, MT, BAG, BOX earn correct scheme discounts.
+ * Incompatible line items return 0 quantity for that target unit.
  */
 export function getInvoiceQtyForUnit(
   inv: { items?: any[]; quantityMT?: number },
   targetUnit: string = 'MT',
-  itemMap?: Map<string, Item>
+  itemMap?: Map<string, Item> | Item[]
 ): number {
   const target = (targetUnit || 'MT').toUpperCase()
+  const map = itemMap instanceof Map
+    ? itemMap
+    : (Array.isArray(itemMap) ? new Map(itemMap.map(i => [i.id, i])) : undefined)
 
   if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
     let totalQty = 0
     inv.items.forEach(invItem => {
-      const itemDef = itemMap?.get(invItem.itemId)
+      const itemDef = map?.get(invItem.itemId)
       const primaryUnit = (itemDef?.unit || 'KG').toUpperCase()
-      const enteredUnit = (invItem.entryUnit || primaryUnit).toUpperCase()
+      const enteredUnit = (invItem.entryUnit || invItem.enteredUnit || primaryUnit).toUpperCase()
       const rawQty = (invItem.entryQuantity !== undefined && invItem.entryQuantity !== null && invItem.entryQuantity > 0)
         ? invItem.entryQuantity
-        : (invItem.quantityMT || 0)
+        : ((invItem.enteredQuantity !== undefined && invItem.enteredQuantity !== null && invItem.enteredQuantity > 0)
+          ? invItem.enteredQuantity
+          : (invItem.quantityMT || 0))
 
-      const baseQty = invItem.baseQuantity || toBaseQuantity(itemDef, rawQty, enteredUnit)
-
-      if (target === 'MT') {
-        const factor = primaryUnit === 'KG' ? 1000 : (itemDef?.conversionFactor || 1)
-        totalQty += factor > 0 ? baseQty / factor : baseQty
-      } else if (target === 'KG') {
-        const factor = primaryUnit === 'MT' ? 1000 : 1
-        totalQty += baseQty * factor
-      } else if (target === primaryUnit) {
-        totalQty += baseQty
-      } else if (itemDef) {
-        totalQty += fromBaseQuantity(itemDef, baseQty, target)
-      } else {
-        totalQty += rawQty
-      }
+      totalQty += convertItemQuantity(itemDef, rawQty, enteredUnit, target)
     })
     return totalQty
   }
 
   // Fallback if no items array
   const rawMT = inv.quantityMT || 0
+  if (target === 'ALL' || target === 'ANY' || target === 'MT') return rawMT
   if (target === 'KG') return rawMT * 1000
-  return rawMT
+  return 0
 }

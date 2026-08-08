@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts } from '@/lib/calculations'
+import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, calculateDetailedPurchaseInvoiceBreakdown } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
 import { toBaseQuantity } from '@/lib/unit-conversion-service'
 import { PurchaseInvoice, Payment, Supplier, Item, FixedScheme, ReceivedDiscount, ExpenseEntry, MTBooking } from '@/lib/types'
@@ -52,109 +52,20 @@ export function PurchaseInvoiceDetailsView({
   )
 
   const expectedDiscounts = useMemo(
-    () => calculateExpectedDiscounts(allInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings),
-    [allInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings]
+    () => calculateExpectedDiscounts(allInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items),
+    [allInvoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items]
   )
 
   const details = useMemo(() => {
-    const invAllocations = paymentAllocations.filter(a => a.invoiceId === invoice.id)
-    const paidAmount = invAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
-    const pendingAmount = Math.max(0, invoice.invoiceAmount - paidAmount)
-
-    const status = pendingAmount === 0 ? 'Closed' : paidAmount > 0 ? 'Partially Paid' : 'Open'
-
-    const invoiceDiscounts = expectedDiscounts.filter(ed => ed.invoiceId === invoice.id)
-    const paymentCDTotal = invoiceDiscounts
-      .filter(ed => ed.type === 'paymentCD' || ed.type === 'advanceCD')
-      .reduce((sum, ed) => sum + ed.expectedAmount, 0)
-    const closeCDTotal = invoiceDiscounts
-      .filter(ed => ed.type === 'invoiceCloseCD')
-      .reduce((sum, ed) => sum + ed.expectedAmount, 0)
-    const fixedSchemeTotal = invoiceDiscounts
-      .filter(ed => ed.type === 'fixedScheme')
-      .reduce((sum, ed) => sum + ed.expectedAmount, 0)
-
-    const totalCDEarned = paymentCDTotal + closeCDTotal + fixedSchemeTotal
-
-    const linkedExpenses = expenseEntries.filter(exp => exp.linkedInvoiceId === invoice.id)
-    const totalLinkedExpense = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0)
-    const totalAdditionalCost = invoice.additionalCost || 0
-
-    // Base Weight in KG
-    const totalInvoiceWeightKG = (invoice.items || []).reduce((sum, item) => {
-      const itemData = itemMap.get(item.itemId)
-      const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit)
-      const factor = itemData?.unit === 'MT' ? 1000 : 1
-      return sum + (baseQty * factor)
-    }, 0)
-
-    // Per item cost breakdowns
-    const itemCostBreakdowns = (invoice.items || []).map(item => {
-      const itemData = itemMap.get(item.itemId)
-      const active = getItemActiveUnitAndQty(itemData, item.entryUnit, item.entryQuantity, item.quantityMT, item.weightKG)
-
-      const activeUnit = active.unit
-      const activeQuantity = active.qty
-      const displayQtyUnit = active.displayQtyUnit
-
-      const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit) || activeQuantity || 1
-      const totalItemAmount = item.amount || ((item.rate || 0) * (item.entryQuantity || item.quantityMT || 1))
-      const pricePerUnit = activeQuantity > 0 ? totalItemAmount / activeQuantity : (item.rate || 0)
-
-      const itemWeightKG = baseQty * (itemData?.unit === 'MT' ? 1000 : 1)
-      const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : (1 / (invoice.items?.length || 1))
-
-      const itemFixedDiscTotal = fixedSchemeTotal * weightShare
-      const itemPaymentCDTotal = paymentCDTotal * weightShare
-      const itemCloseCDTotal = closeCDTotal * weightShare
-      const itemTotalCDTotal = totalCDEarned * weightShare
-
-      const itemExpenseTotal = totalLinkedExpense * weightShare
-      const itemAddCostTotal = totalAdditionalCost * weightShare
-
-      const fixedDiscPerUnit = activeQuantity > 0 ? itemFixedDiscTotal / activeQuantity : 0
-      const paymentCDPerUnit = activeQuantity > 0 ? itemPaymentCDTotal / activeQuantity : 0
-      const invoiceCloseCDPerUnit = activeQuantity > 0 ? itemCloseCDTotal / activeQuantity : 0
-      const totalCDPerUnit = activeQuantity > 0 ? itemTotalCDTotal / activeQuantity : 0
-
-      const expensePerUnit = activeQuantity > 0 ? itemExpenseTotal / activeQuantity : 0
-      const additionalCostPerUnit = activeQuantity > 0 ? itemAddCostTotal / activeQuantity : 0
-
-      const costPerUnit = pricePerUnit - totalCDPerUnit + expensePerUnit + additionalCostPerUnit
-
-      return {
-        itemId: item.itemId,
-        itemName: itemData?.name || 'Unknown Item',
-        activeUnit,
-        activeQuantity,
-        displayQtyUnit,
-        pricePerUnit,
-        fixedDiscPerUnit,
-        paymentCDPerUnit,
-        invoiceCloseCDPerUnit,
-        totalCDPerUnit,
-        expensePerUnit,
-        additionalCostPerUnit,
-        costPerUnit
-      }
-    })
-
-    const fixedSchemeDiscounts = invoiceDiscounts.filter(ed => ed.type === 'fixedScheme')
-
-    return {
-      paidAmount,
-      pendingAmount,
-      status,
-      paymentCDTotal,
-      closeCDTotal,
-      fixedSchemeTotal,
-      fixedSchemeDiscounts,
-      totalCDEarned,
-      totalLinkedExpense,
-      totalAdditionalCost,
-      itemCostBreakdowns
-    }
-  }, [invoice, paymentAllocations, expectedDiscounts, expenseEntries, itemMap])
+    return calculateDetailedPurchaseInvoiceBreakdown(
+      invoice,
+      paymentAllocations,
+      expectedDiscounts,
+      expenseEntries,
+      supplier,
+      itemMap
+    )
+  }, [invoice, paymentAllocations, expectedDiscounts, expenseEntries, supplier, itemMap])
 
   return (
     <div className="space-y-6 pb-12">

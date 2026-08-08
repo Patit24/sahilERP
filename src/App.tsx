@@ -218,7 +218,7 @@ import CustomerLedgerPage from '@/components/customer-ledger-page'
 import ExpenseTypesPage from '@/components/expense-types-page'
 import ExpenseEntriesPage from '@/components/expense-entries-page'
 import FixedSchemesPage from '@/components/fixed-schemes-page'
-import MTBookingsPage from '@/components/pages/MTBookingsPage'
+import MTBookingsPage from '@/components/mt-bookings-page'
 import InventoryReportPage from '@/components/inventory-report-page'
 import CDAtRiskReportPage from '@/components/cd-at-risk-report-page'
 import CDProfitReportsPage from '@/components/cd-profit-reports-page'
@@ -2234,6 +2234,7 @@ function App() {
               suppliers={safeSuppliers}
               fixedSchemes={safeFixedSchemes}
               invoices={safeInvoices}
+              items={safeItems}
               currentFY={safeCurrentFY}
               isLocked={isViewReadOnly('mt-bookings')}
             />
@@ -2245,6 +2246,7 @@ function App() {
               invoices={safeInvoices}
               payments={safePayments}
               receivedDiscounts={safeReceivedDiscounts}
+              items={safeItems}
               setReceivedDiscounts={setReceivedDiscounts}
               fixedSchemes={safeFixedSchemes}
               mtBookings={safeMTBookings}
@@ -2368,6 +2370,7 @@ function App() {
               suppliers={safeSuppliers}
               fixedSchemes={safeFixedSchemes}
               mtBookings={mtBookings}
+              items={safeItems}
               receivedDiscounts={safeReceivedDiscounts}
               currentFY={safeCurrentFY}
             />

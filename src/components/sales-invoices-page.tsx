@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, CaretLeft, Plus, Receipt, Trash, X, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple, MagnifyingGlass, Barcode, Package, UserPlus, GearSix, Keyboard, UploadSimple, FileText, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
-import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculatePaymentAllocations } from '@/lib/calculations'
+import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculatePaymentAllocations, calculateRateWithGst, calculateBasicRateFromInclusive, calculateRoundOffAdjustment, calculateInvoiceFinalAmount, calculateInvoiceItemsTotals, calculateAdditionalChargesTotals } from '@/lib/calculations'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
@@ -109,7 +109,7 @@ export default function SalesInvoicesPage({
         const basic = Number(updated.basicRate) || 0
         if (updated.taxMode === 'gst') {
           const gst = Number(updated.gstRate) || 18
-          updated.finalAmt = parseFloat((basic * (1 + gst / 100)).toFixed(2))
+          updated.finalAmt = calculateRateWithGst(basic, gst)
         } else {
           updated.finalAmt = basic
         }
@@ -380,12 +380,12 @@ export default function SalesInvoicesPage({
         const basicRate = parseFloat(value as string) || 0
         const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
         itemRow.basicRate = basicRate
-        itemRow.rate = parseFloat((basicRate * (1 + itemGstPct / 100)).toFixed(2))
+        itemRow.rate = calculateRateWithGst(basicRate, itemGstPct)
       } else if (field === 'rate') {
         const rateWithTax = parseFloat(value as string) || 0
         const itemGstPct = getInvoiceItemGstRate(itemRow.itemId)
         itemRow.rate = rateWithTax
-        itemRow.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
+        itemRow.basicRate = calculateBasicRateFromInclusive(rateWithTax, itemGstPct)
       }
       
       const currentEntryQty = itemRow.entryQuantity !== undefined && itemRow.entryQuantity !== null ? itemRow.entryQuantity : (itemRow.quantityMT || 0)
@@ -411,10 +411,8 @@ export default function SalesInvoicesPage({
   }
 
   const handleRoundOff = () => {
-    const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
-    const currentTotal = totalAmt + additionalCostFinal
-    const roundedTotal = Math.round(currentTotal)
-    const adjustment = parseFloat((roundedTotal - currentTotal).toFixed(2))
+    const { totalAmount: totalAmt } = calculateInvoiceItemsTotals(invoiceItems)
+    const { adjustment } = calculateRoundOffAdjustment(totalAmt, additionalCostFinal)
     setRoundOffAdjustment(adjustment)
     toast.success(`Round-off adjustment: ${adjustment >= 0 ? '+' : ''}${formatCurrency(adjustment)}`)
   }
@@ -465,18 +463,10 @@ export default function SalesInvoicesPage({
       }
     }
 
-    const totalQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
-    const totalAmt = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
-    // Re-calculate from state directly instead of formData to support multiple
-    const aggregatedBasicRate = additionalCharges.reduce((sum, c) => sum + (c.basicRate || 0), 0)
-    const aggregatedFinal = additionalCharges.reduce((sum, c) => sum + (c.finalAmt || 0), 0)
-    const aggregatedRemarks = additionalCharges.map(c => c.remarks).filter(Boolean).join(', ')
-
-    const additionalCostBasicRate = aggregatedBasicRate
-    const additionalCost = aggregatedFinal
-    const additionalCostRemarks = aggregatedRemarks
+    const { totalQty, totalAmount: totalAmt } = calculateInvoiceItemsTotals(invoiceItems)
+    const { basicRateTotal: additionalCostBasicRate, finalAmtTotal: additionalCost, remarksJoined: additionalCostRemarks } = calculateAdditionalChargesTotals(additionalCharges)
     const roundOffAdjustment = parseFloat(formData.get('roundOffAdjustment') as string) || 0
-    const finalInvoiceAmount = parseFloat((totalAmt + additionalCost + roundOffAdjustment).toFixed(2))
+    const finalInvoiceAmount = calculateInvoiceFinalAmount(totalAmt, additionalCost, roundOffAdjustment)
     const amountValue = amountReceived || formData.get('amountReceived') as string
     const finalAmountReceived = Math.max(0, parseFloat(amountValue) || 0)
     const counterId = formData.get('counterId') as string
@@ -691,9 +681,8 @@ export default function SalesInvoicesPage({
   }, [itemSearch, items, selectedItemCategory])
 
 
-  const totalInvoiceQty = invoiceItems.reduce((sum, item) => sum + item.quantityMT, 0)
-  const totalInvoiceAmount = invoiceItems.reduce((sum, item) => sum + item.amount, 0)
-  const finalInvoiceAmountPreview = parseFloat((totalInvoiceAmount + additionalCostFinal + roundOffAdjustment).toFixed(2))
+  const { totalQty: totalInvoiceQty, totalAmount: totalInvoiceAmount } = calculateInvoiceItemsTotals(invoiceItems)
+  const finalInvoiceAmountPreview = calculateInvoiceFinalAmount(totalInvoiceAmount, additionalCostFinal, roundOffAdjustment)
   const receivedAmountPreview = Math.min(
     Math.max(parseFloat(amountReceived) || 0, 0),
     finalInvoiceAmountPreview

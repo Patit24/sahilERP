@@ -91,8 +91,8 @@ export default function CDProfitReportsPage({
       return providedExpectedDiscounts
     }
     const { allocations, paymentAdvanceInfo } = calculatePaymentAllocations(payments, purchaseInvoices)
-    return calculateExpectedDiscounts(purchaseInvoices, payments, allocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings)
-  }, [providedExpectedDiscounts, purchaseInvoices, payments, suppliers, fixedSchemes, mtBookings])
+    return calculateExpectedDiscounts(purchaseInvoices, payments, allocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items)
+  }, [providedExpectedDiscounts, purchaseInvoices, payments, suppliers, fixedSchemes, mtBookings, items])
 
   const expectedDiscounts = computedExpectedDiscounts
 

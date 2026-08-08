@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Item, PurchaseInvoice, SalesInvoice, PurchaseReturn, SalesReturn } from '@/lib/types'
 import { calculateItemStockMap } from '@/lib/report-calculations'
+import { getItemConversionFactor } from '@/lib/unit-conversion-service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
@@ -445,7 +446,7 @@ export default function ItemsPage({
                                   </span>
                                   {item.alternativeUnit && item.alternativeUnit !== 'NONE' && (
                                     <span className="text-[10px] text-slate-500 font-mono">
-                                      1 {item.alternativeUnit} = {item.conversionFactor && item.conversionFactor > 1 ? item.conversionFactor.toLocaleString() : (item.unit === 'KG' && item.alternativeUnit === 'MT' ? '1,000' : '1')} {item.unit}
+                                      1 {item.alternativeUnit} = {getItemConversionFactor(item, item.alternativeUnit).toLocaleString('en-IN')} {item.unit}
                                     </span>
                                   )}
                                 </div>

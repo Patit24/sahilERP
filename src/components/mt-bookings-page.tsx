@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,13 +40,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Pencil, Trash, BookBookmark, Lock, Funnel, X, FilePdf } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { MTBooking, Supplier, FixedScheme, PurchaseInvoice } from '@/lib/types'
+import { MTBooking, Supplier, FixedScheme, PurchaseInvoice, Item } from '@/lib/types'
+import { formatCurrency, formatMT, calculateBookingConsumedMT, calculateBookingConsumption, getBookingNormalizedMT, roundQuantity } from '@/lib/calculations'
+import { getAvailableUnits } from '@/lib/custom-data-store'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-
-const formatCurrency = (value: number): string => {
-  return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 const formatCurrencyForPDF = (value: number): string => {
   return `Rs. ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -63,6 +61,7 @@ interface MTBookingsPageProps {
   suppliers: Supplier[]
   fixedSchemes: FixedScheme[]
   invoices: PurchaseInvoice[]
+  items?: Item[]
   currentFY: string
   isLocked: boolean
 }
@@ -72,8 +71,13 @@ interface BookingFormData {
   orderDate: string
   consumeStartDate: string
   bookedMT: string
+  unit: string
   notes: string
-  editableSchemes: Array<{ schemeId: string; schemeName: string; ratePerMT: number }>
+  editableSchemes: Array<{
+    schemeId: string
+    schemeName: string
+    ratePerMT: number
+  }>
 }
 
 interface NewSchemeFormData {
@@ -87,6 +91,7 @@ export default function MTBookingsPage({
   suppliers,
   fixedSchemes,
   invoices,
+  items,
   currentFY,
   isLocked
 }: MTBookingsPageProps) {
@@ -98,15 +103,24 @@ export default function MTBookingsPage({
   const [filterSupplier, setFilterSupplier] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
 
+  const [availableUnits, setAvailableUnits] = useState(() => getAvailableUnits())
+
+  useEffect(() => {
+    const syncUnits = () => setAvailableUnits(getAvailableUnits())
+    window.addEventListener('custom-units-updated', syncUnits)
+    return () => window.removeEventListener('custom-units-updated', syncUnits)
+  }, [])
+
   const [formData, setFormData] = useState<BookingFormData>({
     supplierId: '',
     orderDate: '',
     consumeStartDate: '',
     bookedMT: '',
+    unit: 'MT',
     notes: '',
     editableSchemes: []
   })
-  
+
   const [newSchemeDialogOpen, setNewSchemeDialogOpen] = useState(false)
   const [newSchemeData, setNewSchemeData] = useState<NewSchemeFormData>({
     schemeName: '',
@@ -143,47 +157,18 @@ export default function MTBookingsPage({
     return { schemes: activeSchemes, totalRate }
   }
 
-  const calculateConsumedMT = (bookingId: string): number => {
-    const booking = mtBookings.find(b => b.id === bookingId)
-    if (!booking) return 0
-
-    const eligibleInvoices = invoices
-      .filter(inv => {
-        const invDate = new Date(inv.invoiceDate)
-        const consumeStart = new Date(booking.consumeStartDate)
-        return inv.supplierId === booking.supplierId && invDate >= consumeStart
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.invoiceDate).getTime()
-        const dateB = new Date(b.invoiceDate).getTime()
-        return dateA - dateB
-      })
-
-    let totalConsumed = 0
-    for (const inv of eligibleInvoices) {
-      const remainingInBooking = booking.bookedMT - totalConsumed
-      if (remainingInBooking <= 0) break
-      
-      const mtFromThisInvoice = Math.min(inv.quantityMT, remainingInBooking)
-      totalConsumed += mtFromThisInvoice
-    }
-
-    return totalConsumed
-  }
-
   const enrichedBookings = useMemo(() => {
     return mtBookings.map(booking => {
-      const consumedMT = calculateConsumedMT(booking.id)
-      const remainingMT = booking.bookedMT - consumedMT
-      
+      const consumption = calculateBookingConsumption(booking, invoices, items)
+
       return {
         ...booking,
-        consumedMT,
-        remainingMT,
-        status: remainingMT > 0 ? 'Active' : 'Consumed'
+        consumedMT: consumption.consumedInBookingUnit,
+        remainingMT: consumption.remainingInBookingUnit,
+        status: consumption.status
       }
     })
-  }, [mtBookings, invoices])
+  }, [mtBookings, invoices, items])
 
   const handleOpenAddDialog = () => {
     setEditingBooking(null)
@@ -192,6 +177,7 @@ export default function MTBookingsPage({
       orderDate: '',
       consumeStartDate: '',
       bookedMT: '',
+      unit: 'MT',
       notes: '',
       editableSchemes: []
     })
@@ -205,6 +191,7 @@ export default function MTBookingsPage({
       orderDate: booking.orderDate,
       consumeStartDate: booking.consumeStartDate,
       bookedMT: booking.bookedMT.toString(),
+      unit: booking.unit || 'MT',
       notes: booking.notes || '',
       editableSchemes: booking.lockedSchemes ? booking.lockedSchemes.map(s => ({
         schemeId: s.schemeId,
@@ -258,7 +245,9 @@ export default function MTBookingsPage({
     const newScheme = {
       schemeId: `custom-scheme-${Date.now()}`,
       schemeName: newSchemeData.schemeName.trim(),
-      ratePerMT
+      ratePerMT,
+      ruleVersionId: `custom-scheme-${Date.now()}`,
+      ruleVersion: 1
     }
 
     setFormData(prev => ({
@@ -317,22 +306,23 @@ export default function MTBookingsPage({
               orderDate: formData.orderDate,
               consumeStartDate: formData.consumeStartDate,
               bookedMT,
+              unit: formData.unit || 'MT',
               notes: formData.notes,
               rateMode: 'auto',
               lockedSchemes,
-              totalLockedRate: totalRate,
-              manualRate: undefined
+              totalLockedRate: totalRate
             }
           : booking
       ))
       toast.success('MT Booking updated successfully')
     } else {
       const newBooking: MTBooking = {
-        id: `booking-${Date.now()}`,
+        id: `mtb-${Date.now()}`,
         supplierId: formData.supplierId,
         orderDate: formData.orderDate,
         consumeStartDate: formData.consumeStartDate,
         bookedMT,
+        unit: formData.unit || 'MT',
         notes: formData.notes,
         fy: currentFY,
         rateMode: 'auto',
@@ -432,9 +422,9 @@ export default function MTBookingsPage({
         getSupplierName(booking.supplierId),
         formatDate(booking.orderDate),
         formatDate(booking.consumeStartDate),
-        booking.bookedMT.toFixed(3),
-        booking.consumedMT.toFixed(3),
-        booking.remainingMT.toFixed(3),
+        `${booking.bookedMT.toFixed(3)} ${booking.unit || 'MT'}`,
+        `${booking.consumedMT.toFixed(3)} ${booking.unit || 'MT'}`,
+        `${booking.remainingMT.toFixed(3)} ${booking.unit || 'MT'}`,
         schemeNames,
         booking.totalLockedRate ? formatCurrencyForPDF(booking.totalLockedRate) : '-',
         booking.status
@@ -443,7 +433,7 @@ export default function MTBookingsPage({
     
     autoTable(doc, {
       startY: yPos,
-      head: [['Supplier', 'Order Date', 'Consume From', 'Booked MT', 'Consumed MT', 'Remaining MT', 'Locked Scheme', 'Rate per MT', 'Status']],
+      head: [['Supplier', 'Order Date', 'Consume From', 'Booked', 'Consumed', 'Remaining', 'Locked Scheme', 'Scheme Rate', 'Status']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -457,15 +447,15 @@ export default function MTBookingsPage({
         fontSize: 8
       },
       columnStyles: {
-        0: { halign: 'left', cellWidth: 35 },
-        1: { halign: 'center', cellWidth: 22 },
-        2: { halign: 'center', cellWidth: 22 },
-        3: { halign: 'right', cellWidth: 20 },
-        4: { halign: 'right', cellWidth: 20 },
-        5: { halign: 'right', cellWidth: 20 },
+        0: { halign: 'left', cellWidth: 40 },
+        1: { halign: 'center', cellWidth: 25 },
+        2: { halign: 'center', cellWidth: 25 },
+        3: { halign: 'right', cellWidth: 25 },
+        4: { halign: 'right', cellWidth: 25 },
+        5: { halign: 'right', cellWidth: 25 },
         6: { halign: 'left', cellWidth: 45 },
         7: { halign: 'right', cellWidth: 25 },
-        8: { halign: 'center', cellWidth: 18 }
+        8: { halign: 'center', cellWidth: 20 }
       },
       margin: { left: 14, right: 14 }
     })
@@ -482,9 +472,9 @@ export default function MTBookingsPage({
     const totalConsumedMT = sortedBookings.reduce((sum, b) => sum + b.consumedMT, 0)
     const totalRemainingMT = sortedBookings.reduce((sum, b) => sum + b.remainingMT, 0)
     
-    doc.text(`Total Booked MT: ${totalBookedMT.toFixed(3)}`, pageWidth - 80, finalY + 10)
-    doc.text(`Total Consumed MT: ${totalConsumedMT.toFixed(3)}`, pageWidth - 80, finalY + 15)
-    doc.text(`Total Remaining MT: ${totalRemainingMT.toFixed(3)}`, pageWidth - 80, finalY + 20)
+    doc.text(`Total Booked: ${totalBookedMT.toFixed(3)}`, pageWidth - 80, finalY + 10)
+    doc.text(`Total Consumed: ${totalConsumedMT.toFixed(3)}`, pageWidth - 80, finalY + 15)
+    doc.text(`Total Remaining: ${totalRemainingMT.toFixed(3)}`, pageWidth - 80, finalY + 20)
     
     const fileName = `MT_Booking_Report_${currentFY}_${new Date().toISOString().split('T')[0]}.pdf`
     doc.save(fileName)
@@ -502,7 +492,7 @@ export default function MTBookingsPage({
             <div>
               <h2 className="text-responsive-xl font-bold text-foreground">MT Booking Master</h2>
               <p className="text-responsive-sm text-muted-foreground">
-                Manage booked MT with locked discount schemes
+                Compare booking-month and invoice-month rates before applying scheme benefits
               </p>
             </div>
           </div>
@@ -605,11 +595,11 @@ export default function MTBookingsPage({
                 <TableHead className="text-responsive-sm">Supplier</TableHead>
                 <TableHead className="text-responsive-sm">Order Date</TableHead>
                 <TableHead className="text-responsive-sm">Consume From</TableHead>
-                <TableHead className="text-responsive-sm text-right">Booked MT</TableHead>
-                <TableHead className="text-responsive-sm text-right">Consumed MT</TableHead>
-                <TableHead className="text-responsive-sm text-right">Remaining MT</TableHead>
+                <TableHead className="text-responsive-sm text-right">Booked</TableHead>
+                <TableHead className="text-responsive-sm text-right">Consumed</TableHead>
+                <TableHead className="text-responsive-sm text-right">Remaining</TableHead>
                 <TableHead className="text-responsive-sm">Locked Scheme</TableHead>
-                <TableHead className="text-responsive-sm text-right">Rate per MT</TableHead>
+                <TableHead className="text-responsive-sm text-right">Rate per unit</TableHead>
                 <TableHead className="text-responsive-sm">Status</TableHead>
                 <TableHead className="text-responsive-sm text-right">Actions</TableHead>
               </TableRow>
@@ -634,13 +624,13 @@ export default function MTBookingsPage({
                       {formatDate(booking.consumeStartDate)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-responsive-sm">
-                      {booking.bookedMT.toFixed(3)}
+                      {booking.bookedMT.toFixed(3)} {booking.unit || 'MT'}
                     </TableCell>
                     <TableCell className="text-right font-mono text-responsive-sm">
-                      {booking.consumedMT.toFixed(3)}
+                      {booking.consumedMT.toFixed(3)} {booking.unit || 'MT'}
                     </TableCell>
                     <TableCell className="text-right font-mono text-responsive-sm">
-                      {booking.remainingMT.toFixed(3)}
+                      {booking.remainingMT.toFixed(3)} {booking.unit || 'MT'}
                     </TableCell>
                     <TableCell className="text-responsive-sm">
                       {booking.lockedSchemes && booking.lockedSchemes.length > 0 ? (
@@ -713,7 +703,7 @@ export default function MTBookingsPage({
               {editingBooking ? 'Edit MT Booking' : 'Add New MT Booking'}
             </DialogTitle>
             <DialogDescription>
-              Book MT with locked scheme discount rates for future invoices
+              Manage MT bookings and locked fixed scheme benefits
             </DialogDescription>
           </DialogHeader>
 
@@ -787,17 +777,28 @@ export default function MTBookingsPage({
 
             <div className="space-y-2">
               <Label htmlFor="booked-mt" className="modal-label">
-                Booked MT <span className="text-destructive">*</span>
+                Booked Quantity <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="booked-mt"
-                type="number"
-                step="0.001"
-                placeholder="0.000"
-                value={formData.bookedMT}
-                onChange={(e) => setFormData(prev => ({ ...prev, bookedMT: e.target.value }))}
-                className="modal-input font-mono"
-              />
+              <div className="grid grid-cols-3 gap-2">
+                <Input
+                  id="booked-mt"
+                  type="number"
+                  step="0.001"
+                  placeholder="0.000"
+                  value={formData.bookedMT}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bookedMT: e.target.value }))}
+                  className="modal-input col-span-2"
+                />
+                <select
+                  value={formData.unit}
+                  onChange={(e) => setFormData(prev => ({ ...prev, unit: e.target.value }))}
+                  className="modal-input h-10 text-sm rounded-md border border-input bg-background px-3 font-medium"
+                >
+                  {availableUnits.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-2">

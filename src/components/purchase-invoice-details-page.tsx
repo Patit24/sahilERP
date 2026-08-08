@@ -26,7 +26,7 @@ import {
   ExpenseType,
   MTBooking
 } from '@/lib/types'
-import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths, getFYFromDate } from '@/lib/calculations'
+import { formatCurrency, formatMT, calculatePaymentAllocations, calculateExpectedDiscounts, getFYMonths, getFYFromDate, calculateDetailedPurchaseInvoiceBreakdown } from '@/lib/calculations'
 import { getItemActiveUnitAndQty } from '@/lib/fifo-engine'
 import { toBaseQuantity } from '@/lib/unit-conversion-service'
 import { FileText, Calendar, Package, CurrencyDollar, CreditCard, TrendDown, Calculator, CaretDown, Check } from '@phosphor-icons/react'
@@ -167,8 +167,8 @@ export default function PurchaseInvoiceDetailsPage({
   )
 
   const expectedDiscounts = useMemo(
-    () => calculateExpectedDiscounts(invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings),
-    [invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings]
+    () => calculateExpectedDiscounts(invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items),
+    [invoices, payments, paymentAllocations, paymentAdvanceInfo, suppliers, fixedSchemes, mtBookings, items]
   )
 
   const invoiceDetails = useMemo((): InvoiceDetails[] => {
@@ -185,136 +185,38 @@ export default function PurchaseInvoiceDetailsPage({
           }
         })
 
-        const paidAmount = invAllocations.reduce((sum, a) => sum + a.allocatedAmount, 0)
-        const pendingAmount = invoice.invoiceAmount - paidAmount
+        const detailed = calculateDetailedPurchaseInvoiceBreakdown(
+          invoice,
+          paymentAllocations,
+          expectedDiscounts,
+          expenseEntries,
+          supplier,
+          itemMap,
+          includeAnnualDiscount
+        )
 
-        let status: 'Open' | 'Partially Paid' | 'Closed' = 'Open'
-        if (paidAmount >= invoice.invoiceAmount) {
-          status = 'Closed'
-        } else if (paidAmount > 0) {
-          status = 'Partially Paid'
-        }
-
-        const invoiceExpectedDiscounts = expectedDiscounts.filter(ed => ed.invoiceId === invoice.id)
-        
-        const paymentCDTotal = invoiceExpectedDiscounts
-          .filter(ed => ed.type === 'paymentCD' || ed.type === 'advanceCD')
-          .reduce((sum, ed) => sum + ed.expectedAmount, 0)
-        
-        const invoiceCloseCDTotal = invoiceExpectedDiscounts
-          .filter(ed => ed.type === 'invoiceCloseCD')
-          .reduce((sum, ed) => sum + ed.expectedAmount, 0)
-        
-        const fixedSchemeTotal = invoiceExpectedDiscounts
-          .filter(ed => ed.type === 'fixedScheme')
-          .reduce((sum, ed) => sum + ed.expectedAmount, 0)
-        
-        const totalCDEarned = invoiceExpectedDiscounts.reduce((sum, ed) => sum + ed.expectedAmount, 0)
-
-        const linkedExpenses = expenseEntries
-          .filter(exp => exp.linkedInvoiceId === invoice.id)
-          .map(expense => {
-            const expenseType = expenseTypeMap.get(expense.expenseTypeId)!
-            return { expense, expenseType }
-          })
-
-        const totalLinkedExpense = linkedExpenses.reduce((sum, le) => sum + le.expense.amount, 0)
-        const totalAdditionalCost = invoice.additionalCost || 0
-
-        // Calculate total Base Weight in KG for all items in the invoice
-        const totalInvoiceWeightKG = (invoice.items || []).reduce((sum, item) => {
-          const itemData = itemMap.get(item.itemId)
-          const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit)
-          const factor = itemData?.unit === 'MT' ? 1000 : 1
-          return sum + (baseQty * factor)
-        }, 0)
-
-        const cdPerMT = invoice.quantityMT > 0 ? totalCDEarned / invoice.quantityMT : 0
-
-        const discountBreakdown: DiscountBreakdown = {
-          paymentCDPerMT: invoice.quantityMT > 0 ? paymentCDTotal / invoice.quantityMT : 0,
-          invoiceCloseCDPerMT: invoice.quantityMT > 0 ? invoiceCloseCDTotal / invoice.quantityMT : 0,
-          fixedSchemePerMT: invoice.quantityMT > 0 ? fixedSchemeTotal / invoice.quantityMT : 0,
-          totalCDPerMT: cdPerMT
-        }
-        const annualDiscountPerMT = supplier.annualTarget?.ratePerMT || 0
-
-        // Per KG allocation rates
-        const expenseRatePerKG = totalInvoiceWeightKG > 0 ? totalLinkedExpense / totalInvoiceWeightKG : 0
-        const addCostRatePerKG = totalInvoiceWeightKG > 0 ? totalAdditionalCost / totalInvoiceWeightKG : 0
-
-        const fixedDiscRatePerKG = totalInvoiceWeightKG > 0 ? fixedSchemeTotal / totalInvoiceWeightKG : 0
-        const paymentCDRatePerKG = totalInvoiceWeightKG > 0 ? paymentCDTotal / totalInvoiceWeightKG : 0
-        const closeCDRatePerKG = totalInvoiceWeightKG > 0 ? invoiceCloseCDTotal / totalInvoiceWeightKG : 0
-        const totalCDRatePerKG = totalInvoiceWeightKG > 0 ? totalCDEarned / totalInvoiceWeightKG : 0
-
-        const itemCostBreakdowns: ItemCostBreakdown[] = (invoice.items || []).map(item => {
-          const itemData = itemMap.get(item.itemId)
-          const active = getItemActiveUnitAndQty(itemData, item.entryUnit, item.entryQuantity, item.quantityMT, item.weightKG)
-
-          const activeUnit = active.unit
-          const activeQuantity = active.qty
-          const displayQtyUnit = active.displayQtyUnit
-
-          const baseQty = toBaseQuantity(itemData, item.entryQuantity || item.quantityMT || 0, item.entryUnit) || activeQuantity || 1
-          const totalItemAmount = item.amount || ((item.rate || 0) * (item.entryQuantity || item.quantityMT || 1))
-          const pricePerUnit = activeQuantity > 0 ? totalItemAmount / activeQuantity : (item.rate || 0)
-
-          const itemWeightKG = baseQty * (itemData?.unit === 'MT' ? 1000 : 1)
-          const weightShare = totalInvoiceWeightKG > 0 ? itemWeightKG / totalInvoiceWeightKG : (1 / (invoice.items?.length || 1))
-
-          const itemFixedDiscTotal = fixedSchemeTotal * weightShare
-          const itemPaymentCDTotal = paymentCDTotal * weightShare
-          const itemCloseCDTotal = invoiceCloseCDTotal * weightShare
-          const itemTotalCDTotal = totalCDEarned * weightShare
-
-          const itemExpenseTotal = totalLinkedExpense * weightShare
-          const itemAddCostTotal = totalAdditionalCost * weightShare
-
-          const fixedDiscPerUnit = activeQuantity > 0 ? itemFixedDiscTotal / activeQuantity : 0
-          const paymentCDPerUnit = activeQuantity > 0 ? itemPaymentCDTotal / activeQuantity : 0
-          const invoiceCloseCDPerUnit = activeQuantity > 0 ? itemCloseCDTotal / activeQuantity : 0
-          const totalCDPerUnit = activeQuantity > 0 ? itemTotalCDTotal / activeQuantity : 0
-
-          const expensePerUnit = activeQuantity > 0 ? itemExpenseTotal / activeQuantity : 0
-          const additionalCostPerUnit = activeQuantity > 0 ? itemAddCostTotal / activeQuantity : 0
-
-          const costPerUnit = pricePerUnit - totalCDPerUnit - (includeAnnualDiscount ? annualDiscountPerMT * (itemWeightKG / 1000 / (activeQuantity || 1)) : 0) + expensePerUnit + additionalCostPerUnit
-
-          return {
-            itemId: item.itemId,
-            itemName: itemData?.name || 'Unknown Item',
-            activeUnit,
-            activeQuantity,
-            displayQtyUnit,
-            pricePerUnit,
-            fixedDiscPerUnit,
-            paymentCDPerUnit,
-            invoiceCloseCDPerUnit,
-            totalCDPerUnit,
-            expensePerUnit,
-            additionalCostPerUnit,
-            costPerUnit
-          }
+        const linkedExpenses = detailed.linkedExpenses.map(expense => {
+          const expenseType = expenseTypeMap.get(expense.expenseTypeId)!
+          return { expense, expenseType }
         })
 
-        const netInvoiceAmount = invoice.invoiceAmount - totalLinkedExpense
+        const annualDiscountPerMT = supplier?.annualTarget?.ratePerMT || 0
 
         return {
           invoice,
           supplier,
           allocatedPayments,
-          paidAmount,
-          pendingAmount,
-          status,
-          totalCDEarned,
-          cdPerMT,
-          discountBreakdown,
-          itemCostBreakdowns,
+          paidAmount: detailed.paidAmount,
+          pendingAmount: detailed.pendingAmount,
+          status: detailed.status,
+          totalCDEarned: detailed.totalCDEarned,
+          cdPerMT: detailed.discountBreakdown.totalCDPerMT,
+          discountBreakdown: detailed.discountBreakdown,
+          itemCostBreakdowns: detailed.itemCostBreakdowns,
           linkedExpenses,
-          totalLinkedExpense,
-          totalAdditionalCost,
-          netInvoiceAmount,
+          totalLinkedExpense: detailed.totalLinkedExpense,
+          totalAdditionalCost: detailed.totalAdditionalCost,
+          netInvoiceAmount: detailed.netInvoiceAmount,
           annualDiscountPerMT
         }
       })

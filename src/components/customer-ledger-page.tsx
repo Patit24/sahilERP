@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BookOpen, TrendUp, TrendDown } from '@phosphor-icons/react'
-import { formatCurrency, getFYFromDate } from '@/lib/calculations'
+import { formatCurrency, getFYFromDate, calculateLedger, RawLedgerTransaction } from '@/lib/calculations'
 import { PeriodDateFilter, PeriodFilterState, defaultPeriodFilterState, isRecordInPeriod, getPreviousFY, getPeriodDateBounds, isRecordBeforePeriod } from '@/components/period-date-filter'
 
 interface CustomerLedgerPageProps {
@@ -31,136 +31,75 @@ export default function CustomerLedgerPage({ customers, salesInvoices, customerP
 
     const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
     const initialMasterOpening = selectedCustomer?.openingBalance || 0
-
     const { startISO } = getPeriodDateBounds(periodFilter, currentFY)
 
-    let priorDebits = 0
-    let priorCredits = 0
-    const inPeriodEntries: Array<LedgerEntry & { timestamp: number }> = []
+    const rawTransactions: RawLedgerTransaction[] = []
 
-    // Sales Invoices (Debit)
     salesInvoices.forEach(invoice => {
       if (invoice.customerId !== selectedCustomerId) return
-      if (isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)) {
-        priorDebits += invoice.invoiceAmount
-      } else if (isRecordInPeriod(invoice.invoiceDate, invoice.fy, periodFilter, currentFY)) {
-        inPeriodEntries.push({
-          date: invoice.invoiceDate,
-          description: `Sales Invoice`,
-          invoiceNo: invoice.invoiceNo,
-          debit: invoice.invoiceAmount,
-          credit: 0,
-          balance: 0,
-          type: 'invoice',
-          refId: invoice.id,
-          timestamp: (invoice as any).createdAt || new Date(invoice.invoiceDate).getTime()
-        })
-      }
+      rawTransactions.push({
+        date: invoice.invoiceDate,
+        description: 'Sales Invoice',
+        invoiceNo: invoice.invoiceNo,
+        debit: invoice.invoiceAmount,
+        credit: 0,
+        type: 'invoice',
+        refId: invoice.id,
+        timestamp: (invoice as any).createdAt || new Date(invoice.invoiceDate).getTime(),
+        isBeforePeriod: isRecordBeforePeriod(invoice.invoiceDate, periodFilter, currentFY)
+      })
     })
 
-    // Customer Payments (Credit)
     customerPayments.forEach(payment => {
       if (payment.customerId !== selectedCustomerId) return
-      if (isRecordBeforePeriod(payment.paymentDate, periodFilter, currentFY)) {
-        priorCredits += payment.amount
-      } else if (isRecordInPeriod(payment.paymentDate, payment.fy, periodFilter, currentFY)) {
-        inPeriodEntries.push({
-          date: payment.paymentDate,
-          description: 'Payment Received',
-          debit: 0,
-          credit: payment.amount,
-          balance: 0,
-          type: 'payment',
-          refId: payment.id,
-          timestamp: (payment as any).createdAt || new Date(payment.paymentDate).getTime()
-        })
-      }
+      rawTransactions.push({
+        date: payment.paymentDate,
+        description: 'Payment Received',
+        debit: 0,
+        credit: payment.amount,
+        type: 'payment',
+        refId: payment.id,
+        timestamp: (payment as any).createdAt || new Date(payment.paymentDate).getTime(),
+        isBeforePeriod: isRecordBeforePeriod(payment.paymentDate, periodFilter, currentFY)
+      })
     })
 
-    // Credit Notes (Credit)
     creditNotes.forEach(cn => {
       if (cn.customerId !== selectedCustomerId) return
-      if (isRecordBeforePeriod(cn.date, periodFilter, currentFY)) {
-        priorCredits += cn.amount
-      } else if (isRecordInPeriod(cn.date, cn.fy, periodFilter, currentFY)) {
-        inPeriodEntries.push({
-          date: cn.date,
-          description: 'Credit Note',
-          debit: 0,
-          credit: cn.amount,
-          balance: 0,
-          type: 'payment',
-          refId: cn.id,
-          timestamp: cn.createdAt || new Date(cn.date).getTime()
-        })
-      }
+      rawTransactions.push({
+        date: cn.date,
+        description: 'Credit Note',
+        debit: 0,
+        credit: cn.amount,
+        type: 'payment',
+        refId: cn.id,
+        timestamp: cn.createdAt || new Date(cn.date).getTime(),
+        isBeforePeriod: isRecordBeforePeriod(cn.date, periodFilter, currentFY)
+      })
     })
 
-    // Sales Returns (Credit)
     salesReturns.forEach(sr => {
       if (sr.customerId !== selectedCustomerId) return
-      if (isRecordBeforePeriod(sr.returnDate, periodFilter, currentFY)) {
-        priorCredits += sr.amount
-      } else if (isRecordInPeriod(sr.returnDate, sr.fy, periodFilter, currentFY)) {
-        inPeriodEntries.push({
-          date: sr.returnDate,
-          description: 'Sales Return',
-          debit: 0,
-          credit: sr.amount,
-          balance: 0,
-          type: 'payment',
-          refId: sr.id,
-          timestamp: sr.createdAt || new Date(sr.returnDate).getTime()
-        })
-      }
+      rawTransactions.push({
+        date: sr.returnDate,
+        description: 'Sales Return',
+        debit: 0,
+        credit: sr.amount,
+        type: 'payment',
+        refId: sr.id,
+        timestamp: sr.createdAt || new Date(sr.returnDate).getTime(),
+        isBeforePeriod: isRecordBeforePeriod(sr.returnDate, periodFilter, currentFY)
+      })
     })
 
-    // Sort in-period entries chronologically
-    inPeriodEntries.sort((a, b) => {
-      const timeDiff = new Date(a.date).getTime() - new Date(b.date).getTime()
-      if (timeDiff !== 0) return timeDiff
-      if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp
-      return (a.refId || '').localeCompare(b.refId || '')
+    const filteredTx = rawTransactions.filter(t => t.isBeforePeriod || isRecordInPeriod(t.date, undefined, periodFilter, currentFY))
+
+    return calculateLedger({
+      initialMasterOpening,
+      partyType: 'customer',
+      startISO: startISO || undefined,
+      transactions: filteredTx
     })
-
-    // Opening balance on the From Date / Period Start Date
-    const openingBal = initialMasterOpening + priorDebits - priorCredits
-
-    const finalEntries: LedgerEntry[] = []
-
-    // 1st Row: Opening Balance on From Date
-    finalEntries.push({
-      date: startISO || 'Opening',
-      description: `Opening Balance (as of ${startISO || 'Start'})`,
-      debit: openingBal > 0 ? openingBal : 0,
-      credit: openingBal < 0 ? Math.abs(openingBal) : 0,
-      balance: openingBal,
-      type: 'invoice',
-      refId: 'opening-balance'
-    })
-
-    let runningBalance = openingBal
-    let periodDebitTotal = 0
-    let periodCreditTotal = 0
-
-    inPeriodEntries.forEach(entry => {
-      periodDebitTotal += entry.debit
-      periodCreditTotal += entry.credit
-      runningBalance += entry.debit - entry.credit
-      entry.balance = runningBalance
-      finalEntries.push(entry)
-    })
-
-    return {
-      openingBalanceOnFromDate: openingBal,
-      ledgerEntries: finalEntries,
-      summary: {
-        openingBalance: openingBal,
-        totalDebit: periodDebitTotal,
-        totalCredit: periodCreditTotal,
-        closingBalance: runningBalance
-      }
-    }
   }, [selectedCustomerId, salesInvoices, customerPayments, creditNotes, salesReturns, currentFY, customers, periodFilter])
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId)

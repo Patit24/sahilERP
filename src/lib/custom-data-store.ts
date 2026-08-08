@@ -22,6 +22,8 @@ export const DEFAULT_UNITS: { value: string; label: string }[] = [
   { value: 'BTL', label: 'Bottle (BTL)' },
   { value: 'JAR', label: 'Jar (JAR)' },
   { value: 'TIN', label: 'Tin (TIN)' },
+  { value: 'BAG', label: 'Bag (BAG)' },
+  { value: 'CARTON', label: 'Carton (CARTON)' },
   { value: 'MTR', label: 'Meter (MTR)' },
   { value: 'FT', label: 'Feet (FT)' },
   { value: 'SET', label: 'Set (SET)' },

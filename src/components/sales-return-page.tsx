@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { ArrowLeft, CaretLeft, Plus, PencilSimple, Trash, MagnifyingGlass, Barcode, Package, UserPlus, X, FileText, Check, Receipt, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
-import { formatCurrency, formatMT, getFYMonths, getFYFromDate } from '@/lib/calculations'
+import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculateRateWithGst, calculateBasicRateFromInclusive, calculateInvoiceFinalAmount } from '@/lib/calculations'
+import { toBaseQuantity } from '@/lib/unit-conversion-service'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
 import { toast } from 'sonner'
 import { PartyEditorDialog } from '@/components/party-editor-dialog'
@@ -105,7 +106,7 @@ export default function SalesReturnPage({
   }, [returnItems])
 
   const calculatedTotalAmount = useMemo(() => {
-    return parseFloat((Math.max(0, itemsSubtotal + (additionalCost || 0) + (roundOffAdjustment || 0))).toFixed(2))
+    return calculateInvoiceFinalAmount(itemsSubtotal, additionalCost, roundOffAdjustment)
   }, [itemsSubtotal, additionalCost, roundOffAdjustment])
 
   const customerMap = new Map(customers.map(c => [c.id, c]))
@@ -169,17 +170,11 @@ export default function SalesReturnPage({
         const rate = item?.salesPrice || 0
         const defaultEntryUnit = item?.alternativeUnit && item.alternativeUnit !== 'NONE' ? item.alternativeUnit : (item?.unit || 'MT')
         const activeUnit = pickerUnits[itemId] || defaultEntryUnit
-        const factor = item?.conversionFactor || 1000
-
         let quantityMT = rawQty
         let entryQuantity = rawQty
 
         if (item) {
-          if (activeUnit === item.alternativeUnit) {
-            quantityMT = rawQty / factor
-          } else {
-            quantityMT = rawQty
-          }
+          quantityMT = toBaseQuantity(item, rawQty, activeUnit)
         }
 
         const qtyForAmt = entryQuantity > 0 ? entryQuantity : quantityMT
@@ -274,27 +269,18 @@ export default function SalesReturnPage({
       if (field === 'entryQuantity' || field === 'quantityMT') {
         const numVal = Number(value) || 0
         updated.entryQuantity = numVal
-        if (selectedDef) {
-          const factor = selectedDef.conversionFactor || 1000
-          const activeUnit = updated.entryUnit || (selectedDef.alternativeUnit && selectedDef.alternativeUnit !== 'NONE' ? selectedDef.alternativeUnit : selectedDef.unit)
-          if (activeUnit === selectedDef.alternativeUnit) {
-            updated.quantityMT = numVal / factor
-          } else {
-            updated.quantityMT = numVal
-          }
-        } else {
-          updated.quantityMT = numVal
-        }
+        const activeUnit = updated.entryUnit || (selectedDef?.alternativeUnit && selectedDef.alternativeUnit !== 'NONE' ? selectedDef.alternativeUnit : (selectedDef?.unit || 'KG'))
+        updated.quantityMT = toBaseQuantity(selectedDef, numVal, activeUnit)
       } else if (field === 'basicRate') {
         const basicRate = Number(value) || 0
         const itemGstPct = selectedDef?.gstRate || gstPercentage
         updated.basicRate = basicRate
-        updated.rate = parseFloat((basicRate * (1 + itemGstPct / 100)).toFixed(2))
+        updated.rate = calculateRateWithGst(basicRate, itemGstPct)
       } else if (field === 'rate') {
         const rateWithTax = Number(value) || 0
         const itemGstPct = selectedDef?.gstRate || gstPercentage
         updated.rate = rateWithTax
-        updated.basicRate = parseFloat((rateWithTax / (1 + itemGstPct / 100)).toFixed(2))
+        updated.basicRate = calculateBasicRateFromInclusive(rateWithTax, itemGstPct)
       }
 
       const qty = (updated.entryQuantity !== undefined && updated.entryQuantity !== null && updated.entryQuantity > 0) ? updated.entryQuantity : (Number(updated.quantityMT) || 0)

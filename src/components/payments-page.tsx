@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Plus, CurrencyDollar, Trash, Info, PencilSimple, FunnelSimple, Warning, DownloadSimple } from '@phosphor-icons/react'
-import { formatCurrency, calculatePaymentAllocations, isPaymentAdvance, getFYMonths, getFYFromDate } from '@/lib/calculations'
+import { formatCurrency, calculatePaymentAllocations, isPaymentAdvance, getFYMonths, getFYFromDate, getInvoiceMarketRate } from '@/lib/calculations'
 import { exportPurchaseInvoicePDF } from '@/lib/pdf-export'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
@@ -80,16 +80,7 @@ export default function PaymentsPage({ payments, setPayments, setMTBookings, inv
 
     if (!latestInvoice) return null
 
-    const lineRate = latestInvoice.items?.length
-      ? latestInvoice.items.reduce((sum, item) => {
-          const quantity = item.quantityMT || 0
-          const rate = item.basicRate && item.basicRate > 0 ? item.basicRate : item.rate
-          return sum + (quantity * rate)
-        }, 0) /
-        Math.max(latestInvoice.items.reduce((sum, item) => sum + (item.quantityMT || 0), 0), 1)
-      : 0
-    const invoiceRate = latestInvoice.invoiceAmount / latestInvoice.quantityMT
-    const rate = lineRate > 0 ? lineRate : invoiceRate
+    const rate = getInvoiceMarketRate(latestInvoice)
 
     if (!Number.isFinite(rate) || rate <= 0) return null
 
