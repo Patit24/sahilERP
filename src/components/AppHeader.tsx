@@ -6,8 +6,6 @@ import {
   List,
   User,
   Gear,
-  Sun,
-  Moon,
   Lock,
   Plus,
   CaretDown,
@@ -20,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 
 import { generateFYList } from '@/lib/calculations'
 
@@ -78,22 +76,6 @@ export function AppHeader({
   setShortcutsDialogOpen,
   onLogout,
 }: AppHeaderProps) {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark'
-    }
-    return false
-  })
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }, [isDark])
   const viewMeta = VIEW_TITLES[activeView] ?? {
     title: activeView.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
     sub: safeBusinessName,
@@ -102,7 +84,7 @@ export function AppHeader({
   const fyOptions = useMemo(() => generateFYList(2015, 2040, safeCurrentFY), [safeCurrentFY])
 
   return (
-    <header className="app-header h-16 bg-white dark:bg-[#0C0D1A] border-b border-[#E8EAEF] dark:border-[#20213B] px-4 md:px-6 flex items-center justify-between z-30 shrink-0 shadow-[0_1px_4px_rgba(91,95,239,0.06)] dark:shadow-none">
+    <header className="app-header h-16 bg-white border-b border-[#E8EAEF] px-4 md:px-6 flex items-center justify-between z-30 shrink-0 shadow-[0_1px_4px_rgba(91,95,239,0.06)]">
       {/* ── Left: hamburger + page title ── */}
       <div className="flex items-center gap-3">
         {/* Mobile hamburger */}
@@ -110,7 +92,7 @@ export function AppHeader({
           variant="ghost"
           size="icon"
           onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          className="h-9 w-9 text-slate-500 dark:text-slate-400 md:hidden hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+          className="h-9 w-9 text-slate-500 md:hidden hover:bg-slate-100 rounded-xl"
           aria-label="Toggle navigation"
         >
           <List className="h-5 w-5" weight="bold" />
@@ -121,7 +103,7 @@ export function AppHeader({
           variant="ghost"
           size="icon"
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className="h-9 w-9 text-slate-500 dark:text-slate-400 hidden md:flex hover:bg-[#F1F3F9] dark:hover:bg-[#1A1B30] rounded-xl"
+          className="h-9 w-9 text-slate-500 hidden md:flex hover:bg-[#F1F3F9] rounded-xl"
           title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           <List className="h-5 w-5" weight="bold" />
@@ -135,10 +117,10 @@ export function AppHeader({
           transition={{ duration: 0.18 }}
           className="hidden sm:flex flex-col"
         >
-          <h1 className="text-[17px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight tracking-tight">
+          <h1 className="text-[17px] font-extrabold text-slate-900 leading-tight tracking-tight">
             {viewMeta.title}
           </h1>
-          <p className="text-[11px] text-slate-400 dark:text-slate-400 font-medium leading-none">
+          <p className="text-[11px] text-slate-400 font-medium leading-none">
             {viewMeta.sub}
           </p>
         </motion.div>
@@ -152,11 +134,11 @@ export function AppHeader({
             readOnly
             onClick={() => setShortcutsDialogOpen(true)}
             placeholder="Search anything..."
-            className="w-full h-9 pl-9 pr-16 text-sm text-slate-500 dark:text-slate-200 bg-[#F5F6FA] dark:bg-[#14152A] border border-[#E8EAEF] dark:border-[#232442] rounded-xl outline-none cursor-pointer hover:border-[#5B5FEF]/40 dark:hover:border-[#8B5CF6]/50 transition-colors placeholder:text-slate-400"
+            className="w-full h-9 pl-9 pr-16 text-sm text-slate-500 bg-[#F5F6FA] border border-[#E8EAEF] rounded-xl outline-none cursor-pointer hover:border-[#5B5FEF]/40 transition-colors placeholder:text-slate-400"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-            <kbd className="text-[10px] font-bold text-slate-400 dark:text-slate-400 bg-white dark:bg-[#1C1D36] border border-[#E8EAEF] dark:border-[#232442] rounded-md px-1.5 py-0.5 shadow-sm">⌘</kbd>
-            <kbd className="text-[10px] font-bold text-slate-400 dark:text-slate-400 bg-white dark:bg-[#1C1D36] border border-[#E8EAEF] dark:border-[#232442] rounded-md px-1.5 py-0.5 shadow-sm">K</kbd>
+            <kbd className="text-[10px] font-bold text-slate-400 bg-white border border-[#E8EAEF] rounded-md px-1.5 py-0.5 shadow-sm">⌘</kbd>
+            <kbd className="text-[10px] font-bold text-slate-400 bg-white border border-[#E8EAEF] rounded-md px-1.5 py-0.5 shadow-sm">K</kbd>
           </span>
         </div>
       </div>
@@ -171,20 +153,6 @@ export function AppHeader({
             Read Only
           </span>
         )}
-
-        {/* Light / dark toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsDark(d => !d)}
-          className="h-9 w-9 text-slate-500 hover:bg-[#F1F3F9] rounded-xl"
-          title="Toggle theme"
-        >
-          {isDark
-            ? <Sun className="h-4.5 w-4.5" weight="bold" />
-            : <Moon className="h-4.5 w-4.5" weight="bold" />
-          }
-        </Button>
 
         {/* Notification bell */}
         <Button

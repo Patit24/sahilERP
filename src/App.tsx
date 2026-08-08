@@ -2721,7 +2721,7 @@ function App() {
           canManageSystem={isMasterAdmin}
         />
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-background">
+      <main className="flex-1 flex flex-col overflow-hidden bg-[#f6f9fc]">
         <AppHeader
           sidebarExpanded={sidebarExpanded}
           setSidebarExpanded={setSidebarExpanded}
@@ -2770,7 +2770,7 @@ function App() {
           handleClearAllData={handleClearAllData}
         />
 
-        <div className="flex-1 overflow-auto app-workspace bg-background">
+        <div className="flex-1 overflow-auto app-workspace bg-[#f6f9fc]">
           <motion.div 
             className="px-responsive-xl py-responsive-lg app-content-frame"
             initial={{ opacity: 0 }}
