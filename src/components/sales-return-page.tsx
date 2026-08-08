@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft, CaretLeft, Plus, PencilSimple, Trash, MagnifyingGlass, Barcode, Package, UserPlus, X, FileText, Check, Receipt, Wallet, TrendUp, SlidersHorizontal } from '@phosphor-icons/react'
+import { ArrowLeft, CaretLeft, Plus, PencilSimple, Trash, MagnifyingGlass, Barcode, Package, UserPlus, X, FileText, Check, Receipt, Wallet, TrendUp, SlidersHorizontal, Funnel, ArrowSquareOut, CalendarBlank } from '@phosphor-icons/react'
 import { formatCurrency, formatMT, getFYMonths, getFYFromDate, calculateRateWithGst, calculateBasicRateFromInclusive, calculateInvoiceFinalAmount } from '@/lib/calculations'
 import { toBaseQuantity } from '@/lib/unit-conversion-service'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns'
@@ -390,79 +390,117 @@ export default function SalesReturnPage({
     <div className="space-y-6 pb-12">
       {!open ? (
         <>
-          <div className="flex items-center justify-between mb-2">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-full text-slate-700 hover:bg-slate-200/60"
+                className="h-10 w-10 rounded-full border border-slate-200/80 bg-white text-slate-500 hover:bg-slate-50 shadow-2xs"
               >
                 <CaretLeft className="h-5 w-5" weight="bold" />
               </Button>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sales Returns</h1>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sales Returns</h1>
+                <p className="text-xs text-slate-500 font-medium">Track and manage all sales returns in one place</p>
+              </div>
             </div>
           </div>
 
+          {/* Metric Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
             {/* Card 1: Total Return Records */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Return Records</p>
+            <div className="bg-white rounded-3xl border border-slate-200/70 p-6 shadow-2xs relative overflow-hidden flex items-start justify-between">
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#5B5FEF] border border-purple-100/60 flex items-center justify-center mb-3">
+                  <ArrowSquareOut className="h-6 w-6" weight="duotone" />
+                </div>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">TOTAL RETURN RECORDS</p>
                 <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{filteredReturns.length}</p>
-                <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-2">
+                <p className="text-xs font-semibold text-[#5B5FEF] flex items-center gap-1 mt-2">
                   <TrendUp className="h-3.5 w-3.5" weight="bold" /> 0% from last month
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100/60 flex items-center justify-center shrink-0">
-                <Receipt className="h-6 w-6" weight="duotone" />
-              </div>
+              
+              {/* Decorative Violet Wave */}
+              <svg className="absolute bottom-0 right-0 w-48 h-24 opacity-25 pointer-events-none" viewBox="0 0 200 80" fill="none">
+                <path d="M0 60 C40 20, 80 70, 120 30 C160 -10, 180 40, 200 20 L200 80 L0 80 Z" fill="url(#violet-grad-sr)" />
+                <path d="M0 60 C40 20, 80 70, 120 30 C160 -10, 180 40, 200 20" stroke="#5B5FEF" strokeWidth="2.5" fill="none" />
+                <defs>
+                  <linearGradient id="violet-grad-sr" x1="0" y1="0" x2="0" y2="80">
+                    <stop offset="0%" stopColor="#5B5FEF" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#5B5FEF" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
 
-            {/* Card 3: Total Return Value */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Return Value</p>
+            {/* Card 2: Total Return Value */}
+            <div className="bg-white rounded-3xl border border-slate-200/70 p-6 shadow-2xs relative overflow-hidden flex items-start justify-between">
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 flex items-center justify-center mb-3">
+                  <Wallet className="h-6 w-6" weight="duotone" />
+                </div>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">TOTAL RETURN VALUE</p>
                 <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{formatCurrency(totalAmount)}</p>
                 <p className="text-xs font-normal text-slate-400 mt-2">Reflects auto-created credit notes</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100/60 flex items-center justify-center shrink-0">
-                <Wallet className="h-6 w-6" weight="duotone" />
+
+              <div className="w-9 h-9 rounded-full bg-slate-50 border border-slate-100 text-emerald-600 flex items-center justify-center shrink-0 z-10 shadow-2xs">
+                <Wallet className="h-4.5 w-4.5" weight="bold" />
               </div>
+
+              {/* Decorative Emerald Wave */}
+              <svg className="absolute bottom-0 right-0 w-48 h-24 opacity-25 pointer-events-none" viewBox="0 0 200 80" fill="none">
+                <path d="M0 70 C50 40, 90 75, 130 35 C170 -5, 185 50, 200 25 L200 80 L0 80 Z" fill="url(#emerald-grad-sr)" />
+                <path d="M0 70 C50 40, 90 75, 130 35 C170 -5, 185 50, 200 25" stroke="#10B981" strokeWidth="2.5" fill="none" />
+                <defs>
+                  <linearGradient id="emerald-grad-sr" x1="0" y1="0" x2="0" y2="80">
+                    <stop offset="0%" stopColor="#10B981" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
           </div>
 
           {/* List Register Container */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-200/70 shadow-2xs overflow-hidden">
             {/* Card Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0256e8] flex items-center justify-center">
-                  <Receipt className="h-5 w-5" weight="duotone" />
+                <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#5B5FEF] flex items-center justify-center border border-purple-100">
+                  <FileText className="h-5 w-5" weight="duotone" />
                 </div>
                 <h2 className="text-lg font-bold text-slate-900">Sales Return List</h2>
               </div>
-              <Button onClick={handleOpenAdd} disabled={isLocked} className="bg-[#0256e8] hover:bg-[#0046cd] text-white font-semibold rounded-xl px-4 py-2.5 shadow-2xs flex items-center gap-2">
+              <Button 
+                onClick={handleOpenAdd} 
+                disabled={isLocked} 
+                className="bg-[#5B5FEF] hover:bg-[#4B4FEF] text-white font-bold rounded-2xl px-5 py-2.5 shadow-md shadow-[#5B5FEF]/25 flex items-center gap-2 transition-all"
+              >
                 <Plus className="h-4 w-4" weight="bold" />
                 Add Sales Return
               </Button>
             </div>
 
             {/* Filter Sub-bar */}
-            <div className="px-5 py-3.5 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+            <div className="px-6 py-4 bg-[#FAFAFD] border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-                  <SlidersHorizontal className="h-4 w-4" weight="bold" />
-                  <span>Filters:</span>
+                {/* Filter Badge */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50/80 text-[#5B5FEF] border border-purple-100 text-xs font-bold">
+                  <Funnel className="h-3.5 w-3.5" weight="bold" />
+                  <span>Filters</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Select value={selectedCustomerFilter} onValueChange={setSelectedCustomerFilter}>
-                    <SelectTrigger className="w-48 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl">
+                    <SelectTrigger className="w-52 h-9 bg-white border-slate-200/80 text-xs font-medium rounded-xl shadow-2xs">
                       <span className="text-slate-400 mr-1">Customer:</span>
                       <SelectValue placeholder="All Customers" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Customers</SelectItem>
+                      <SelectItem value="all">All Customer</SelectItem>
                       {customers.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
@@ -471,63 +509,102 @@ export default function SalesReturnPage({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium">From:</span>
-                  <Input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
-                  />
+                  <span className="text-xs text-slate-400 font-medium">From:</span>
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="w-38 h-9 bg-white border-slate-200/80 text-xs font-medium rounded-xl shadow-2xs pr-8"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium">To:</span>
-                  <Input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="w-36 h-9 bg-white border-slate-200 text-xs font-medium rounded-xl"
-                  />
+                  <span className="text-xs text-slate-400 font-medium">To:</span>
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="w-38 h-9 bg-white border-slate-200/80 text-xs font-medium rounded-xl shadow-2xs pr-8"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full border border-slate-200/60">
+              <span className="bg-purple-50/60 text-[#5B5FEF] text-xs font-bold px-3.5 py-1 rounded-full border border-purple-100/80">
                 {filteredReturns.length} returns found
               </span>
             </div>
 
             {/* Table */}
             <Table>
-              <TableHeader className="bg-[#edf3fc]">
-                <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">DATE</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">RETURN / REF NO</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">CUSTOMER</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5">STATUS</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">RETURN AMOUNT</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-700 py-3.5 text-right">ACTIONS</TableHead>
+              <TableHeader className="bg-[#F3F4FD]">
+                <TableRow className="border-b border-slate-200/60 hover:bg-transparent">
+                  <TableHead className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 py-3.5 px-6">DATE</TableHead>
+                  <TableHead className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 py-3.5">RETURN / REF NO</TableHead>
+                  <TableHead className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 py-3.5">CUSTOMER</TableHead>
+                  <TableHead className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 py-3.5">STATUS</TableHead>
+                  <TableHead className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 py-3.5 text-right">RETURN AMOUNT</TableHead>
+                  <TableHead className="font-extrabold text-[11px] uppercase tracking-wider text-slate-500 py-3.5 text-right px-6">ACTIONS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredReturns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-16 text-center">
-                      <div className="max-w-sm mx-auto space-y-3">
-                        <div className="w-16 h-16 rounded-full bg-blue-50 text-[#0256e8] flex items-center justify-center mx-auto border border-blue-100 shadow-2xs">
-                          <Receipt size={32} weight="duotone" />
+                    <TableCell colSpan={6} className="py-20 text-center">
+                      <div className="max-w-sm mx-auto space-y-4">
+                        {/* 3D Purple Gift Box with floating document illustration */}
+                        <div className="w-32 h-32 mx-auto relative flex items-center justify-center">
+                          <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="64" cy="64" r="52" fill="#F4F5FD" />
+                            
+                            {/* Open Box Base */}
+                            <path d="M38 72L64 84L90 72V94L64 104L38 94V72Z" fill="#8B5CF6" opacity="0.8" />
+                            <path d="M38 72L64 84V104L38 94V72Z" fill="#7C3AED" />
+                            <path d="M64 84L90 72V94L64 104V84Z" fill="#A78BFA" />
+                            
+                            {/* Open Flaps */}
+                            <path d="M38 72L24 60L50 52L64 64L38 72Z" fill="#C4B5FD" />
+                            <path d="M90 72L104 60L78 52L64 64L90 72Z" fill="#DDD6FE" />
+                            
+                            {/* Floating Document */}
+                            <rect x="46" y="24" width="36" height="46" rx="5" fill="white" stroke="#A78BFA" strokeWidth="2" />
+                            <line x1="52" y1="34" x2="68" y2="34" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+                            <line x1="52" y1="40" x2="74" y2="40" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+                            <line x1="52" y1="46" x2="64" y2="46" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+                            
+                            {/* Refresh Icon Circle on Document */}
+                            <circle cx="64" cy="54" r="9" fill="#5B5FEF" />
+                            <path d="M61.5 54A2.5 2.5 0 0 1 66 52.5M66.5 54A2.5 2.5 0 0 1 62 55.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                            
+                            {/* Sparkles */}
+                            <circle cx="24" cy="38" r="2.5" fill="#A78BFA" />
+                            <circle cx="104" cy="34" r="3" fill="#A78BFA" />
+                            <circle cx="98" cy="88" r="2" fill="#C4B5FD" />
+                            <circle cx="30" cy="92" r="2" fill="#C4B5FD" />
+                          </svg>
                         </div>
-                        <h3 className="text-base font-bold text-slate-900">No sales returns found</h3>
-                        <p className="text-xs text-slate-500">
-                          No sales returns recorded for this period. Add your first return to get started.
-                        </p>
-                        <button
-                          onClick={handleOpenAdd}
-                          disabled={isLocked}
-                          className="inline-flex items-center gap-1.5 text-sm font-bold text-[#0256e8] hover:underline pt-2"
-                        >
-                          <Plus className="h-4 w-4" weight="bold" />
-                          Create First Return
-                        </button>
+
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">No sales returns found</h3>
+                          <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                            No sales returns recorded for this period. Add your first return to get started.
+                          </p>
+                        </div>
+
+                        <div className="pt-2">
+                          <Button
+                            onClick={handleOpenAdd}
+                            disabled={isLocked}
+                            variant="outline"
+                            className="border-2 border-[#5B5FEF] text-[#5B5FEF] hover:bg-[#5B5FEF]/5 font-bold rounded-2xl px-6 py-2.5 gap-2 transition-all"
+                          >
+                            <Plus className="h-4 w-4" weight="bold" />
+                            Create First Return
+                          </Button>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -535,19 +612,19 @@ export default function SalesReturnPage({
                   filteredReturns.map(item => {
                     const customer = customers.find(c => c.id === item.customerId)
                     return (
-                      <TableRow key={item.id} className="hover:bg-slate-50/80 border-b border-slate-100">
-                        <TableCell className="text-slate-600 text-xs font-medium">{item.returnDate}</TableCell>
-                        <TableCell className="font-mono font-bold text-slate-900 text-sm">{item.returnNo || item.invoiceRef || '-'}</TableCell>
-                        <TableCell className="font-semibold text-slate-800 text-sm">{customer?.name || 'Unknown'}</TableCell>
-                        <TableCell>
-                          <span className="bg-blue-50 text-[#0256e8] text-xs font-bold px-3 py-1 rounded-full border border-blue-200/60 inline-block">
+                      <TableRow key={item.id} className="hover:bg-slate-50/80 border-b border-slate-100 transition-colors">
+                        <TableCell className="text-slate-600 text-xs font-semibold py-4 px-6">{item.returnDate}</TableCell>
+                        <TableCell className="font-mono font-bold text-slate-900 text-sm py-4">{item.returnNo || item.invoiceRef || '-'}</TableCell>
+                        <TableCell className="font-semibold text-slate-800 text-sm py-4">{customer?.name || 'Unknown'}</TableCell>
+                        <TableCell className="py-4">
+                          <span className="bg-purple-50 text-[#5B5FEF] text-xs font-bold px-3 py-1 rounded-full border border-purple-200/60 inline-block">
                             Credit Note Generated
                           </span>
                         </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-emerald-600 text-sm">
+                        <TableCell className="text-right font-mono font-bold text-emerald-600 text-sm py-4">
                           {formatCurrency(item.amount)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right py-4 px-6">
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(item)} disabled={isLocked} className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
                               <PencilSimple className="h-4 w-4" weight="bold" />
@@ -565,21 +642,21 @@ export default function SalesReturnPage({
             </Table>
 
             {/* Table Footer */}
-            <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium bg-white">
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium bg-white">
               <div>Showing 0 to {filteredReturns.length} of {filteredReturns.length} entries</div>
-              <div className="flex items-center gap-1">
-                <button className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50" disabled>‹</button>
-                <button className="h-7 w-7 rounded-lg bg-[#0256e8] text-white font-bold flex items-center justify-center">1</button>
-                <button className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50" disabled>›</button>
+              <div className="flex items-center gap-1.5">
+                <button className="h-8 w-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-40 hover:bg-slate-50 transition-colors" disabled>‹</button>
+                <button className="h-8 w-8 rounded-xl bg-[#5B5FEF] text-white font-bold flex items-center justify-center shadow-xs">1</button>
+                <button className="h-8 w-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-40 hover:bg-slate-50 transition-colors" disabled>›</button>
               </div>
             </div>
           </div>
 
-          {/* Floating Plus Button */}
+          {/* Floating Plus Action Button */}
           <button
             onClick={handleOpenAdd}
             disabled={isLocked}
-            className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-[#0256e8] text-white shadow-lg flex items-center justify-center z-40 hover:scale-105 transition-transform"
+            className="fixed bottom-8 left-8 w-12 h-12 rounded-full bg-[#5B5FEF] text-white shadow-lg shadow-[#5B5FEF]/30 flex items-center justify-center z-40 hover:scale-105 transition-transform"
             title="Add Sales Return"
           >
             <Plus className="h-6 w-6" weight="bold" />
