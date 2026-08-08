@@ -800,3 +800,48 @@ thead tr:hover td:first-child {
 .dark .text-slate-400 {
   color: #94A3B8 !important;
 }
+
+/* Sidebar Dark Night Mode Overrides */
+.dark .app-sidebar {
+  background-color: #0C0D1A !important;
+  border-color: #20213B !important;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .app-sidebar * {
+  border-color: #20213B;
+}
+
+.dark .app-sidebar h1,
+.dark .app-sidebar .text-slate-900,
+.dark .app-sidebar .text-slate-800,
+.dark .app-sidebar .text-slate-700 {
+  color: #F8FAFC !important;
+}
+
+.dark .app-sidebar .text-slate-500,
+.dark .app-sidebar .text-slate-400,
+.dark .app-sidebar .text-slate-300 {
+  color: #94A3B8 !important;
+}
+
+.dark .app-sidebar select,
+.dark .app-sidebar input {
+  background-color: #14152A !important;
+  border-color: #232442 !important;
+  color: #F8FAFC !important;
+}
+
+.dark .app-sidebar .bg-white {
+  background-color: #0C0D1A !important;
+}
+
+.dark .app-sidebar .bg-slate-50,
+.dark .app-sidebar .bg-slate-100 {
+  background-color: #14152A !important;
+  color: #E2E8F0 !important;
+}
+
+.dark .app-sidebar button:hover {
+  background-color: rgba(139, 92, 246, 0.12) !important;
+}
