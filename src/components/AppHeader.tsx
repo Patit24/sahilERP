@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 import { generateFYList } from '@/lib/calculations'
 
@@ -78,7 +78,22 @@ export function AppHeader({
   setShortcutsDialogOpen,
   onLogout,
 }: AppHeaderProps) {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark'
+    }
+    return false
+  })
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [isDark])
   const viewMeta = VIEW_TITLES[activeView] ?? {
     title: activeView.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
     sub: safeBusinessName,
