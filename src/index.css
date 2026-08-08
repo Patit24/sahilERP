@@ -738,9 +738,12 @@ thead tr:hover td:first-child {
 }
 
 /* Night Mode Overrides — Matches Ultra-Premium Dark Navy/Obsidian Aesthetic */
-.dark body {
-  background-color: var(--background) !important;
-  color: var(--foreground) !important;
+.dark html,
+.dark body,
+.dark main,
+.dark .app-workspace {
+  background-color: #090A14 !important;
+  color: #F8FAFC !important;
 }
 
 .dark .app-header {
