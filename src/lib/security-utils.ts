@@ -400,3 +400,28 @@ export function lockAppSession(): void {
   sessionStorage.removeItem(APP_AUTH_USER_ID_KEY)
   appendAuditLog('app_locked')
 }
+
+export function sanitizeText(input: string | null | undefined): string {
+  if (!input) return ''
+  return String(input)
+    .trim()
+    .replace(/[<>]/g, '')
+}
+
+export function sanitizeNumber(value: unknown, fallback = 0): number {
+  if (value === null || value === undefined || value === '') return fallback
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
+}
+
+export function isValidGSTIN(gstin: string): boolean {
+  if (!gstin) return true
+  const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
+  return gstinRegex.test(gstin.trim().toUpperCase())
+}
+
+export function isValidPAN(pan: string): boolean {
+  if (!pan) return true
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
+  return panRegex.test(pan.trim().toUpperCase())
+}
